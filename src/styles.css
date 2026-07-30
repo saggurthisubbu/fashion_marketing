@@ -1,9 +1,18 @@
 /* QuickFit Custom Stylesheet - Premium Edition */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-brandPrimary: #2563EB;
+  --color-brandSecondary: #60A5FA;
+  --color-brandAccent: #F97316;
+  --color-brandBg: #F8FAFC;
+  --color-brandText: #0F172A;
+  
+  --font-sans: "Inter", sans-serif;
+  --font-heading: "Outfit", sans-serif;
+}
 
 :root {
   --primary: #2563eb;

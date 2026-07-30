@@ -5,14 +5,14 @@ import { formatSingleProductWhatsApp } from '../utils/whatsapp';
 export const ProductDetailModal = () => {
   const { selectedProduct, isDetailModalOpen, setIsDetailModalOpen, addToCart } = useShop();
 
+  const [activeImage, setActiveImage] = useState(selectedProduct ? selectedProduct.image : null);
+  const [selectedSize, setSelectedSize] = useState(selectedProduct && selectedProduct.sizes ? selectedProduct.sizes[0] : 'M');
+  const [selectedColor, setSelectedColor] = useState(selectedProduct && selectedProduct.colors ? selectedProduct.colors[0].name : '');
+
   if (!isDetailModalOpen || !selectedProduct) return null;
 
-  const [activeImage, setActiveImage] = useState(selectedProduct.image);
-  const [selectedSize, setSelectedSize] = useState(selectedProduct.sizes ? selectedProduct.sizes[0] : 'M');
-  const [selectedColor, setSelectedColor] = useState(selectedProduct.colors ? selectedProduct.colors[0].name : '');
-
-  const galleryImages = selectedProduct.gallery && selectedProduct.gallery.length > 0 
-    ? selectedProduct.gallery 
+  const galleryImages = selectedProduct.gallery && selectedProduct.gallery.length > 0
+    ? selectedProduct.gallery
     : [selectedProduct.image];
 
   const handleWhatsAppInstant = () => {

@@ -5,17 +5,18 @@ import { formatFullOrderWhatsApp, formatMailtoNotification } from '../utils/what
 export const OrderConfirmationModal = () => {
   const { lastOrder, isOrderConfirmedOpen, setIsOrderConfirmedOpen, setIsTrackingOpen } = useShop();
 
-  if (!isOrderConfirmedOpen || !lastOrder) return null;
-
   // Live 60-minute countdown timer in seconds (3600 seconds)
   const [timeLeft, setTimeLeft] = useState(3540); // Starts at 59 mins
 
   useEffect(() => {
+    if (!isOrderConfirmedOpen) return;
     const timer = setInterval(() => {
       setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [isOrderConfirmedOpen]);
+
+  if (!isOrderConfirmedOpen || !lastOrder) return null;
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;

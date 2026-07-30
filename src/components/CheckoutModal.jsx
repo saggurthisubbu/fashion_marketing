@@ -16,8 +16,6 @@ export const CheckoutModal = () => {
     clearCart
   } = useShop();
 
-  if (!isCheckoutOpen) return null;
-
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
@@ -31,6 +29,8 @@ export const CheckoutModal = () => {
   const [paymentMethod, setPaymentMethod] = useState('UPI (GPay/PhonePe)');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  if (!isCheckoutOpen) return null;
 
   const vijayawadaAreas = ['MG Road', 'Benz Circle', 'Patamata', 'Eluru Road', 'Governorpet', 'Labbipet', 'Kunchanapalli', 'Moghalrajpuram'];
 

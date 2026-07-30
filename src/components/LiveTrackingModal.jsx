@@ -4,17 +4,18 @@ import { useShop } from '../context/ShopContext';
 export const LiveTrackingModal = () => {
   const { isTrackingOpen, setIsTrackingOpen, lastOrder } = useShop();
 
-  if (!isTrackingOpen) return null;
-
   // Animated rider position percentage on map (0% to 100%)
   const [riderProgress, setRiderProgress] = useState(65);
 
   useEffect(() => {
+    if (!isTrackingOpen) return;
     const interval = setInterval(() => {
       setRiderProgress((prev) => (prev >= 95 ? 30 : prev + 5));
     }, 2500);
     return () => clearInterval(interval);
-  }, []);
+  }, [isTrackingOpen]);
+
+  if (!isTrackingOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8">

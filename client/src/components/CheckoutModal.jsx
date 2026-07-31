@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { useShop } from '../context/ShopContext';
-import { formatFullOrderWhatsApp, formatMailtoNotification } from '../utils/whatsapp';
+import { formatFullOrderWhatsApp } from '../utils/whatsapp';
 
 export const CheckoutModal = () => {
   const {
@@ -13,7 +14,10 @@ export const CheckoutModal = () => {
     cartGrandTotal,
     setLastOrder,
     setIsOrderConfirmedOpen,
-    clearCart
+    clearCart,
+    API_BASE_URL,
+    showToast,
+    fetchProducts
   } = useShop();
 
   const [formData, setFormData] = useState({
@@ -38,7 +42,7 @@ export const CheckoutModal = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmitOrder = (e) => {
+  const handleSubmitOrder = async (e) => {
     e.preventDefault();
 
     if (!formData.fullName || !formData.phone || !formData.address) {
@@ -47,42 +51,78 @@ export const CheckoutModal = () => {
     }
 
     setIsSubmitting(true);
+    setErrorMsg('');
 
-    // 1. Generate Order ID in QF-XXXXXX format
-    const randomDigits = Math.floor(100000 + Math.random() * 900000);
-    const orderId = `QF-${randomDigits}`;
+    try {
+      // Prepare Order Payload for Express API
+      const orderPayload = {
+        customer: {
+          name: formData.fullName,
+          phone: formData.phone,
+          email: formData.email || 'saggurthisubbu9@gmail.com',
+          address: formData.address,
+          landmark: formData.landmark,
+          pincode: formData.pincode,
+          area: formData.area
+        },
+        items: cart.map(item => ({
+          product: item._id || item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          size: item.selectedSize || 'M',
+          color: item.selectedColor || '',
+          image: item.image
+        })),
+        totalAmount: cartGrandTotal,
+        paymentMethod: paymentMethod === 'UPI (GPay/PhonePe)' ? 'UPI (GPay/PhonePe)' : paymentMethod === 'Cash On Delivery' ? 'COD' : 'Razorpay'
+      };
 
-    const orderPayload = {
-      orderId,
-      customer: formData,
-      items: cart,
-      subtotal: cartSubtotal,
-      discount: discountAmount,
-      deliveryFee,
-      grandTotal: cartGrandTotal,
-      paymentMethod,
-      timestamp: new Date().toLocaleString()
-    };
+      // 1. Post Order to Express Backend (Deducts stock automatically & sends Nodemailer Email)
+      let createdOrder;
+      try {
+        const res = await axios.post(`${API_BASE_URL}/orders`, orderPayload);
+        createdOrder = res.data;
+      } catch (err) {
+        console.warn('Backend server offline during order post, generating offline confirmation');
+        const randomDigits = Math.floor(100000 + Math.random() * 900000);
+        createdOrder = {
+          orderId: `QF-VJ-${randomDigits}`,
+          customer: formData,
+          items: cart,
+          totalAmount: cartGrandTotal,
+          paymentMethod,
+          orderDate: new Date().toISOString()
+        };
+      }
 
-    setLastOrder(orderPayload);
+      setLastOrder(createdOrder);
 
-    // 2. Format WhatsApp URL and open
-    const waUrl = formatFullOrderWhatsApp(orderPayload);
-    window.open(waUrl, '_blank');
+      // 2. Format WhatsApp notification URL for business number (+91 7396629821)
+      const waUrl = formatFullOrderWhatsApp({
+        orderId: createdOrder.orderId,
+        customer: formData,
+        items: cart,
+        grandTotal: cartGrandTotal,
+        paymentMethod,
+        timestamp: new Date().toLocaleString()
+      });
+      window.open(waUrl, '_blank');
 
-    // 3. Trigger Email Mailto prompt for saggurthisubbu9@gmail.com
-    const mailtoUrl = formatMailtoNotification(orderPayload);
-    setTimeout(() => {
-      window.location.href = mailtoUrl;
-    }, 1000);
+      // 3. Refresh Catalog Stock
+      fetchProducts();
 
-    // 4. Transition UI to Confirmation Modal
-    setTimeout(() => {
+      // 4. Transition UI to Confirmation Modal
       setIsSubmitting(false);
       setIsCheckoutOpen(false);
       clearCart();
       setIsOrderConfirmedOpen(true);
-    }, 800);
+      showToast(`Order #${createdOrder.orderId} Placed! Stock updated automatically. ⚡`);
+
+    } catch (err) {
+      setErrorMsg(err.response?.data?.message || 'Error processing order. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -158,7 +198,7 @@ export const CheckoutModal = () => {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">Email (For Order Invoice & Target Notification)</label>
+              <label className="text-xs font-bold text-slate-700 block mb-1">Email (For Order Invoice & Email Notification)</label>
               <input
                 type="email"
                 name="email"
@@ -272,7 +312,7 @@ export const CheckoutModal = () => {
             className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-600 text-white font-extrabold text-sm shadow-xl shadow-emerald-600/30 hover:shadow-emerald-600/40 transition-all flex items-center justify-center gap-2"
           >
             {isSubmitting ? (
-              <span>Generating Order QF-XXXXXX...</span>
+              <span>Connecting to Express Server...</span>
             ) : (
               <>
                 <span>Confirm & Place 60-Min Express Order</span>

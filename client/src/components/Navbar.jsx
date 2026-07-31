@@ -11,6 +11,10 @@ export const Navbar = () => {
     setIsCartOpen,
     setIsWishlistOpen,
     setIsTrackingOpen,
+    setIsAdminOpen,
+    setIsAuthModalOpen,
+    setIsContactModalOpen,
+    user,
     products
   } = useShop();
 
@@ -42,7 +46,7 @@ export const Navbar = () => {
   return (
     <header className="sticky top-0 z-40 w-full glass-panel border-b border-slate-200/60 transition-all duration-300">
       {/* Top Banner Notice */}
-      <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white text-xs py-1.5 px-4 text-center font-medium flex items-center justify-center gap-3 shadow-inner">
+      <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white text-xs py-1.5 px-4 text-center font-medium flex items-center justify-between shadow-inner max-w-7xl mx-auto">
         <span className="flex items-center gap-1.5">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
@@ -50,12 +54,23 @@ export const Navbar = () => {
           </span>
           <span className="font-semibold text-orange-300">EXPRESS VIJAYAWADA:</span> Guaranteed 60-Min Doorstep Fashion Delivery!
         </span>
-        <button 
-          onClick={() => setIsTrackingOpen(true)}
-          className="hidden md:inline-flex items-center gap-1 underline underline-offset-2 hover:text-orange-300 transition-colors font-semibold"
-        >
-          📍 Live Rider Map Demo
-        </button>
+
+        <div className="flex items-center gap-4 text-[11px]">
+          <button 
+            onClick={() => setIsContactModalOpen(true)}
+            className="hover:text-orange-300 transition-colors font-semibold hidden sm:inline"
+          >
+            📞 Contact Us
+          </button>
+
+          {/* ADMIN CONTROL PANEL LINK */}
+          <button
+            onClick={() => setIsAdminOpen(true)}
+            className="bg-orange-500 hover:bg-orange-400 text-slate-950 px-2.5 py-0.5 rounded-full font-black text-[10px] uppercase tracking-wider shadow-sm transition-all"
+          >
+            🔑 Admin Dashboard
+          </button>
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -84,24 +99,6 @@ export const Navbar = () => {
                 Fashion In 60 Mins • Vijayawada
               </p>
             </div>
-          </div>
-
-          {/* LIVE LOCATION PILL */}
-          <div 
-            onClick={() => setIsTrackingOpen(true)}
-            className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100/80 border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-200/80 transition-colors cursor-pointer"
-            title="Click to track live rider map"
-          >
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-            </span>
-            <span className="text-slate-800">Vijayawada</span>
-            <span className="text-slate-400">|</span>
-            <span className="text-blue-600 font-bold">5 KM Radius</span>
-            <svg className="w-3.5 h-3.5 text-slate-400 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-            </svg>
           </div>
 
           {/* SEARCH BAR WITH AUTO-SUGGEST */}
@@ -137,7 +134,7 @@ export const Navbar = () => {
                 </div>
                 {filteredSuggestions.map((item) => (
                   <div
-                    key={item.id}
+                    key={item.id || item._id}
                     onClick={() => {
                       setSearchQuery(item.name);
                       handleCategoryNav(item.category);
@@ -175,9 +172,19 @@ export const Navbar = () => {
             ))}
           </nav>
 
-          {/* ACTION BUTTONS (WISHLIST & CART) */}
-          <div className="flex items-center gap-3">
+          {/* ACTION BUTTONS (WISHLIST, AUTH & CART) */}
+          <div className="flex items-center gap-2 sm:gap-3">
             
+            {/* USER AUTH BUTTON */}
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="p-2.5 rounded-full bg-white/80 border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors flex items-center gap-1.5 text-xs font-bold"
+              title="Customer Account"
+            >
+              <span>👤</span>
+              <span className="hidden md:inline">{user ? user.name.split(' ')[0] : 'Sign In'}</span>
+            </button>
+
             {/* WISHLIST BUTTON */}
             <button
               onClick={() => setIsWishlistOpen(true)}
@@ -251,6 +258,20 @@ export const Navbar = () => {
                 {category}
               </button>
             ))}
+          </div>
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+            <button
+              onClick={() => { setIsAdminOpen(true); setIsMobileMenuOpen(false); }}
+              className="text-xs font-bold text-orange-600 bg-orange-50 px-3 py-1.5 rounded-lg"
+            >
+              🔑 Admin Dashboard
+            </button>
+            <button
+              onClick={() => { setIsContactModalOpen(true); setIsMobileMenuOpen(false); }}
+              className="text-xs font-bold text-slate-700"
+            >
+              📞 Contact Details
+            </button>
           </div>
         </div>
       )}

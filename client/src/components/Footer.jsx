@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useShop } from '../context/ShopContext';
 
 export const Footer = () => {
-  const { setSelectedCategory, setIsTrackingOpen, showToast } = useShop();
+  const { setSelectedCategory, setIsTrackingOpen, setIsContactModalOpen, showToast } = useShop();
   const [emailSub, setEmailSub] = useState('');
 
   const handleSubscribe = (e) => {

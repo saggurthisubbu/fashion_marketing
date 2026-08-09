@@ -9,6 +9,15 @@ export const ProductCard = ({ product }) => {
   const stock = product.stockQuantity !== undefined ? product.stockQuantity : 25;
   const isOutOfStock = stock <= 0 || product.inStock === false;
 
+  const frontImage = product.images?.front || product.image || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop';
+  const backImage = product.images?.back || frontImage;
+  const hasBackImage = Boolean(product.images?.back && product.images.back !== frontImage);
+
+  // Available angles count
+  const angleCount = product.images
+    ? [product.images.front, product.images.back, product.images.left, product.images.right].filter(Boolean).length
+    : (product.gallery ? product.gallery.length : 1);
+
   const handleWhatsAppOrder = (e) => {
     e.stopPropagation();
     const defaultSize = product.sizes && product.sizes.length > 0 ? product.sizes[0] : 'M';
@@ -22,17 +31,38 @@ export const ProductCard = ({ product }) => {
       onClick={() => openProductDetail(product)}
       className="group bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200 hover:border-slate-400 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between cursor-pointer relative"
     >
-      {/* IMAGE CONTAINER WITH 3:4 ASPECT RATIO */}
+      {/* IMAGE CONTAINER WITH 3:4 ASPECT RATIO AND FRONT/BACK HOVER FLIP */}
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-100">
+        
+        {/* FRONT VIEW (DEFAULT) */}
         <img
-          src={product.image}
-          alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+          src={frontImage}
+          alt={`${product.name} Front View`}
+          className={`w-full h-full object-cover transition-all duration-500 ease-out ${
+            hasBackImage ? 'group-hover:opacity-0 group-hover:scale-105' : 'group-hover:scale-105'
+          }`}
         />
+
+        {/* BACK VIEW (HOVER REVEAL) */}
+        {hasBackImage && (
+          <img
+            src={backImage}
+            alt={`${product.name} Back View`}
+            className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500 ease-out"
+          />
+        )}
+
+        {/* ANGLE VIEW INDICATOR BADGE */}
+        {angleCount > 1 && (
+          <div className="absolute bottom-2.5 right-2.5 bg-black/60 backdrop-blur-md text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 border border-white/20 z-10">
+            <span>📷</span>
+            <span>{angleCount} Views</span>
+          </div>
+        )}
 
         {/* DISCOUNT BADGE */}
         {product.discount && (
-          <div className="absolute top-2.5 left-2.5 bg-slate-900 text-white text-[9px] sm:text-[11px] font-black px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md shadow-xs uppercase tracking-wider">
+          <div className="absolute top-2.5 left-2.5 bg-slate-900 text-white text-[9px] sm:text-[11px] font-black px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md shadow-xs uppercase tracking-wider z-10">
             {product.discount}
           </div>
         )}
@@ -43,7 +73,7 @@ export const ProductCard = ({ product }) => {
             e.stopPropagation();
             toggleWishlist(product);
           }}
-          className="absolute top-2.5 right-2.5 p-1.5 sm:p-2 rounded-full bg-white/90 backdrop-blur-xs border border-slate-200 text-slate-700 shadow-xs hover:bg-white transition-transform active:scale-90 !min-h-[36px] !min-w-[36px] flex items-center justify-center"
+          className="absolute top-2.5 right-2.5 p-1.5 sm:p-2 rounded-full bg-white/90 backdrop-blur-xs border border-slate-200 text-slate-700 shadow-xs hover:bg-white transition-transform active:scale-90 !min-h-[36px] !min-w-[36px] flex items-center justify-center z-10"
           title="Save to Wishlist"
         >
           <span className={`text-sm ${isSaved ? 'text-rose-500 font-bold' : 'text-slate-600'}`}>
@@ -52,7 +82,7 @@ export const ProductCard = ({ product }) => {
         </button>
 
         {/* STOCK STATUS PILL */}
-        <div className="absolute bottom-2.5 left-2.5">
+        <div className="absolute bottom-2.5 left-2.5 z-10">
           {isOutOfStock ? (
             <span className="px-2 py-0.5 rounded-sm bg-slate-900/90 text-white text-[9px] font-bold uppercase tracking-wider">
               Out of Stock

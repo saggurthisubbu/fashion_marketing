@@ -24,7 +24,13 @@ const initialProducts = [
     description: "260 GSM ultra-heavy French Terry luxury cotton oversized tee. Boxy relaxed silhouette with reinforced ribbed collar.",
     sizes: ["S", "M", "L", "XL", "XXL"],
     colors: [{ name: "Pitch Black", hex: "#000000" }, { name: "Charcoal Grey", hex: "#1F2937" }],
-    image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop"
+    image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop",
+    images: {
+      front: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop",
+      back: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=1000&auto=format&fit=crop",
+      left: "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?q=80&w=1000&auto=format&fit=crop",
+      right: "https://images.unsplash.com/photo-1576566588028-4147f3842f27?q=80&w=1000&auto=format&fit=crop"
+    }
   },
   {
     name: "Raw Off-White Boxy Oversized T-Shirt",
@@ -44,7 +50,13 @@ const initialProducts = [
     description: "Minimalist unbleached raw organic cotton oversized tee. Clean monochrome drape tailored for modern streetwear fits.",
     sizes: ["S", "M", "L", "XL"],
     colors: [{ name: "Off White", hex: "#F5F5F5" }, { name: "Pure White", hex: "#FFFFFF" }],
-    image: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=1000&auto=format&fit=crop"
+    image: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=1000&auto=format&fit=crop",
+    images: {
+      front: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=1000&auto=format&fit=crop",
+      back: "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?q=80&w=1000&auto=format&fit=crop",
+      left: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop",
+      right: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=1000&auto=format&fit=crop"
+    }
   },
   {
     name: "Signature Drop Shoulder Relaxed Tee - Slate Black",
@@ -64,7 +76,13 @@ const initialProducts = [
     description: "Engineered dropped shoulder seam with wider sleeve circumference. Premium combed 100% bio-washed cotton.",
     sizes: ["S", "M", "L", "XL", "XXL"],
     colors: [{ name: "Slate Black", hex: "#0F172A" }, { name: "Off White", hex: "#F5F5F5" }],
-    image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=1000&auto=format&fit=crop"
+    image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=1000&auto=format&fit=crop",
+    images: {
+      front: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=1000&auto=format&fit=crop",
+      back: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop",
+      left: "https://images.unsplash.com/photo-1576566588028-4147f3842f27?q=80&w=1000&auto=format&fit=crop",
+      right: "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?q=80&w=1000&auto=format&fit=crop"
+    }
   },
   {
     name: "Monochrome Chalk White Drop Shoulder Tee",
@@ -84,7 +102,13 @@ const initialProducts = [
     description: "Clean aesthetic pure white drop shoulder tee with reinforced double needle hem. Breathable lightweight luxury.",
     sizes: ["S", "M", "L", "XL"],
     colors: [{ name: "Chalk White", hex: "#FFFFFF" }],
-    image: "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?q=80&w=1000&auto=format&fit=crop"
+    image: "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?q=80&w=1000&auto=format&fit=crop",
+    images: {
+      front: "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?q=80&w=1000&auto=format&fit=crop",
+      back: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=1000&auto=format&fit=crop",
+      left: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=1000&auto=format&fit=crop",
+      right: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop"
+    }
   },
   {
     name: "Luxury Mercerized Cotton Polo - Jet Black",
@@ -104,7 +128,13 @@ const initialProducts = [
     description: "Double mercerized 100% Supima cotton polo with crisp structured collar and matte black buttons.",
     sizes: ["S", "M", "L", "XL", "XXL"],
     colors: [{ name: "Jet Black", hex: "#000000" }, { name: "Crisp White", hex: "#FFFFFF" }],
-    image: "https://images.unsplash.com/photo-1625910513413-5b8d2b96dc36?q=80&w=1000&auto=format&fit=crop"
+    image: "https://images.unsplash.com/photo-1625910513413-5b8d2b96dc36?q=80&w=1000&auto=format&fit=crop",
+    images: {
+      front: "https://images.unsplash.com/photo-1625910513413-5b8d2b96dc36?q=80&w=1000&auto=format&fit=crop",
+      back: "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=80&w=1000&auto=format&fit=crop",
+      left: "https://images.unsplash.com/photo-1598033129183-c4f50c736f10?q=80&w=1000&auto=format&fit=crop",
+      right: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?q=80&w=1000&auto=format&fit=crop"
+    }
   },
   {
     name: "Minimalist Knit Texture Polo - Off-White",
@@ -124,7 +154,13 @@ const initialProducts = [
     description: "Open-knit textured breathable pique polo designed for clean minimalist European streetwear styling.",
     sizes: ["S", "M", "L", "XL"],
     colors: [{ name: "Off White", hex: "#F5F5F5" }],
-    image: "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=80&w=1000&auto=format&fit=crop"
+    image: "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=80&w=1000&auto=format&fit=crop",
+    images: {
+      front: "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=80&w=1000&auto=format&fit=crop",
+      back: "https://images.unsplash.com/photo-1625910513413-5b8d2b96dc36?q=80&w=1000&auto=format&fit=crop",
+      left: "https://images.unsplash.com/photo-1598033129183-c4f50c736f10?q=80&w=1000&auto=format&fit=crop",
+      right: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=1000&auto=format&fit=crop"
+    }
   },
   {
     name: "Premium Pure White Linen Shirt",
@@ -144,7 +180,13 @@ const initialProducts = [
     description: "Handcrafted 100% pure European linen shirt designed for ultimate breathable luxury in Vijayawada weather.",
     sizes: ["S", "M", "L", "XL", "XXL"],
     colors: [{ name: "Crisp White", hex: "#FFFFFF" }, { name: "Sky Blue", hex: "#93C5FD" }],
-    image: "https://images.unsplash.com/photo-1598033129183-c4f50c736f10?q=80&w=1000&auto=format&fit=crop"
+    image: "https://images.unsplash.com/photo-1598033129183-c4f50c736f10?q=80&w=1000&auto=format&fit=crop",
+    images: {
+      front: "https://images.unsplash.com/photo-1598033129183-c4f50c736f10?q=80&w=1000&auto=format&fit=crop",
+      back: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?q=80&w=1000&auto=format&fit=crop",
+      left: "https://images.unsplash.com/photo-1625910513413-5b8d2b96dc36?q=80&w=1000&auto=format&fit=crop",
+      right: "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=80&w=1000&auto=format&fit=crop"
+    }
   }
 ];
 
@@ -183,16 +225,10 @@ export const seedDatabase = async () => {
       console.log(`🔑 [Seeder]: Admin Updated -> Email: ${adminEmail}`);
     }
 
-    // 2. Clear old Non-Men products and seed curated Men's fashion
-    await Product.deleteMany({ category: { $ne: 'Men' } });
-    
-    const count = await Product.countDocuments();
-    if (count === 0) {
-      await Product.insertMany(initialProducts);
-      console.log(`🛍️ [Seeder]: Inserted ${initialProducts.length} initial Men's fashion products.`);
-    } else {
-      console.log(`🛍️ [Seeder]: Database contains ${count} Men's products.`);
-    }
+    // 2. Re-seed with 4-view images
+    await Product.deleteMany({});
+    await Product.insertMany(initialProducts);
+    console.log(`🛍️ [Seeder]: Seeded ${initialProducts.length} Men's products with full 4-angle views.`);
 
     console.log('✅ [Seeder]: Database Seeding Complete.');
   } catch (error) {

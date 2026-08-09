@@ -55,15 +55,47 @@ export const AdminDashboardModal = () => {
     stockQuantity: 30,
     boutique: 'QuickFit Central, Vijayawada',
     description: '',
-    sizes: 'S, M, L, XL, XXL',
-    image: ''
+    sizes: 'S, M, L, XL, XXL'
   });
 
-  // File Upload State
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState('');
-  const [fileError, setFileError] = useState('');
-  const fileInputRef = useRef(null);
+  // 4-Angle Images State
+  const [imagesData, setImagesData] = useState({
+    front: '',
+    back: '',
+    left: '',
+    right: ''
+  });
+
+  const [imageFiles, setImageFiles] = useState({
+    front: null,
+    back: null,
+    left: null,
+    right: null
+  });
+
+  const [imagePreviews, setImagePreviews] = useState({
+    front: '',
+    back: '',
+    left: '',
+    right: ''
+  });
+
+  const [fileErrors, setFileErrors] = useState({});
+
+  // Refs for 4 file inputs
+  const fileInputRefs = {
+    front: useRef(null),
+    back: useRef(null),
+    left: useRef(null),
+    right: useRef(null)
+  };
+
+  const angleConfig = [
+    { key: 'front', label: '1. Front View (Primary Cover)', required: true, hint: 'Default card & main page image' },
+    { key: 'back', label: '2. Back View (Hover View)', required: false, hint: 'Shows automatically on card hover' },
+    { key: 'left', label: '3. Left Side View', required: false, hint: 'Side profile & sleeve silhouette' },
+    { key: 'right', label: '4. Right Side View', required: false, hint: 'Side profile & seam details' }
+  ];
 
   const getAuthHeader = () => {
     const token = user?.token || adminToken || localStorage.getItem('quickfit_token');
@@ -135,53 +167,79 @@ export const AdminDashboardModal = () => {
     }
   };
 
-  // --- FILE SELECTION & VALIDATION ---
-  const handleFileChange = (e) => {
+  // --- 4-ANGLE FILE SELECTION & VALIDATION ---
+  const handleAngleFileChange = (angleKey, e) => {
     const file = e.target.files[0];
-    setFileError('');
+    setFileErrors(prev => ({ ...prev, [angleKey]: '' }));
 
     if (!file) return;
 
-    // Validate File Type (JPG, JPEG, PNG, WEBP)
+    // Validate format (JPG, JPEG, PNG, WEBP)
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     const validExtensions = /\.(jpg|jpeg|png|webp)$/i;
 
     if (!validTypes.includes(file.type) && !validExtensions.test(file.name)) {
-      setFileError('Invalid file format. Please upload JPG, JPEG, PNG, or WEBP only.');
-      showToast('Only JPG, JPEG, PNG, and WEBP images are accepted.', 'error');
+      const errMsg = 'Invalid format. Use JPG, PNG, or WEBP only.';
+      setFileErrors(prev => ({ ...prev, [angleKey]: errMsg }));
+      showToast(errMsg, 'error');
       return;
     }
 
-    // Validate File Size (Max 5MB)
-    const maxSizeBytes = 5 * 1024 * 1024; // 5MB
+    // Validate size (Max 5MB)
+    const maxSizeBytes = 5 * 1024 * 1024;
     if (file.size > maxSizeBytes) {
-      setFileError(`File is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Maximum allowed size is 5MB.`);
-      showToast('Image size exceeds 5MB limit. Choose a smaller file.', 'error');
+      const errMsg = `File is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Max allowed is 5MB.`;
+      setFileErrors(prev => ({ ...prev, [angleKey]: errMsg }));
+      showToast('Image size exceeds 5MB limit.', 'error');
       return;
     }
 
-    // Create immediate local preview
-    setSelectedFile(file);
+    // Set preview
     const previewUrl = URL.createObjectURL(file);
-    setImagePreview(previewUrl);
-    setProductForm(prev => ({ ...prev, image: '' }));
+    setImageFiles(prev => ({ ...prev, [angleKey]: file }));
+    setImagePreviews(prev => ({ ...prev, [angleKey]: previewUrl }));
   };
 
-  const handleRemoveImage = () => {
-    setSelectedFile(null);
-    setImagePreview('');
-    setFileError('');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+  const handleRemoveAngleImage = (angleKey) => {
+    setImageFiles(prev => ({ ...prev, [angleKey]: null }));
+    setImagePreviews(prev => ({ ...prev, [angleKey]: '' }));
+    setImagesData(prev => ({ ...prev, [angleKey]: '' }));
+    setFileErrors(prev => ({ ...prev, [angleKey]: '' }));
+    if (fileInputRefs[angleKey]?.current) {
+      fileInputRefs[angleKey].current.value = '';
     }
+  };
+
+  // Swap / Reorder Angle Views
+  const handleSwapAngles = (angleA, angleB) => {
+    // Swap URLs
+    setImagesData(prev => ({
+      ...prev,
+      [angleA]: prev[angleB],
+      [angleB]: prev[angleA]
+    }));
+    // Swap Files
+    setImageFiles(prev => ({
+      ...prev,
+      [angleA]: prev[angleB],
+      [angleB]: prev[angleA]
+    }));
+    // Swap Previews
+    setImagePreviews(prev => ({
+      ...prev,
+      [angleA]: prev[angleB],
+      [angleB]: prev[angleA]
+    }));
+    showToast(`Swapped ${angleA.toUpperCase()} with ${angleB.toUpperCase()} view!`);
   };
 
   // Open Add Product Modal
   const handleOpenAdd = () => {
     setEditingProduct(null);
-    setSelectedFile(null);
-    setImagePreview('');
-    setFileError('');
+    setImagesData({ front: '', back: '', left: '', right: '' });
+    setImageFiles({ front: null, back: null, left: null, right: null });
+    setImagePreviews({ front: '', back: '', left: '', right: '' });
+    setFileErrors({});
     setProductForm({
       name: '',
       category: 'Men',
@@ -191,8 +249,7 @@ export const AdminDashboardModal = () => {
       stockQuantity: 30,
       boutique: 'QuickFit Central, Vijayawada',
       description: 'Heavyweight 240+ GSM organic cotton tailored for clean modern streetwear drape.',
-      sizes: 'S, M, L, XL, XXL',
-      image: ''
+      sizes: 'S, M, L, XL, XXL'
     });
     setIsAddProductOpen(true);
   };
@@ -200,9 +257,16 @@ export const AdminDashboardModal = () => {
   // Open Edit Product Modal
   const handleOpenEdit = (prod) => {
     setEditingProduct(prod);
-    setSelectedFile(null);
-    setImagePreview(prod.image || '');
-    setFileError('');
+    const existingImages = {
+      front: prod.images?.front || prod.image || '',
+      back: prod.images?.back || '',
+      left: prod.images?.left || '',
+      right: prod.images?.right || ''
+    };
+    setImagesData(existingImages);
+    setImageFiles({ front: null, back: null, left: null, right: null });
+    setImagePreviews(existingImages);
+    setFileErrors({});
     setProductForm({
       name: prod.name,
       category: 'Men',
@@ -212,44 +276,43 @@ export const AdminDashboardModal = () => {
       stockQuantity: prod.stockQuantity !== undefined ? prod.stockQuantity : 25,
       boutique: prod.boutique || 'QuickFit Central, Vijayawada',
       description: prod.description || '',
-      sizes: Array.isArray(prod.sizes) ? prod.sizes.join(', ') : 'S, M, L, XL, XXL',
-      image: prod.image || ''
+      sizes: Array.isArray(prod.sizes) ? prod.sizes.join(', ') : 'S, M, L, XL, XXL'
     });
     setIsAddProductOpen(true);
   };
 
-  // Handle Product Create / Update Submit with Automatic Image Upload
+  // Handle Product Create / Update Submit with Multi-Angle Uploads
   const handleSaveProduct = async (e) => {
     e.preventDefault();
     setIsSavingProduct(true);
-    setFileError('');
+    setFileErrors({});
 
     try {
-      let finalImageUrl = productForm.image;
+      const finalImages = { ...imagesData };
 
-      // 1. If user selected a file from PC, upload it to the server first
-      if (selectedFile) {
-        const formData = new FormData();
-        formData.append('image', selectedFile);
+      // 1. Upload any newly selected files for each angle
+      for (const angleKey of ['front', 'back', 'left', 'right']) {
+        if (imageFiles[angleKey]) {
+          const formData = new FormData();
+          formData.append('image', imageFiles[angleKey]);
 
-        const uploadRes = await axios.post(`${API_BASE_URL}/upload`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            ...getAuthHeader().headers
+          const uploadRes = await axios.post(`${API_BASE_URL}/upload`, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              ...getAuthHeader().headers
+            }
+          });
+
+          if (uploadRes.data && uploadRes.data.url) {
+            finalImages[angleKey] = uploadRes.data.url;
           }
-        });
-
-        if (uploadRes.data && uploadRes.data.url) {
-          finalImageUrl = uploadRes.data.url;
-        } else {
-          throw new Error('Image upload failed. Server did not return a file URL.');
         }
       }
 
-      // If no image is provided and no file selected
-      if (!finalImageUrl) {
-        setFileError('Please upload an image for this product.');
-        showToast('Please upload an image from your PC before saving.', 'warning');
+      // Front View is required
+      if (!finalImages.front) {
+        setFileErrors(prev => ({ ...prev, front: 'Front View image is required.' }));
+        showToast('Please upload at least the Front View image.', 'warning');
         setIsSavingProduct(false);
         return;
       }
@@ -266,7 +329,8 @@ export const AdminDashboardModal = () => {
         sizes: typeof productForm.sizes === 'string'
           ? productForm.sizes.split(',').map(s => s.trim()).filter(Boolean)
           : productForm.sizes,
-        image: finalImageUrl
+        images: finalImages,
+        image: finalImages.front
       };
 
       if (editingProduct) {
@@ -275,20 +339,18 @@ export const AdminDashboardModal = () => {
           payload,
           getAuthHeader()
         );
-        showToast(`Updated "${payload.name}" successfully! ✨`);
+        showToast(`Updated "${payload.name}" with 4-angle views! ✨`);
       } else {
         await axios.post(
           `${API_BASE_URL}/products`,
           payload,
           getAuthHeader()
         );
-        showToast(`Created product "${payload.name}" with uploaded image! 🛍️`);
+        showToast(`Created product "${payload.name}" with 4 image views! 🛍️`);
       }
 
       setIsAddProductOpen(false);
       setEditingProduct(null);
-      setSelectedFile(null);
-      setImagePreview('');
       await fetchProducts();
       await loadAdminData();
     } catch (err) {
@@ -326,8 +388,8 @@ export const AdminDashboardModal = () => {
   const isAdminAuthenticated = Boolean(user && user.role === 'admin') || Boolean(adminToken);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-      <div className="bg-white rounded-3xl w-full max-w-6xl overflow-hidden shadow-2xl border border-slate-200 my-auto flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+      <div className="bg-white rounded-3xl w-full max-w-6xl overflow-hidden shadow-2xl border border-slate-200 my-auto flex flex-col max-h-[94vh]">
         
         {/* TOP HEADER */}
         <div className="bg-slate-900 text-white px-4 sm:px-6 py-4 flex items-center justify-between border-b border-slate-800">
@@ -340,7 +402,7 @@ export const AdminDashboardModal = () => {
                 QuickFit Admin Portal
               </h2>
               <p className="text-[11px] text-slate-400 font-medium">
-                Men's Fashion Catalog, Direct Image Upload & Order Management • Vijayawada Central
+                4-Angle Product Gallery, Multi-Image Upload & Order Management • Vijayawada
               </p>
             </div>
           </div>
@@ -374,7 +436,7 @@ export const AdminDashboardModal = () => {
                 Admin Authentication
               </h3>
               <p className="text-xs text-slate-500">
-                Enter your administrative credentials to manage products, direct image uploads, and orders.
+                Enter your administrative credentials to manage products and 4-angle image galleries.
               </p>
             </div>
 
@@ -483,14 +545,14 @@ export const AdminDashboardModal = () => {
                         Men's Fashion Catalog
                       </h3>
                       <p className="text-xs text-slate-500">
-                        Upload images directly from your PC. New products appear instantly on the live website.
+                        Manage products with 4 separate image views: Front, Back, Left, and Right angles.
                       </p>
                     </div>
                     <button
                       onClick={handleOpenAdd}
                       className="px-5 py-2.5 rounded-full bg-slate-900 hover:bg-black text-white text-xs font-black uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 !min-h-[40px]"
                     >
-                      <span>📸 + Add Product with Image</span>
+                      <span>📷 + Add Product (4 Image Views)</span>
                     </button>
                   </div>
 
@@ -498,66 +560,85 @@ export const AdminDashboardModal = () => {
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
                         <tr className="bg-slate-900 text-white uppercase text-[10px] tracking-wider">
-                          <th className="p-3">Image</th>
+                          <th className="p-3">Front View</th>
                           <th className="p-3">Product Name</th>
                           <th className="p-3">Subcategory</th>
                           <th className="p-3">Price</th>
+                          <th className="p-3">4-Angle Status</th>
                           <th className="p-3">Stock</th>
                           <th className="p-3 text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {productsList.map((prod) => (
-                          <tr key={prod._id || prod.id} className="hover:bg-slate-50">
-                            <td className="p-3">
-                              <img
-                                src={prod.image}
-                                alt={prod.name}
-                                className="w-12 h-16 object-cover rounded-lg border border-slate-200 bg-slate-100 shadow-xs"
-                              />
-                            </td>
-                            <td className="p-3 font-bold text-slate-900 max-w-[200px] truncate">
-                              {prod.name}
-                            </td>
-                            <td className="p-3 text-slate-600">
-                              <span className="px-2 py-0.5 rounded-md bg-slate-100 font-semibold text-[10px]">
-                                {prod.subcategory || 'Oversized T-Shirts'}
-                              </span>
-                            </td>
-                            <td className="p-3 font-black text-slate-900">
-                              ₹{prod.price}
-                            </td>
-                            <td className="p-3">
-                              {prod.stockQuantity <= 0 ? (
-                                <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 font-black text-[10px]">
-                                  0 (Out)
+                        {productsList.map((prod) => {
+                          const angleCount = prod.images
+                            ? [prod.images.front, prod.images.back, prod.images.left, prod.images.right].filter(Boolean).length
+                            : (prod.gallery ? prod.gallery.length : 1);
+
+                          return (
+                            <tr key={prod._id || prod.id} className="hover:bg-slate-50">
+                              <td className="p-3">
+                                <img
+                                  src={prod.images?.front || prod.image}
+                                  alt={prod.name}
+                                  className="w-12 h-16 object-cover rounded-lg border border-slate-200 bg-slate-100 shadow-xs"
+                                />
+                              </td>
+                              <td className="p-3 font-bold text-slate-900 max-w-[200px] truncate">
+                                {prod.name}
+                              </td>
+                              <td className="p-3 text-slate-600">
+                                <span className="px-2 py-0.5 rounded-md bg-slate-100 font-semibold text-[10px]">
+                                  {prod.subcategory || 'Oversized T-Shirts'}
                                 </span>
-                              ) : prod.stockQuantity <= 5 ? (
-                                <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold text-[10px]">
-                                  {prod.stockQuantity} (Low)
+                              </td>
+                              <td className="p-3 font-black text-slate-900">
+                                ₹{prod.price}
+                              </td>
+                              <td className="p-3">
+                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1 w-max ${
+                                  angleCount === 4
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : angleCount >= 2
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : 'bg-slate-100 text-slate-700'
+                                }`}>
+                                  <span>📷</span>
+                                  <span>{angleCount} / 4 Views</span>
                                 </span>
-                              ) : (
-                                <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
-                                  {prod.stockQuantity} in Stock
-                                </span>
-                              )}
-                            </td>
-                            <td className="p-3 text-right space-x-2">
-                              <button
-                                onClick={() => handleOpenEdit(prod)}
-                                className="font-bold text-blue-600 hover:underline uppercase text-[10px]"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => handleDeleteProduct(prod._id || prod.id, prod.name)}
-                                className="font-bold text-rose-600 hover:underline uppercase text-[10px]"
-                              >
-                                Delete
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                              <td className="p-3">
+                                {prod.stockQuantity <= 0 ? (
+                                  <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 font-black text-[10px]">
+                                    0 (Out)
+                                  </span>
+                                ) : prod.stockQuantity <= 5 ? (
+                                  <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold text-[10px]">
+                                    {prod.stockQuantity} (Low)
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                                    {prod.stockQuantity} in Stock
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-right space-x-2">
+                                <button
+                                  onClick={() => handleOpenEdit(prod)}
+                                  className="font-bold text-blue-600 hover:underline uppercase text-[10px]"
+                                >
+                                  Edit Angles
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteProduct(prod._id || prod.id, prod.name)}
+                                  className="font-bold text-rose-600 hover:underline uppercase text-[10px]"
+                                >
+                                  Delete
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -672,15 +753,16 @@ export const AdminDashboardModal = () => {
 
       </div>
 
-      {/* ADD / EDIT PRODUCT MODAL WITH PC IMAGE UPLOAD */}
+      {/* ADD / EDIT PRODUCT MODAL WITH 4-ANGLE DIRECT IMAGE UPLOADS */}
       {isAddProductOpen && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full max-h-[92vh] overflow-y-auto space-y-4 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl p-5 sm:p-8 max-w-2xl w-full max-h-[92vh] overflow-y-auto space-y-5 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
             
+            {/* MODAL HEADER */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="text-base sm:text-lg font-black text-slate-900 font-heading flex items-center gap-2">
-                <span>📸</span>
-                <span>{editingProduct ? 'Edit Men\'s Product' : 'Add New Men\'s Product'}</span>
+                <span>📷</span>
+                <span>{editingProduct ? 'Edit Men\'s Product & Angles' : 'Add New Men\'s Product (4 Angles)'}</span>
               </h3>
               <button
                 onClick={() => setIsAddProductOpen(false)}
@@ -692,87 +774,138 @@ export const AdminDashboardModal = () => {
 
             <form onSubmit={handleSaveProduct} className="space-y-4 text-xs">
               
-              {/* 1. DIRECT IMAGE UPLOAD SECTION */}
-              <div>
-                <label className="font-bold text-slate-800 block mb-1">
-                  Product Image * (Upload from PC)
-                </label>
+              {/* 1. 4-ANGLE SEPARATE IMAGE UPLOAD FIELDS */}
+              <div className="space-y-2.5 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-slate-900 uppercase tracking-wider text-xs flex items-center gap-1.5">
+                    <span>🖼️</span>
+                    <span>Product Image Gallery (4 Angles)</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-500">
+                    JPG, PNG, WEBP • Max 5MB Each
+                  </span>
+                </div>
 
-                {/* HIDDEN FILE INPUT */}
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-                  className="hidden"
-                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {angleConfig.map((angle) => {
+                    const preview = imagePreviews[angle.key] || imagesData[angle.key];
+                    const error = fileErrors[angle.key];
 
-                {/* IMAGE PREVIEW OR UPLOAD BUTTON */}
-                {imagePreview ? (
-                  <div className="relative border-2 border-slate-200 rounded-2xl p-3 bg-slate-50 flex items-center gap-4">
-                    <img
-                      src={imagePreview}
-                      alt="Product Preview"
-                      className="w-20 h-24 object-cover rounded-xl border border-slate-300 shadow-sm bg-white"
-                    />
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="font-bold text-slate-900 text-xs truncate">
-                        {selectedFile ? selectedFile.name : 'Current Image Loaded'}
-                      </div>
-                      <div className="text-[11px] text-slate-500">
-                        {selectedFile ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB` : 'Saved in database'}
-                      </div>
-                      <div className="flex items-center gap-2 pt-1">
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="px-3 py-1 rounded-lg bg-slate-900 text-white font-bold text-[10px] hover:bg-black transition-colors"
-                        >
-                          Change Image
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleRemoveImage}
-                          className="px-2 py-1 rounded-lg bg-rose-50 text-rose-600 font-bold text-[10px] hover:bg-rose-100 transition-colors"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  /* DROPZONE / CHOOSE FILE BUTTON */
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-slate-300 hover:border-slate-800 rounded-2xl p-6 text-center bg-slate-50/70 hover:bg-slate-100/70 cursor-pointer transition-all space-y-2 group"
-                  >
-                    <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center mx-auto text-xl group-hover:scale-110 transition-transform shadow-xs">
-                      📁
-                    </div>
-                    <div>
-                      <span className="font-black text-slate-900 text-xs uppercase tracking-wider block">
-                        Upload Image from PC
-                      </span>
-                      <span className="text-[11px] text-slate-500 block mt-0.5">
-                        Accepted: JPG, JPEG, PNG, WEBP • Max 5MB
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-xs pointer-events-none"
-                    >
-                      Browse Files
-                    </button>
-                  </div>
-                )}
+                    return (
+                      <div
+                        key={angle.key}
+                        className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-2 flex flex-col justify-between"
+                      >
+                        {/* ANGLE LABEL */}
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-slate-900 text-[11px]">
+                            {angle.label} {angle.required && <strong className="text-rose-500">*</strong>}
+                          </span>
+                          {preview && (
+                            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded">
+                              ✓ Loaded
+                            </span>
+                          )}
+                        </div>
 
-                {/* ERROR MESSAGE IF INVALID FILE */}
-                {fileError && (
-                  <div className="text-rose-600 font-bold text-[11px] mt-1.5 flex items-center gap-1">
-                    <span>⚠️</span>
-                    <span>{fileError}</span>
-                  </div>
-                )}
+                        {/* HIDDEN FILE INPUT */}
+                        <input
+                          type="file"
+                          ref={fileInputRefs[angle.key]}
+                          onChange={(e) => handleAngleFileChange(angle.key, e)}
+                          accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                          className="hidden"
+                        />
+
+                        {/* PREVIEW OR UPLOAD TRIGGER */}
+                        {preview ? (
+                          <div className="relative aspect-[3/4] w-full rounded-lg overflow-hidden border border-slate-200 bg-slate-100 group">
+                            <img
+                              src={preview}
+                              alt={angle.label}
+                              className="w-full h-full object-cover"
+                            />
+                            
+                            {/* OVERLAY ACTION CONTROLS */}
+                            <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-2">
+                              <button
+                                type="button"
+                                onClick={() => fileInputRefs[angle.key]?.current?.click()}
+                                className="px-2.5 py-1 rounded bg-white text-slate-900 font-bold text-[10px] hover:bg-slate-100 shadow-sm"
+                              >
+                                Replace
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAngleImage(angle.key)}
+                                className="px-2.5 py-1 rounded bg-rose-600 text-white font-bold text-[10px] hover:bg-rose-700 shadow-sm"
+                              >
+                                Clear
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            onClick={() => fileInputRefs[angle.key]?.current?.click()}
+                            className="aspect-[3/4] border-2 border-dashed border-slate-300 hover:border-slate-800 rounded-lg flex flex-col items-center justify-center p-3 text-center cursor-pointer bg-slate-50/50 hover:bg-slate-100/50 transition-colors space-y-1"
+                          >
+                            <span className="text-xl">📁</span>
+                            <span className="font-bold text-slate-800 text-[11px] leading-tight">
+                              Upload {angle.key.toUpperCase()}
+                            </span>
+                            <span className="text-[9px] text-slate-400 leading-tight">
+                              Click to select from PC
+                            </span>
+                          </div>
+                        )}
+
+                        {/* ERROR IF ANY */}
+                        {error && (
+                          <div className="text-rose-600 font-bold text-[10px]">
+                            ⚠️ {error}
+                          </div>
+                        )}
+
+                        {/* SWAP CONTROLS */}
+                        {preview && (
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[9px] text-slate-500">
+                            <span>Swap with:</span>
+                            <div className="flex gap-1">
+                              {angle.key !== 'front' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSwapAngles(angle.key, 'front')}
+                                  className="underline hover:text-slate-900 font-semibold"
+                                >
+                                  Front
+                                </button>
+                              )}
+                              {angle.key !== 'back' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSwapAngles(angle.key, 'back')}
+                                  className="underline hover:text-slate-900 font-semibold"
+                                >
+                                  Back
+                                </button>
+                              )}
+                              {angle.key !== 'left' && angle.key !== 'right' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSwapAngles(angle.key, 'left')}
+                                  className="underline hover:text-slate-900 font-semibold"
+                                >
+                                  Side
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* 2. PRODUCT NAME */}
@@ -878,10 +1011,10 @@ export const AdminDashboardModal = () => {
                 {isSavingProduct ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    <span>Uploading & Saving Product...</span>
+                    <span>Uploading 4 Angles & Saving Product...</span>
                   </>
                 ) : (
-                  <span>{editingProduct ? 'Save Changes ➔' : 'Upload Image & Add Product ➔'}</span>
+                  <span>{editingProduct ? 'Save Changes ➔' : 'Upload Images & Add Product ➔'}</span>
                 )}
               </button>
             </form>

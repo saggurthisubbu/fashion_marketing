@@ -21,12 +21,39 @@ const productSchema = new mongoose.Schema({
     name: { type: String, default: 'Black' },
     hex: { type: String, default: '#000000' }
   }],
-  image: { type: String, required: true },
+  // Multi-angle image views
+  images: {
+    front: { type: String, default: '' },
+    back: { type: String, default: '' },
+    left: { type: String, default: '' },
+    right: { type: String, default: '' }
+  },
+  // Primary image fallback
+  image: { type: String },
   gallery: [{ type: String }]
 }, { timestamps: true });
 
-// Auto-update inStock based on stockQuantity
+// Auto-sync image and gallery before save
 productSchema.pre('save', function (next) {
+  // Sync primary image
+  if (this.images && this.images.front) {
+    this.image = this.images.front;
+  } else if (this.image && (!this.images || !this.images.front)) {
+    if (!this.images) this.images = {};
+    this.images.front = this.image;
+  }
+
+  // Populate gallery array
+  if (this.images) {
+    this.gallery = [
+      this.images.front,
+      this.images.back,
+      this.images.left,
+      this.images.right
+    ].filter(Boolean);
+  }
+
+  // Stock controller
   if (this.stockQuantity <= 0) {
     this.inStock = false;
     this.stockQuantity = 0;

@@ -65,9 +65,25 @@ router.post('/', protect, adminOnly, async (req, res) => {
       data.sizes = ['S', 'M', 'L', 'XL', 'XXL'];
     }
 
-    // Fallback image if empty
-    if (!data.image) {
-      data.image = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop';
+    // Process 4-angle images structure
+    if (!data.images) {
+      data.images = {
+        front: data.image || '',
+        back: '',
+        left: '',
+        right: ''
+      };
+    } else {
+      // Ensure front is set
+      if (!data.images.front && data.image) {
+        data.images.front = data.image;
+      }
+    }
+
+    // Fallback primary image
+    data.image = data.images.front || data.image || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop';
+    if (!data.images.front) {
+      data.images.front = data.image;
     }
 
     const product = new Product(data);
@@ -86,10 +102,48 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
-    Object.assign(product, req.body);
+    const data = { ...req.body };
+
+    // Auto-calculate discount
+    if (data.price && data.originalPrice && Number(data.originalPrice) > Number(data.price)) {
+      const discountPercent = Math.round(((data.originalPrice - data.price) / data.originalPrice) * 100);
+      data.discount = `${discountPercent}% OFF`;
+    }
+
+    // Normalize sizes
+    if (typeof data.sizes === 'string') {
+      data.sizes = data.sizes.split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    // Sync images
+    if (data.images) {
+      product.images = {
+        front: data.images.front !== undefined ? data.images.front : product.images?.front || '',
+        back: data.images.back !== undefined ? data.images.back : product.images?.back || '',
+        left: data.images.left !== undefined ? data.images.left : product.images?.left || '',
+        right: data.images.right !== undefined ? data.images.right : product.images?.right || ''
+      };
+      if (product.images.front) {
+        product.image = product.images.front;
+      }
+    } else if (data.image) {
+      product.image = data.image;
+      if (!product.images) product.images = {};
+      product.images.front = data.image;
+    }
+
+    // Assign other properties
+    Object.keys(data).forEach(key => {
+      if (key !== 'images' && key !== '_id') {
+        product[key] = data[key];
+      }
+    });
+
     const updatedProduct = await product.save();
+    console.log(`✅ [Product Updated]: "${updatedProduct.name}" | ID: ${updatedProduct._id}`);
     res.json(updatedProduct);
   } catch (error) {
+    console.error('❌ [Product Update Error]:', error.message);
     res.status(400).json({ message: error.message });
   }
 });

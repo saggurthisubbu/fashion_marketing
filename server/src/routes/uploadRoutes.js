@@ -21,7 +21,6 @@ const storage = multer.diskStorage({
     cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
-    // Generate unique sanitized filename
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname).toLowerCase();
     const baseName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
@@ -47,7 +46,7 @@ const fileFilter = (req, file, cb) => {
 // 5MB Size Limit
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter
 });
 
@@ -67,20 +66,18 @@ router.post('/', (req, res) => {
       return res.status(400).json({ message: 'Please select an image file to upload.' });
     }
 
-    // Construct accessible image URL
-    const host = req.get('host');
-    const protocol = req.protocol;
-    const imageUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+    // Relative path is portable across localhost, mobile Wi-Fi, and production deployments
+    const relativePath = `/uploads/${req.file.filename}`;
 
-    console.log(`📸 [Image Uploaded]: ${req.file.filename} (${(req.file.size / 1024).toFixed(1)} KB) -> ${imageUrl}`);
+    console.log(`📸 [Image Uploaded]: ${req.file.filename} (${(req.file.size / 1024).toFixed(1)} KB) -> ${relativePath}`);
 
     res.status(200).json({
       success: true,
       message: 'Image uploaded successfully!',
       filename: req.file.filename,
-      imageUrl,
-      url: imageUrl,
-      path: `/uploads/${req.file.filename}`,
+      imageUrl: relativePath,
+      url: relativePath,
+      path: relativePath,
       size: req.file.size,
       mimetype: req.file.mimetype
     });

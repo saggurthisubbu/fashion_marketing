@@ -5,6 +5,9 @@ import { ProductCard } from './ProductCard';
 export const ProductCatalog = () => {
   const {
     products,
+    isLoadingProducts,
+    productsError,
+    fetchProducts,
     selectedCategory,
     setSelectedCategory,
     searchQuery,
@@ -65,7 +68,11 @@ export const ProductCatalog = () => {
               {selectedCategory === 'All' ? 'All Men\'s Fashion & Fits' : `${selectedCategory}`}
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              Showing <strong className="text-slate-900 font-bold">{filtered.length}</strong> items in Vijayawada inventory.
+              {isLoadingProducts ? (
+                <span>Syncing live inventory from database...</span>
+              ) : (
+                <span>Showing <strong className="text-slate-900 font-bold">{filtered.length}</strong> items in live inventory.</span>
+              )}
             </p>
           </div>
 
@@ -75,7 +82,7 @@ export const ProductCatalog = () => {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-4 py-2 rounded-full bg-white border border-slate-200 text-xs font-bold text-slate-800 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-blue-500 cursor-pointer !min-h-[40px]"
+              className="px-4 py-2 rounded-full bg-white border border-slate-200 text-xs font-bold text-slate-800 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-slate-900 cursor-pointer !min-h-[40px]"
             >
               <option value="newest">🔥 Newest Arrivals</option>
               <option value="rating">⭐ Highest Rated</option>
@@ -105,15 +112,44 @@ export const ProductCatalog = () => {
           })}
         </div>
 
-        {/* PRODUCT GRID - 2 COLUMNS ON MOBILE, 3-4 ON DESKTOP */}
-        {filtered.length > 0 ? (
+        {/* 1. LOADING STATE */}
+        {isLoadingProducts ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+              <div key={n} className="bg-white rounded-2xl sm:rounded-3xl p-3 border border-slate-200 space-y-3 animate-pulse">
+                <div className="aspect-[3/4] bg-slate-200 rounded-xl w-full"></div>
+                <div className="h-4 bg-slate-200 rounded-md w-3/4"></div>
+                <div className="h-3 bg-slate-200 rounded-md w-1/2"></div>
+                <div className="h-8 bg-slate-200 rounded-xl w-full"></div>
+              </div>
+            ))}
+          </div>
+        ) : productsError ? (
+          /* 2. ERROR STATE */
+          <div className="bg-white rounded-3xl p-8 sm:p-12 text-center max-w-md mx-auto shadow-sm border border-slate-200 space-y-4 my-8">
+            <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+              ⚠️
+            </div>
+            <h3 className="text-lg font-black text-slate-900 font-heading">Could Not Connect to Database API</h3>
+            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+              {productsError}
+            </p>
+            <button
+              onClick={() => fetchProducts()}
+              className="px-6 py-2.5 rounded-full bg-slate-900 text-white font-bold text-xs shadow-md hover:bg-black transition-colors"
+            >
+              🔄 Retry Connection
+            </button>
+          </div>
+        ) : filtered.length > 0 ? (
+          /* 3. PRODUCT GRID - 2 COLUMNS ON MOBILE, 3-4 ON DESKTOP */
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
             {filtered.map((product) => (
               <ProductCard key={product.id || product._id} product={product} />
             ))}
           </div>
         ) : (
-          /* NO RESULTS EMPTY STATE */
+          /* 4. NO RESULTS EMPTY STATE */
           <div className="bg-white rounded-3xl p-8 sm:p-12 text-center max-w-md mx-auto shadow-sm border border-slate-200 space-y-4 my-8">
             <div className="w-14 h-14 bg-slate-100 rounded-full text-slate-700 flex items-center justify-center mx-auto text-xl font-bold">
               🔍

@@ -1,14 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { productsData } from '../data/products';
+import { API_BASE_URL, API_ORIGIN, resolveImageUrl } from '../config/api';
 
 const ShopContext = createContext();
 
-const API_BASE_URL = 'http://localhost:5000/api';
-
 export const ShopProvider = ({ children }) => {
   // --- STATE MANAGEMENT ---
-  const [products, setProducts] = useState(productsData);
+  // MongoDB is the single source of truth. No static array defaults.
+  const [products, setProducts] = useState([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [productsError, setProductsError] = useState(null);
+
   const [cart, setCart] = useState(() => {
     try {
       const saved = localStorage.getItem('quickfit_cart');
@@ -81,24 +83,44 @@ export const ShopProvider = ({ children }) => {
     localStorage.setItem('quickfit_wishlist', JSON.stringify(wishlist));
   }, [wishlist]);
 
-  // --- FETCH PRODUCTS FROM BACKEND ---
+  // --- FETCH PRODUCTS DYNAMICALLY FROM MONGODB VIA BACKEND API ---
   const fetchProducts = useCallback(async () => {
+    setIsLoadingProducts(true);
+    setProductsError(null);
     try {
+      console.log('📡 [ShopContext]: Fetching products from MongoDB API endpoint:', `${API_BASE_URL}/products`);
       const res = await axios.get(`${API_BASE_URL}/products`);
-      if (Array.isArray(res.data) && res.data.length > 0) {
-        // Normalize MongoDB _id to id for consistency
-        const normalized = res.data.map(p => ({
+      const rawData = Array.isArray(res.data) ? res.data : [];
+
+      // Normalize MongoDB documents and dynamically resolve multi-angle images
+      const normalized = rawData.map(p => {
+        const front = resolveImageUrl(p.images?.front || p.image);
+        const back = resolveImageUrl(p.images?.back);
+        const left = resolveImageUrl(p.images?.left);
+        const right = resolveImageUrl(p.images?.right);
+
+        return {
           ...p,
           id: p._id || p.id,
+          image: front,
+          images: {
+            front,
+            back,
+            left,
+            right
+          },
           stockQuantity: p.stockQuantity !== undefined ? p.stockQuantity : 25
-        }));
-        setProducts(normalized);
-      } else {
-        setProducts(productsData);
-      }
+        };
+      });
+
+      setProducts(normalized);
+      console.log(`🛍️ [Catalog Sync]: Successfully loaded ${normalized.length} products dynamically from MongoDB.`);
     } catch (err) {
-      console.warn('[ShopContext]: Server connection offline, using fallback catalog data.', err.message);
-      setProducts(productsData);
+      console.error('❌ [ShopContext Error]: Failed to fetch products from backend API:', err.message);
+      setProductsError(err.response?.data?.message || err.message || 'Unable to connect to database API.');
+      setProducts([]);
+    } finally {
+      setIsLoadingProducts(false);
     }
   }, []);
 
@@ -258,6 +280,8 @@ export const ShopProvider = ({ children }) => {
       value={{
         products,
         setProducts,
+        isLoadingProducts,
+        productsError,
         fetchProducts,
         cart,
         wishlist,
@@ -319,7 +343,9 @@ export const ShopProvider = ({ children }) => {
         openProductDetail,
         toast,
         showToast,
-        API_BASE_URL
+        API_BASE_URL,
+        API_ORIGIN,
+        resolveImageUrl
       }}
     >
       {children}

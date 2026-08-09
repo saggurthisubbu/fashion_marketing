@@ -18,8 +18,13 @@ dotenv.config();
 
 const app = express();
 
-// Middlewares
-app.use(cors());
+// Permissive CORS Configuration for Desktop, Mobile (LAN/Wi-Fi), and Production Domains
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 
 // Serve uploaded static files
@@ -45,11 +50,11 @@ app.get('/api/health', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-// Connect to DB, seed defaults, and listen
+// Connect to DB, seed defaults, and listen on all network interfaces (0.0.0.0)
 connectDB().then(async () => {
   await seedDatabase();
-  app.listen(PORT, () => {
-    console.log(`🚀 [QuickFit Backend Server]: Running on http://localhost:${PORT}`);
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 [QuickFit Backend Server]: Running on http://localhost:${PORT} (Bound to 0.0.0.0)`);
     console.log(`📁 [Static Uploads Directory]: ${uploadsDir}`);
   });
 });

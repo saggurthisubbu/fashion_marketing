@@ -12,6 +12,7 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    host: true, // Listen on all local IP addresses (0.0.0.0) for seamless mobile testing
     port: 3000,
   }
 });

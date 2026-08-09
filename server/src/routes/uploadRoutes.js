@@ -69,7 +69,7 @@ router.post('/', (req, res) => {
     // Relative path is portable across localhost, mobile Wi-Fi, and production deployments
     const relativePath = `/uploads/${req.file.filename}`;
 
-    console.log(`📸 [Image Uploaded]: ${req.file.filename} (${(req.file.size / 1024).toFixed(1)} KB) -> ${relativePath}`);
+    console.log(`[UPLOAD] Image saved successfully: ${req.file.filename} (${(req.file.size / 1024).toFixed(1)} KB) -> ${relativePath}`);
 
     res.status(200).json({
       success: true,

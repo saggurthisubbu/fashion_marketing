@@ -88,35 +88,60 @@ export const ShopProvider = ({ children }) => {
     setIsLoadingProducts(true);
     setProductsError(null);
     try {
-      console.log('📡 [ShopContext]: Fetching products from MongoDB API endpoint:', `${API_BASE_URL}/products`);
+      console.log('[PRODUCT FETCH] Requesting products from MongoDB API endpoint:', `${API_BASE_URL}/products`);
       const res = await axios.get(`${API_BASE_URL}/products`);
       const rawData = Array.isArray(res.data) ? res.data : [];
 
       // Normalize MongoDB documents and dynamically resolve multi-angle images
-      const normalized = rawData.map(p => {
+      const normalized = rawData.map((p) => {
         const front = resolveImageUrl(p.images?.front || p.image);
-        const back = resolveImageUrl(p.images?.back);
-        const left = resolveImageUrl(p.images?.left);
-        const right = resolveImageUrl(p.images?.right);
+        const back = p.images?.back ? resolveImageUrl(p.images.back) : '';
+        const left = p.images?.left ? resolveImageUrl(p.images.left) : '';
+        const right = p.images?.right ? resolveImageUrl(p.images.right) : '';
+
+        const stockQty = p.stockQuantity !== undefined && !isNaN(Number(p.stockQuantity))
+          ? Number(p.stockQuantity)
+          : 25;
 
         return {
           ...p,
           id: p._id || p.id,
+          _id: p._id || p.id,
+          name: p.name || 'QuickFit Apparel',
+          category: p.category || 'Men',
+          subcategory: p.subcategory || 'Oversized T-Shirts',
+          price: Number(p.price) || 0,
+          originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined,
+          discount: p.discount || '',
+          rating: p.rating !== undefined ? Number(p.rating) : 4.9,
+          reviewsCount: p.reviewsCount !== undefined ? Number(p.reviewsCount) : 24,
+          expressDelivery: p.expressDelivery || 'Express Delivery',
+          boutique: p.boutique || 'QuickFit Central, Vijayawada',
+          stockQuantity: stockQty,
+          inStock: p.inStock !== undefined ? p.inStock : stockQty > 0,
+          featured: p.featured !== undefined ? p.featured : true,
+          badge: p.badge || 'Bestseller',
+          description: p.description || 'Premium heavyweight cotton streetwear.',
+          sizes: Array.isArray(p.sizes) && p.sizes.length > 0
+            ? p.sizes
+            : (typeof p.sizes === 'string' ? p.sizes.split(',').map(s => s.trim()).filter(Boolean) : ['S', 'M', 'L', 'XL', 'XXL']),
+          colors: Array.isArray(p.colors) && p.colors.length > 0
+            ? p.colors
+            : [{ name: 'Standard', hex: '#000000' }],
           image: front,
           images: {
             front,
             back,
             left,
             right
-          },
-          stockQuantity: p.stockQuantity !== undefined ? p.stockQuantity : 25
+          }
         };
       });
 
       setProducts(normalized);
-      console.log(`🛍️ [Catalog Sync]: Successfully loaded ${normalized.length} products dynamically from MongoDB.`);
+      console.log(`[PRODUCT FETCH] Successfully loaded ${normalized.length} products dynamically from MongoDB Atlas.`);
     } catch (err) {
-      console.error('❌ [ShopContext Error]: Failed to fetch products from backend API:', err.message);
+      console.error('[PRODUCT FETCH ERROR] Failed to fetch products from backend API:', err.message);
       setProductsError(err.response?.data?.message || err.message || 'Unable to connect to database API.');
       setProducts([]);
     } finally {

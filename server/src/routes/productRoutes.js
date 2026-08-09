@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import { Product } from '../models/Product.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 
@@ -25,8 +26,10 @@ router.get('/', async (req, res) => {
     }
 
     const products = await Product.find(filter).sort({ createdAt: -1 });
+    console.log(`[PRODUCT GET] Fetched ${products.length} products from MongoDB Atlas (filter: ${JSON.stringify(filter)})`);
     res.json(products);
   } catch (error) {
+    console.error('[PRODUCT GET ERROR]:', error.message);
     res.status(500).json({ message: error.message });
   }
 });
@@ -34,10 +37,26 @@ router.get('/', async (req, res) => {
 // Get single product by ID (Public)
 router.get('/:id', async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
-    if (!product) return res.status(404).json({ message: 'Product not found' });
+    const { id } = req.params;
+    let product = null;
+
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      product = await Product.findById(id);
+    }
+
+    if (!product) {
+      // Fallback search by custom id if any
+      product = await Product.findOne({ id });
+    }
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    console.log(`[PRODUCT GET] Found product "${product.name}" (ID: ${product._id})`);
     res.json(product);
   } catch (error) {
+    console.error('[PRODUCT GET ERROR]:', error.message);
     res.status(500).json({ message: error.message });
   }
 });
@@ -47,11 +66,29 @@ router.post('/', protect, adminOnly, async (req, res) => {
   try {
     const data = { ...req.body };
 
-    // Auto-calculate discount if originalPrice > price
-    if (data.price && data.originalPrice && Number(data.originalPrice) > Number(data.price)) {
-      const discountPercent = Math.round(((data.originalPrice - data.price) / data.originalPrice) * 100);
-      data.discount = `${discountPercent}% OFF`;
+    // Required field validation
+    if (!data.name || typeof data.name !== 'string' || !data.name.trim()) {
+      return res.status(400).json({ message: 'Product name is required.' });
     }
+    if (data.price === undefined || data.price === null || isNaN(Number(data.price)) || Number(data.price) < 0) {
+      return res.status(400).json({ message: 'A valid product price is required.' });
+    }
+
+    data.name = data.name.trim();
+    data.price = Number(data.price);
+
+    if (data.originalPrice !== undefined && data.originalPrice !== null && !isNaN(Number(data.originalPrice))) {
+      data.originalPrice = Number(data.originalPrice);
+      if (data.originalPrice > data.price) {
+        const discountPercent = Math.round(((data.originalPrice - data.price) / data.originalPrice) * 100);
+        data.discount = `${discountPercent}% OFF`;
+      }
+    }
+
+    data.stockQuantity = data.stockQuantity !== undefined && !isNaN(Number(data.stockQuantity))
+      ? Math.max(0, Number(data.stockQuantity))
+      : 25;
+    data.inStock = data.stockQuantity > 0;
 
     // Default category to Men
     if (!data.category) data.category = 'Men';
@@ -74,7 +111,6 @@ router.post('/', protect, adminOnly, async (req, res) => {
         right: ''
       };
     } else {
-      // Ensure front is set
       if (!data.images.front && data.image) {
         data.images.front = data.image;
       }
@@ -88,10 +124,10 @@ router.post('/', protect, adminOnly, async (req, res) => {
 
     const product = new Product(data);
     const savedProduct = await product.save();
-    console.log(`✅ [Product Created]: "${savedProduct.name}" | ID: ${savedProduct._id}`);
+    console.log(`[PRODUCT CREATE] Successfully inserted into MongoDB Atlas -> "${savedProduct.name}" | _id: ${savedProduct._id}`);
     res.status(201).json(savedProduct);
   } catch (error) {
-    console.error('❌ [Product Creation Error]:', error.message);
+    console.error('[PRODUCT CREATE ERROR]:', error.message);
     res.status(400).json({ message: error.message });
   }
 });
@@ -99,20 +135,44 @@ router.post('/', protect, adminOnly, async (req, res) => {
 // Update product (Admin)
 router.put('/:id', protect, adminOnly, async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid product ID format.' });
+    }
+
+    const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
     const data = { ...req.body };
 
-    // Auto-calculate discount
-    if (data.price && data.originalPrice && Number(data.originalPrice) > Number(data.price)) {
-      const discountPercent = Math.round(((data.originalPrice - data.price) / data.originalPrice) * 100);
-      data.discount = `${discountPercent}% OFF`;
+    if (data.name) product.name = data.name.trim();
+    if (data.category) product.category = data.category;
+    if (data.subcategory) product.subcategory = data.subcategory;
+
+    if (data.price !== undefined && !isNaN(Number(data.price))) {
+      product.price = Number(data.price);
     }
+    if (data.originalPrice !== undefined) {
+      product.originalPrice = !isNaN(Number(data.originalPrice)) ? Number(data.originalPrice) : undefined;
+      if (product.originalPrice && product.originalPrice > product.price) {
+        const discountPercent = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
+        product.discount = `${discountPercent}% OFF`;
+      } else {
+        product.discount = '';
+      }
+    }
+    if (data.stockQuantity !== undefined && !isNaN(Number(data.stockQuantity))) {
+      product.stockQuantity = Math.max(0, Number(data.stockQuantity));
+      product.inStock = product.stockQuantity > 0;
+    }
+    if (data.boutique) product.boutique = data.boutique;
+    if (data.description) product.description = data.description;
 
     // Normalize sizes
     if (typeof data.sizes === 'string') {
-      data.sizes = data.sizes.split(',').map(s => s.trim()).filter(Boolean);
+      product.sizes = data.sizes.split(',').map(s => s.trim()).filter(Boolean);
+    } else if (Array.isArray(data.sizes)) {
+      product.sizes = data.sizes;
     }
 
     // Sync images
@@ -132,18 +192,11 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
       product.images.front = data.image;
     }
 
-    // Assign other properties
-    Object.keys(data).forEach(key => {
-      if (key !== 'images' && key !== '_id') {
-        product[key] = data[key];
-      }
-    });
-
     const updatedProduct = await product.save();
-    console.log(`✅ [Product Updated]: "${updatedProduct.name}" | ID: ${updatedProduct._id}`);
+    console.log(`[PRODUCT UPDATE] Updated in MongoDB Atlas -> "${updatedProduct.name}" | _id: ${updatedProduct._id}`);
     res.json(updatedProduct);
   } catch (error) {
-    console.error('❌ [Product Update Error]:', error.message);
+    console.error('[PRODUCT UPDATE ERROR]:', error.message);
     res.status(400).json({ message: error.message });
   }
 });
@@ -151,12 +204,19 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
 // Delete product (Admin)
 router.delete('/:id', protect, adminOnly, async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid product ID format.' });
+    }
+
+    const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
     await product.deleteOne();
-    res.json({ message: 'Product deleted successfully' });
+    console.log(`[PRODUCT DELETE] Deleted from MongoDB Atlas -> "${product.name}" | _id: ${product._id}`);
+    res.json({ message: 'Product deleted successfully', id: product._id });
   } catch (error) {
+    console.error('[PRODUCT DELETE ERROR]:', error.message);
     res.status(500).json({ message: error.message });
   }
 });

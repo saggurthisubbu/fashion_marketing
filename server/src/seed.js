@@ -196,9 +196,9 @@ export const seedDatabase = async () => {
     if (mongoose.connection.readyState === 0) {
       await mongoose.connect(mongoUri);
     }
-    console.log('[Seeder]: Connected to MongoDB');
+    console.log('[MONGODB] Seeder connected to database.');
 
-    // 1. Seed Admin User
+    // 1. Seed/Update Admin User
     const adminEmail = process.env.ADMIN_EMAIL || 'saggurthisubbu9@gmail.com';
     const adminPhone = process.env.ADMIN_PHONE || '+91 7396629821';
     const adminPassword = process.env.ADMIN_PASSWORD || 'QuickFitAdmin@2026!';
@@ -222,15 +222,19 @@ export const seedDatabase = async () => {
       admin.password = adminPassword;
       admin.role = 'admin';
       await admin.save();
-      console.log(`🔑 [Seeder]: Admin Updated -> Email: ${adminEmail}`);
+      console.log(`🔑 [Seeder]: Admin Verified -> Email: ${adminEmail}`);
     }
 
-    // 2. Re-seed with 4-view images
-    await Product.deleteMany({});
-    await Product.insertMany(initialProducts);
-    console.log(`🛍️ [Seeder]: Seeded ${initialProducts.length} Men's products with full 4-angle views.`);
+    // 2. Safe product seeding: ONLY seed defaults if the database has ZERO products
+    const productCount = await Product.countDocuments();
+    if (productCount === 0) {
+      await Product.insertMany(initialProducts);
+      console.log(`🛍️ [Seeder]: Database was empty. Initialized with ${initialProducts.length} starter products.`);
+    } else {
+      console.log(`🛍️ [Seeder]: Preserved ${productCount} existing products in MongoDB Atlas. No products deleted.`);
+    }
 
-    console.log('✅ [Seeder]: Database Seeding Complete.');
+    console.log('✅ [Seeder]: Initialization complete.');
   } catch (error) {
     console.error('❌ [Seeder Error]:', error.message);
   }

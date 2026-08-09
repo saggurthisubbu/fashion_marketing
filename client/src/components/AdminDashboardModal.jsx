@@ -337,28 +337,36 @@ export const AdminDashboardModal = () => {
         image: finalImages.front
       };
 
+      let savedProductData = null;
+
       if (editingProduct) {
-        await axios.put(
+        const res = await axios.put(
           `${API_BASE_URL}/products/${editingProduct._id || editingProduct.id}`,
           payload,
           getAuthHeader()
         );
-        showToast(`Updated "${payload.name}" with 4-angle views! ✨`);
+        savedProductData = res.data;
+        console.log('[PRODUCT UPDATE] Confirmed update in MongoDB Atlas:', savedProductData?._id, savedProductData?.name);
+        showToast(`Updated "${payload.name}" in database! ✨`);
       } else {
-        await axios.post(
+        const res = await axios.post(
           `${API_BASE_URL}/products`,
           payload,
           getAuthHeader()
         );
-        showToast(`Created product "${payload.name}" with 4 image views! 🛍️`);
+        savedProductData = res.data;
+        console.log('[PRODUCT CREATE] Confirmed insertion into MongoDB Atlas:', savedProductData?._id, savedProductData?.name);
+        showToast(`Created product "${payload.name}" permanently in MongoDB! 🛍️`);
       }
 
       setIsAddProductOpen(false);
       setEditingProduct(null);
+
+      // Immediately synchronize global catalog and admin state from MongoDB Atlas
       await fetchProducts();
       await loadAdminData();
     } catch (err) {
-      console.error('Save product error:', err);
+      console.error('[PRODUCT SAVE ERROR] Failed to save product:', err);
       showToast(err.response?.data?.message || err.message || 'Failed to save product', 'error');
     } finally {
       setIsSavingProduct(false);
@@ -367,14 +375,17 @@ export const AdminDashboardModal = () => {
 
   // Handle Product Delete
   const handleDeleteProduct = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to delete "${name}"?`)) return;
+    if (!window.confirm(`Are you sure you want to delete "${name}" from MongoDB Atlas?`)) return;
+
     try {
       await axios.delete(`${API_BASE_URL}/products/${id}`, getAuthHeader());
-      showToast(`Deleted "${name}"`, 'info');
+      console.log('[PRODUCT DELETE] Successfully removed from MongoDB Atlas:', id, name);
+      showToast(`Deleted "${name}" from database.`);
       await fetchProducts();
       await loadAdminData();
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to delete product.', 'error');
+      console.error('[PRODUCT DELETE ERROR] Failed to delete product:', err);
+      showToast(err.response?.data?.message || 'Failed to delete product', 'error');
     }
   };
 

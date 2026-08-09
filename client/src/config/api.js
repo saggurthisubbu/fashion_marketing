@@ -1,67 +1,69 @@
 /**
  * QuickFit Production-Grade API Configuration
- * Supports Vercel Serverless, Render/Railway Deployed Backends, Mobile Devices, and Localhost Dev.
+ * Supports Render Deployed Backend, Vercel Frontend, Mobile Devices, and Localhost Dev.
  */
 
+const PRODUCTION_RENDER_API = 'https://quickfit-backend-m1yl.onrender.com/api';
 const envApiUrl = import.meta.env.VITE_API_URL;
 const isProd = import.meta.env.PROD || process.env.NODE_ENV === 'production';
 
+const normalizeApiUrl = (url) => {
+  if (!url) return '';
+  const trimmed = url.trim().replace(/\/+$/, '');
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+};
+
 const computeApiUrl = () => {
-  // 1. If explicit production API URL is set via environment variable
+  // 1. If explicit API URL is set via environment variable
   if (envApiUrl && envApiUrl.trim() !== '') {
-    return envApiUrl.trim().replace(/\/+$/, '');
+    return normalizeApiUrl(envApiUrl);
   }
 
   // 2. In browser environment
   if (typeof window !== 'undefined') {
-    const { hostname, origin } = window.location;
+    const { hostname } = window.location;
 
-    // IN PRODUCTION BUILD: NEVER EVER CALL LOCALHOST
-    if (isProd) {
-      return `${origin}/api`;
-    }
-
-    // IN LOCAL DEVELOPMENT ONLY:
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    // IN LOCALHOST DEVELOPMENT ONLY
+    if (!isProd && (hostname === 'localhost' || hostname === '127.0.0.1')) {
       return 'http://localhost:5000/api';
     }
 
-    // Local mobile phone testing on Wi-Fi (e.g. 192.168.x.x)
-    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) {
+    // Local mobile phone testing on Wi-Fi (e.g. 192.168.x.x) during local dev
+    if (!isProd && /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) {
       return `http://${hostname}:5000/api`;
     }
 
-    return `${origin}/api`;
+    // PRODUCTION BUILD / DEPLOYED DOMAIN (Vercel, custom domain, etc.)
+    // Single source of truth backend is deployed on Render
+    return PRODUCTION_RENDER_API;
   }
 
-  return isProd ? '/api' : 'http://localhost:5000/api';
+  return isProd ? PRODUCTION_RENDER_API : 'http://localhost:5000/api';
 };
 
 export const API_BASE_URL = computeApiUrl();
 export const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '');
 
-console.log('📡 [API Config]: Environment ->', isProd ? 'PRODUCTION' : 'DEVELOPMENT');
-console.log('📡 [API Config]: Active API Base URL ->', API_BASE_URL);
+console.log('[API CONFIG] Environment:', isProd ? 'PRODUCTION' : 'DEVELOPMENT');
+console.log('[API CONFIG] Active Base URL:', API_BASE_URL);
+console.log('[API CONFIG] Active Origin:', API_ORIGIN);
 
 /**
- * Normalizes image URLs for cross-device compatibility
+ * Normalizes image URLs for cross-device compatibility across Localhost, Mobile, and Render.
  */
 export const resolveImageUrl = (imgUrl) => {
-  if (!imgUrl) return 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop';
-
-  // If image URL is stored as relative path (/uploads/...)
-  if (imgUrl.startsWith('/uploads')) {
-    return `${API_ORIGIN}${imgUrl}`;
+  if (!imgUrl || typeof imgUrl !== 'string' || imgUrl.trim() === '') {
+    return 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop';
   }
 
-  // If image URL in database has hardcoded localhost:5000 but we are in production or on mobile
-  if (imgUrl.startsWith('http://') || imgUrl.startsWith('https://')) {
-    if (imgUrl.includes('localhost:5000/uploads/') || imgUrl.includes('127.0.0.1:5000/uploads/')) {
-      const filename = imgUrl.split('/uploads/')[1];
-      return `${API_ORIGIN}/uploads/${filename}`;
-    }
-    return imgUrl;
+  const trimmed = imgUrl.trim();
+
+  // If image URL is stored with /uploads/ (relative or with old host)
+  if (trimmed.includes('/uploads/')) {
+    const relativePart = '/uploads/' + trimmed.split('/uploads/')[1];
+    return `${API_ORIGIN}${relativePart}`;
   }
 
-  return imgUrl;
+  // Direct external image URLs (e.g. Unsplash, Cloudinary)
+  return trimmed;
 };

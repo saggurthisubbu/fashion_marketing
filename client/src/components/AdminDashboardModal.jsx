@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useShop } from '../context/ShopContext';
 
@@ -43,6 +43,9 @@ export const AdminDashboardModal = () => {
   // Add/Edit Product Modal State
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
+
+  // Product Form Fields
   const [productForm, setProductForm] = useState({
     name: '',
     category: 'Men',
@@ -53,8 +56,14 @@ export const AdminDashboardModal = () => {
     boutique: 'QuickFit Central, Vijayawada',
     description: '',
     sizes: 'S, M, L, XL, XXL',
-    image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop'
+    image: ''
   });
+
+  // File Upload State
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [fileError, setFileError] = useState('');
+  const fileInputRef = useRef(null);
 
   const getAuthHeader = () => {
     const token = user?.token || adminToken || localStorage.getItem('quickfit_token');
@@ -126,9 +135,53 @@ export const AdminDashboardModal = () => {
     }
   };
 
+  // --- FILE SELECTION & VALIDATION ---
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    setFileError('');
+
+    if (!file) return;
+
+    // Validate File Type (JPG, JPEG, PNG, WEBP)
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const validExtensions = /\.(jpg|jpeg|png|webp)$/i;
+
+    if (!validTypes.includes(file.type) && !validExtensions.test(file.name)) {
+      setFileError('Invalid file format. Please upload JPG, JPEG, PNG, or WEBP only.');
+      showToast('Only JPG, JPEG, PNG, and WEBP images are accepted.', 'error');
+      return;
+    }
+
+    // Validate File Size (Max 5MB)
+    const maxSizeBytes = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSizeBytes) {
+      setFileError(`File is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Maximum allowed size is 5MB.`);
+      showToast('Image size exceeds 5MB limit. Choose a smaller file.', 'error');
+      return;
+    }
+
+    // Create immediate local preview
+    setSelectedFile(file);
+    const previewUrl = URL.createObjectURL(file);
+    setImagePreview(previewUrl);
+    setProductForm(prev => ({ ...prev, image: '' }));
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedFile(null);
+    setImagePreview('');
+    setFileError('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   // Open Add Product Modal
   const handleOpenAdd = () => {
     setEditingProduct(null);
+    setSelectedFile(null);
+    setImagePreview('');
+    setFileError('');
     setProductForm({
       name: '',
       category: 'Men',
@@ -137,9 +190,9 @@ export const AdminDashboardModal = () => {
       originalPrice: '',
       stockQuantity: 30,
       boutique: 'QuickFit Central, Vijayawada',
-      description: 'Heavyweight organic cotton tailored for modern drape.',
+      description: 'Heavyweight 240+ GSM organic cotton tailored for clean modern streetwear drape.',
       sizes: 'S, M, L, XL, XXL',
-      image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop'
+      image: ''
     });
     setIsAddProductOpen(true);
   };
@@ -147,6 +200,9 @@ export const AdminDashboardModal = () => {
   // Open Edit Product Modal
   const handleOpenEdit = (prod) => {
     setEditingProduct(prod);
+    setSelectedFile(null);
+    setImagePreview(prod.image || '');
+    setFileError('');
     setProductForm({
       name: prod.name,
       category: 'Men',
@@ -162,10 +218,42 @@ export const AdminDashboardModal = () => {
     setIsAddProductOpen(true);
   };
 
-  // Handle Product Create / Update Submit
+  // Handle Product Create / Update Submit with Automatic Image Upload
   const handleSaveProduct = async (e) => {
     e.preventDefault();
+    setIsSavingProduct(true);
+    setFileError('');
+
     try {
+      let finalImageUrl = productForm.image;
+
+      // 1. If user selected a file from PC, upload it to the server first
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append('image', selectedFile);
+
+        const uploadRes = await axios.post(`${API_BASE_URL}/upload`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            ...getAuthHeader().headers
+          }
+        });
+
+        if (uploadRes.data && uploadRes.data.url) {
+          finalImageUrl = uploadRes.data.url;
+        } else {
+          throw new Error('Image upload failed. Server did not return a file URL.');
+        }
+      }
+
+      // If no image is provided and no file selected
+      if (!finalImageUrl) {
+        setFileError('Please upload an image for this product.');
+        showToast('Please upload an image from your PC before saving.', 'warning');
+        setIsSavingProduct(false);
+        return;
+      }
+
       const payload = {
         name: productForm.name.trim(),
         category: 'Men',
@@ -178,7 +266,7 @@ export const AdminDashboardModal = () => {
         sizes: typeof productForm.sizes === 'string'
           ? productForm.sizes.split(',').map(s => s.trim()).filter(Boolean)
           : productForm.sizes,
-        image: productForm.image || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop'
+        image: finalImageUrl
       };
 
       if (editingProduct) {
@@ -194,16 +282,20 @@ export const AdminDashboardModal = () => {
           payload,
           getAuthHeader()
         );
-        showToast(`Created new product "${payload.name}"! 🛍️`);
+        showToast(`Created product "${payload.name}" with uploaded image! 🛍️`);
       }
 
       setIsAddProductOpen(false);
       setEditingProduct(null);
+      setSelectedFile(null);
+      setImagePreview('');
       await fetchProducts();
       await loadAdminData();
     } catch (err) {
       console.error('Save product error:', err);
       showToast(err.response?.data?.message || err.message || 'Failed to save product', 'error');
+    } finally {
+      setIsSavingProduct(false);
     }
   };
 
@@ -248,7 +340,7 @@ export const AdminDashboardModal = () => {
                 QuickFit Admin Portal
               </h2>
               <p className="text-[11px] text-slate-400 font-medium">
-                Men's Fashion Catalog & Order Management • Vijayawada Central
+                Men's Fashion Catalog, Direct Image Upload & Order Management • Vijayawada Central
               </p>
             </div>
           </div>
@@ -282,7 +374,7 @@ export const AdminDashboardModal = () => {
                 Admin Authentication
               </h3>
               <p className="text-xs text-slate-500">
-                Enter your administrative credentials to manage products, stock, and customer orders.
+                Enter your administrative credentials to manage products, direct image uploads, and orders.
               </p>
             </div>
 
@@ -391,14 +483,14 @@ export const AdminDashboardModal = () => {
                         Men's Fashion Catalog
                       </h3>
                       <p className="text-xs text-slate-500">
-                        Live products in database. Adding a product immediately updates the live website.
+                        Upload images directly from your PC. New products appear instantly on the live website.
                       </p>
                     </div>
                     <button
                       onClick={handleOpenAdd}
                       className="px-5 py-2.5 rounded-full bg-slate-900 hover:bg-black text-white text-xs font-black uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 !min-h-[40px]"
                     >
-                      <span>+ Add New Product</span>
+                      <span>📸 + Add Product with Image</span>
                     </button>
                   </div>
 
@@ -421,7 +513,7 @@ export const AdminDashboardModal = () => {
                               <img
                                 src={prod.image}
                                 alt={prod.name}
-                                className="w-12 h-16 object-cover rounded-lg border border-slate-200 bg-slate-100"
+                                className="w-12 h-16 object-cover rounded-lg border border-slate-200 bg-slate-100 shadow-xs"
                               />
                             </td>
                             <td className="p-3 font-bold text-slate-900 max-w-[200px] truncate">
@@ -580,14 +672,15 @@ export const AdminDashboardModal = () => {
 
       </div>
 
-      {/* ADD / EDIT PRODUCT SUB-MODAL */}
+      {/* ADD / EDIT PRODUCT MODAL WITH PC IMAGE UPLOAD */}
       {isAddProductOpen && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full max-h-[92vh] overflow-y-auto space-y-4 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
             
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-base sm:text-lg font-black text-slate-900 font-heading">
-                {editingProduct ? 'Edit Men\'s Product' : 'Add New Men\'s Product'}
+              <h3 className="text-base sm:text-lg font-black text-slate-900 font-heading flex items-center gap-2">
+                <span>📸</span>
+                <span>{editingProduct ? 'Edit Men\'s Product' : 'Add New Men\'s Product'}</span>
               </h3>
               <button
                 onClick={() => setIsAddProductOpen(false)}
@@ -597,7 +690,92 @@ export const AdminDashboardModal = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSaveProduct} className="space-y-3.5 text-xs">
+            <form onSubmit={handleSaveProduct} className="space-y-4 text-xs">
+              
+              {/* 1. DIRECT IMAGE UPLOAD SECTION */}
+              <div>
+                <label className="font-bold text-slate-800 block mb-1">
+                  Product Image * (Upload from PC)
+                </label>
+
+                {/* HIDDEN FILE INPUT */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                  className="hidden"
+                />
+
+                {/* IMAGE PREVIEW OR UPLOAD BUTTON */}
+                {imagePreview ? (
+                  <div className="relative border-2 border-slate-200 rounded-2xl p-3 bg-slate-50 flex items-center gap-4">
+                    <img
+                      src={imagePreview}
+                      alt="Product Preview"
+                      className="w-20 h-24 object-cover rounded-xl border border-slate-300 shadow-sm bg-white"
+                    />
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="font-bold text-slate-900 text-xs truncate">
+                        {selectedFile ? selectedFile.name : 'Current Image Loaded'}
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        {selectedFile ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB` : 'Saved in database'}
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-3 py-1 rounded-lg bg-slate-900 text-white font-bold text-[10px] hover:bg-black transition-colors"
+                        >
+                          Change Image
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRemoveImage}
+                          className="px-2 py-1 rounded-lg bg-rose-50 text-rose-600 font-bold text-[10px] hover:bg-rose-100 transition-colors"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* DROPZONE / CHOOSE FILE BUTTON */
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-300 hover:border-slate-800 rounded-2xl p-6 text-center bg-slate-50/70 hover:bg-slate-100/70 cursor-pointer transition-all space-y-2 group"
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center mx-auto text-xl group-hover:scale-110 transition-transform shadow-xs">
+                      📁
+                    </div>
+                    <div>
+                      <span className="font-black text-slate-900 text-xs uppercase tracking-wider block">
+                        Upload Image from PC
+                      </span>
+                      <span className="text-[11px] text-slate-500 block mt-0.5">
+                        Accepted: JPG, JPEG, PNG, WEBP • Max 5MB
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-xs pointer-events-none"
+                    >
+                      Browse Files
+                    </button>
+                  </div>
+                )}
+
+                {/* ERROR MESSAGE IF INVALID FILE */}
+                {fileError && (
+                  <div className="text-rose-600 font-bold text-[11px] mt-1.5 flex items-center gap-1">
+                    <span>⚠️</span>
+                    <span>{fileError}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. PRODUCT NAME */}
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Product Title *</label>
                 <input
@@ -610,6 +788,7 @@ export const AdminDashboardModal = () => {
                 />
               </div>
 
+              {/* 3. SUBCATEGORY & STOCK */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Subcategory *</label>
@@ -638,6 +817,7 @@ export const AdminDashboardModal = () => {
                 </div>
               </div>
 
+              {/* 4. PRICE & ORIGINAL PRICE */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Selling Price (₹) *</label>
@@ -665,32 +845,7 @@ export const AdminDashboardModal = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Image URL *</label>
-                <input
-                  type="url"
-                  required
-                  value={productForm.image}
-                  onChange={(e) => setProductForm({ ...productForm, image: e.target.value })}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 font-medium text-slate-900"
-                />
-              </div>
-
-              {productForm.image && (
-                <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50 border border-slate-200">
-                  <img
-                    src={productForm.image}
-                    alt="Preview"
-                    className="w-12 h-14 object-cover rounded-lg bg-slate-200"
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                  />
-                  <div className="text-[11px] text-slate-500 truncate">
-                    Image Preview Ready
-                  </div>
-                </div>
-              )}
-
+              {/* 5. SIZES */}
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Available Sizes (comma separated)</label>
                 <input
@@ -702,22 +857,32 @@ export const AdminDashboardModal = () => {
                 />
               </div>
 
+              {/* 6. DESCRIPTION */}
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Description</label>
                 <textarea
                   rows="2"
                   value={productForm.description}
                   onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                  placeholder="Details about 240 GSM French Terry fabric, relaxed drape..."
+                  placeholder="Details about 240+ GSM French Terry fabric, relaxed streetwear drape..."
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 font-medium text-slate-900"
                 ></textarea>
               </div>
 
+              {/* SUBMIT BUTTON */}
               <button
                 type="submit"
-                className="w-full py-3.5 rounded-xl bg-slate-900 hover:bg-black text-white font-extrabold uppercase tracking-wider text-xs shadow-md transition-all mt-2"
+                disabled={isSavingProduct}
+                className="w-full py-3.5 rounded-xl bg-slate-900 hover:bg-black text-white font-extrabold uppercase tracking-wider text-xs shadow-md transition-all mt-2 flex items-center justify-center gap-2 !min-h-[44px]"
               >
-                {editingProduct ? 'Save Changes ➔' : 'Add to Catalog ➔'}
+                {isSavingProduct ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    <span>Uploading & Saving Product...</span>
+                  </>
+                ) : (
+                  <span>{editingProduct ? 'Save Changes ➔' : 'Upload Image & Add Product ➔'}</span>
+                )}
               </button>
             </form>
 

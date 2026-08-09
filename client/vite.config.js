@@ -12,7 +12,19 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
-    host: true, // Listen on all local IP addresses (0.0.0.0) for seamless mobile testing
+    host: true, // Listen on 0.0.0.0 for mobile / LAN testing
     port: 3000,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+        secure: false
+      },
+      '/uploads': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+        secure: false
+      }
+    }
   }
 });

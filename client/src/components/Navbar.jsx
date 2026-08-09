@@ -11,9 +11,9 @@ export const Navbar = () => {
     setSearchQuery,
     setIsCartOpen,
     setIsWishlistOpen,
-    setIsAdminOpen,
     setIsAuthModalOpen,
-    setIsContactOpen,
+    setIsContactModalOpen,
+    setIsAboutModalOpen,
     user
   } = useShop();
 
@@ -23,7 +23,7 @@ export const Navbar = () => {
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const navCategories = [
-    { label: 'All Men', slug: 'All' },
+    { label: 'All Fits', slug: 'All' },
     { label: 'Oversized', slug: 'Oversized T-Shirts' },
     { label: 'Drop Shoulder', slug: 'Drop Shoulder T-Shirts' },
     { label: 'Polo', slug: 'Polo T-Shirts' },
@@ -51,26 +51,26 @@ export const Navbar = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-200 transition-all shadow-xs">
+    <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-200 transition-all shadow-2xs">
       
       {/* TOP ANNOUNCEMENT BAR */}
-      <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white text-[11px] font-bold tracking-wider uppercase py-2 px-3 sm:px-4 flex items-center justify-between">
+      <div className="bg-slate-900 text-white text-[11px] font-bold tracking-wider uppercase py-2 px-3 sm:px-6 flex items-center justify-between">
         <div className="flex items-center gap-2 truncate">
-          <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse"></span>
-          <span className="truncate">QUICKFIT MEN'S FASHION • OVERSIZED • DROP SHOULDER • POLO</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+          <span className="truncate">QUICKFIT LUXURY MENSWEAR • HEAVYWEIGHT COTTON STREETWEAR</span>
         </div>
-        <div className="flex items-center gap-4 flex-shrink-0">
+        <div className="flex items-center gap-4 flex-shrink-0 text-[10px] font-bold">
           <button
-            onClick={() => setIsContactOpen && setIsContactOpen(true)}
-            className="hidden sm:inline hover:text-orange-400 transition-colors text-[10px]"
+            onClick={() => setIsAboutModalOpen(true)}
+            className="hidden sm:inline text-slate-300 hover:text-white transition-colors"
           >
-            📞 Contact Us
+            About Us
           </button>
           <button
-            onClick={() => setIsAdminOpen(true)}
-            className="px-2.5 py-0.5 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-black tracking-wider uppercase transition-colors"
+            onClick={() => setIsContactModalOpen(true)}
+            className="text-slate-300 hover:text-white transition-colors"
           >
-            ⚡ Admin Dashboard
+            Contact Us
           </button>
         </div>
       </div>
@@ -87,14 +87,14 @@ export const Navbar = () => {
             }}
             className="cursor-pointer flex items-center gap-2.5 flex-shrink-0"
           >
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-black text-lg sm:text-xl shadow-md shadow-blue-500/20">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-lg shadow-sm">
               ⚡
             </div>
             <div>
               <span className="text-xl sm:text-2xl font-black font-heading tracking-tight text-slate-900">
                 QuickFit
               </span>
-              <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-sm bg-slate-900 text-white ml-1.5 tracking-wider hidden xs:inline">
+              <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-xs bg-slate-900 text-white ml-1.5 tracking-wider hidden xs:inline">
                 MEN
               </span>
             </div>
@@ -108,7 +108,7 @@ export const Navbar = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search oversized, drop shoulder, polo shirts..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                className="w-full pl-10 pr-4 py-2.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all"
               />
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
                 🔍
@@ -126,7 +126,7 @@ export const Navbar = () => {
                   onClick={() => handleCategorySelect(cat.slug)}
                   className={`px-3 py-1.5 rounded-full transition-all ${
                     isActive
-                      ? 'bg-slate-900 text-white font-extrabold shadow-sm'
+                      ? 'bg-slate-900 text-white font-extrabold shadow-xs'
                       : 'hover:bg-slate-100 hover:text-slate-900'
                   }`}
                 >
@@ -151,7 +151,7 @@ export const Navbar = () => {
             {/* AUTH / USER */}
             <button
               onClick={() => setIsAuthModalOpen(true)}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors !min-h-[40px]"
+              className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-slate-200 text-xs font-bold text-slate-800 hover:bg-slate-100 transition-colors !min-h-[40px]"
             >
               <span>👤</span>
               <span>{user ? user.name.split(' ')[0] : 'Sign In'}</span>
@@ -174,11 +174,11 @@ export const Navbar = () => {
             {/* BAG / CART */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="flex items-center gap-2 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-md shadow-blue-500/20 transition-all !min-h-[44px]"
+              className="flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full bg-slate-900 hover:bg-black text-white text-xs font-black shadow-md transition-all !min-h-[44px]"
             >
               <span>🛍️</span>
               <span>Bag</span>
-              <span className="w-5 h-5 rounded-full bg-white text-blue-600 text-[10px] font-black flex items-center justify-center">
+              <span className="w-5 h-5 rounded-full bg-white text-slate-900 text-[10px] font-black flex items-center justify-center">
                 {totalCartCount}
               </span>
             </button>
@@ -205,7 +205,7 @@ export const Navbar = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search oversized, drop shoulder, polo shirts..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                className="w-full pl-10 pr-4 py-2.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-slate-900 focus:bg-white"
                 autoFocus
               />
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
@@ -218,9 +218,9 @@ export const Navbar = () => {
 
       {/* MOBILE EXPANDED MENU */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden bg-white border-t border-slate-200 px-4 py-4 space-y-3 animate-in slide-in-from-top-2">
+        <div className="lg:hidden bg-white border-t border-slate-200 px-4 py-4 space-y-4 animate-in slide-in-from-top-2">
           <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-            Men's Categories
+            Men's Collections
           </div>
           <div className="grid grid-cols-2 gap-2">
             {navCategories.map((cat) => (
@@ -238,24 +238,36 @@ export const Navbar = () => {
             ))}
           </div>
 
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold">
+          <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs font-bold">
+            <button
+              onClick={() => {
+                setIsAboutModalOpen(true);
+                setIsMobileMenuOpen(false);
+              }}
+              className="py-2.5 px-3 rounded-xl bg-slate-100 text-slate-800 text-center"
+            >
+              About Us
+            </button>
+            <button
+              onClick={() => {
+                setIsContactModalOpen(true);
+                setIsMobileMenuOpen(false);
+              }}
+              className="py-2.5 px-3 rounded-xl bg-slate-100 text-slate-800 text-center"
+            >
+              Contact Us
+            </button>
+          </div>
+
+          <div className="pt-2">
             <button
               onClick={() => {
                 setIsAuthModalOpen(true);
                 setIsMobileMenuOpen(false);
               }}
-              className="text-blue-600 hover:underline"
+              className="w-full py-2.5 text-center text-xs font-bold text-blue-600 hover:underline"
             >
-              {user ? `Account: ${user.name}` : 'Sign In / Register'}
-            </button>
-            <button
-              onClick={() => {
-                setIsAdminOpen(true);
-                setIsMobileMenuOpen(false);
-              }}
-              className="text-orange-600 hover:underline"
-            >
-              Admin Dashboard ⚡
+              {user ? `Account: ${user.name}` : 'Sign In / Register Customer Account'}
             </button>
           </div>
         </div>

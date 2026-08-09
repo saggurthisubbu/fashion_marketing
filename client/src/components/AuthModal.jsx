@@ -29,7 +29,7 @@ export const AuthModal = () => {
         await loginUser(formData.email, formData.password);
         setIsAuthModalOpen(false);
       } else {
-        const res = await axios.post(`${API_BASE_URL}/auth/register`, {
+        await axios.post(`${API_BASE_URL}/auth/register`, {
           name: formData.name,
           email: formData.email,
           password: formData.password,
@@ -48,17 +48,22 @@ export const AuthModal = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 space-y-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/75 backdrop-blur-xs">
+      <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95">
         
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">⚡</span>
-            <h3 className="text-xl font-black font-heading text-slate-900">
+            <span className="text-xl">⚡</span>
+            <h3 className="text-lg font-black font-heading text-slate-900">
               {mode === 'login' ? 'Customer Sign In' : 'Create QuickFit Account'}
             </h3>
           </div>
-          <button onClick={() => setIsAuthModalOpen(false)} className="text-slate-400 font-bold hover:text-slate-600">✕</button>
+          <button
+            onClick={() => setIsAuthModalOpen(false)}
+            className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center hover:bg-slate-200"
+          >
+            ✕
+          </button>
         </div>
 
         {errorMsg && (
@@ -67,7 +72,7 @@ export const AuthModal = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
           {mode === 'register' && (
             <div>
               <label className="font-bold text-slate-700 block mb-1">Full Name</label>
@@ -77,7 +82,7 @@ export const AuthModal = () => {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="input-field"
-                placeholder="e.g. Subbu Saggurthi"
+                placeholder="e.g. Rahul Sharma"
               />
             </div>
           )}
@@ -90,7 +95,7 @@ export const AuthModal = () => {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="input-field"
-              placeholder="saggurthisubbu9@gmail.com"
+              placeholder="name@domain.com"
             />
           </div>
 
@@ -102,7 +107,7 @@ export const AuthModal = () => {
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               className="input-field"
-              placeholder="••••••••"
+              placeholder="••••••••••••"
             />
           </div>
 
@@ -115,7 +120,7 @@ export const AuthModal = () => {
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 className="input-field"
-                placeholder="7396629821"
+                placeholder="9876543210"
               />
             </div>
           )}
@@ -123,7 +128,7 @@ export const AuthModal = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold shadow-md transition-all mt-2"
+            className="w-full py-3.5 rounded-xl bg-slate-900 hover:bg-black text-white font-extrabold shadow-md transition-all mt-2 uppercase tracking-wider text-xs !min-h-[44px]"
           >
             {loading ? 'Processing...' : mode === 'login' ? 'Sign In ➔' : 'Register Account ➔'}
           </button>
@@ -133,14 +138,14 @@ export const AuthModal = () => {
           {mode === 'login' ? (
             <p className="text-slate-500">
               New to QuickFit?{' '}
-              <button onClick={() => setMode('register')} className="text-blue-600 font-bold hover:underline">
+              <button onClick={() => setMode('register')} className="text-slate-900 font-bold hover:underline">
                 Create an Account
               </button>
             </p>
           ) : (
             <p className="text-slate-500">
               Already have an account?{' '}
-              <button onClick={() => setMode('login')} className="text-blue-600 font-bold hover:underline">
+              <button onClick={() => setMode('login')} className="text-slate-900 font-bold hover:underline">
                 Sign In
               </button>
             </p>

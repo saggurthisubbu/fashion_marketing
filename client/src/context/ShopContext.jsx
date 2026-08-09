@@ -54,6 +54,7 @@ export const ShopProvider = ({ children }) => {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 
   // Last Generated Order
   const [lastOrder, setLastOrder] = useState(null);
@@ -294,6 +295,8 @@ export const ShopProvider = ({ children }) => {
         setIsContactOpen: setIsContactModalOpen,
         isContactModalOpen,
         setIsContactModalOpen,
+        isAboutModalOpen,
+        setIsAboutModalOpen,
         lastOrder,
         setLastOrder,
         addToCart,

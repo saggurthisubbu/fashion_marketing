@@ -1,84 +1,88 @@
-export const WHATSAPP_NUMBER = "917396629821";
-export const NOTIFICATION_EMAIL = "saggurthisubbu9@gmail.com";
+// QuickFit Official WhatsApp & Business Notification Service
+
+export const WHATSAPP_BUSINESS_PHONE = "917396629821";
+export const BUSINESS_SUPPORT_EMAIL = "support@quickfitmenswear.com";
 
 /**
- * Formats a single item WhatsApp direct order URL
+ * Formats standard QuickFit WhatsApp order message with customer details and GPS location
  */
-export const formatSingleProductWhatsApp = (product, selectedSize = "M", selectedColor = "") => {
-  const colorText = selectedColor ? ` | Color: ${selectedColor}` : "";
-  const message = `👋 Hi QuickFit Vijayawada! I want to order this item for 60-Minute Express Delivery:
+export const formatQuickFitWhatsAppOrder = ({
+  customerName = "Valued Customer",
+  customerPhone = "",
+  productName = "Men's Apparel",
+  size = "M",
+  quantity = 1,
+  price = 0,
+  address = "",
+  locationLink = "Not provided"
+}) => {
+  const message = `Hello QuickFit,
 
-🛍️ *Product:* ${product.name}
-🆔 *Product ID:* ${product.id}
-💰 *Price:* ₹${product.price} (Original: ₹${product.originalPrice})
-📏 *Size:* ${selectedSize}${colorText}
-🏬 *Boutique:* ${product.boutique}
-⚡ *Delivery:* ${product.expressDelivery}
+I would like to place an order.
 
-📍 *Location:* Vijayawada (Within 5 KM Radius)
+Name: ${customerName}
+Phone: ${customerPhone || 'Not specified'}
+Product: ${productName}
+Size: ${size}
+Quantity: ${quantity}
+Price: ₹${price}
 
-Please confirm availability and dispatch my express rider!`;
+Delivery Address:
+${address || 'Address to be confirmed on chat'}
 
-  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+Current Location:
+${locationLink}
+
+Please confirm availability.`;
+
+  return `https://wa.me/${WHATSAPP_BUSINESS_PHONE}?text=${encodeURIComponent(message)}`;
 };
 
 /**
- * Formats a full order WhatsApp checkout URL with Order ID
+ * Backward-compatible single product helper
+ */
+export const formatSingleProductWhatsApp = (product, selectedSize = "M") => {
+  return formatQuickFitWhatsAppOrder({
+    customerName: "Valued Customer",
+    productName: product?.name || "Men's Apparel",
+    size: selectedSize,
+    quantity: 1,
+    price: product?.price || 0,
+    address: "",
+    locationLink: "Not provided"
+  });
+};
+
+/**
+ * Formats multi-item bag WhatsApp checkout URL
  */
 export const formatFullOrderWhatsApp = (orderData) => {
-  const { orderId, customer, items, subtotal, discount, deliveryFee, grandTotal, paymentMethod } = orderData;
+  const { orderId, customer, items, grandTotal, paymentMethod, locationLink } = orderData;
 
-  let itemLines = items.map((item, idx) => {
+  const itemLines = items.map((item, idx) => {
     return `${idx + 1}. *${item.name}* (Size: ${item.selectedSize || "M"}${item.selectedColor ? `, Color: ${item.selectedColor}` : ""}) x ${item.quantity} = ₹${item.price * item.quantity}`;
   }).join("\n");
 
-  const message = `🎉 *NEW EXPRESS ORDER - QUICKFIT VIJAYAWADA* 🎉
+  const message = `Hello QuickFit,
 
-📋 *Order ID:* ${orderId}
-⚡ *Delivery Promise:* Within 60 Minutes
-
-👤 *Customer Details:*
-- *Name:* ${customer.fullName}
-- *Phone:* ${customer.phone}
-- *Email:* ${customer.email}
-- *Delivery Address:* ${customer.address}, ${customer.landmark}
-- *Pincode:* ${customer.pincode} (Vijayawada)
-
-🛒 *Ordered Items:*
-${itemLines}
-
-💵 *Payment Summary:*
-- Subtotal: ₹${subtotal}
-- Discount: -₹${discount}
-- Delivery Fee: ${deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}
-- *GRAND TOTAL:* ₹${grandTotal}
-- *Payment Mode:* ${paymentMethod}
-
-🚀 Please dispatch rider from nearest Vijayawada boutique!`;
-
-  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
-};
-
-/**
- * Pre-fills mailto URL for sending email notification to saggurthisubbu9@gmail.com
- */
-export const formatMailtoNotification = (orderData) => {
-  const { orderId, customer, items, grandTotal, paymentMethod } = orderData;
-  const subject = `[QuickFit Order] New 60-Min Express Order #${orderId} - ₹${grandTotal}`;
-  const body = `New QuickFit Order Details:
+I would like to place an order.
 
 Order ID: ${orderId}
-Customer Name: ${customer.fullName}
-Phone: ${customer.phone}
-Email: ${customer.email}
-Address: ${customer.address}, ${customer.landmark}, Vijayawada - ${customer.pincode}
-Payment Method: ${paymentMethod}
-Grand Total: ₹${grandTotal}
-
+Name: ${customer.fullName || customer.name || 'Valued Customer'}
+Phone: ${customer.phone || 'Not specified'}
 Items:
-${items.map(i => `- ${i.name} (Size: ${i.selectedSize || 'M'}) x ${i.quantity} = ₹${i.price * i.quantity}`).join('\n')}
+${itemLines}
 
-Delivered within 60 Minutes!`;
+Total Price: ₹${grandTotal}
+Payment Mode: ${paymentMethod}
 
-  return `mailto:${NOTIFICATION_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+Delivery Address:
+${customer.address || ''}, ${customer.area || ''} ${customer.pincode ? `- ${customer.pincode}` : ''}
+
+Current Location:
+${locationLink || customer.locationLink || 'Not provided'}
+
+Please confirm availability and dispatch my order.`;
+
+  return `https://wa.me/${WHATSAPP_BUSINESS_PHONE}?text=${encodeURIComponent(message)}`;
 };

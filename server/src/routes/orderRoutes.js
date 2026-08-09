@@ -10,7 +10,7 @@ const router = express.Router();
 // Create new order (Public or Customer)
 router.post('/', async (req, res) => {
   try {
-    const { customer, items, totalAmount, paymentMethod } = req.body;
+    const { customer, items, totalAmount, paymentMethod, locationLink } = req.body;
 
     if (!items || items.length === 0) {
       return res.status(400).json({ message: 'Cart is empty' });
@@ -55,13 +55,14 @@ router.post('/', async (req, res) => {
       items,
       totalAmount,
       paymentMethod,
+      locationLink: locationLink || '',
       deliveryStatus: 'Confirmed'
     });
 
     const createdOrder = await order.save();
 
     // 3. Update customer total orders if registered
-    if (customer.email) {
+    if (customer && customer.email) {
       const user = await User.findOne({ email: customer.email });
       if (user) {
         user.totalOrders += 1;
@@ -69,7 +70,7 @@ router.post('/', async (req, res) => {
       }
     }
 
-    // 4. Trigger Email notification to admin (saggurthisubbu9@gmail.com)
+    // 4. Trigger Email notification to admin (configured in env)
     sendEmailNotification(createdOrder);
 
     res.status(201).json(createdOrder);

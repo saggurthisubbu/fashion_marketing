@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ShopProvider, useShop } from './context/ShopContext';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
@@ -9,13 +9,13 @@ import { ProductDetailModal } from './components/ProductDetailModal';
 import { CartDrawer } from './components/CartDrawer';
 import { CheckoutModal } from './components/CheckoutModal';
 import { OrderConfirmationModal } from './components/OrderConfirmationModal';
-import { LiveTrackingModal } from './components/LiveTrackingModal';
 import { WishlistModal } from './components/WishlistModal';
 import { Testimonials } from './components/Testimonials';
 import { Footer } from './components/Footer';
 import { AdminDashboardModal } from './components/AdminDashboardModal';
 import { AuthModal } from './components/AuthModal';
 import { ContactModal } from './components/ContactModal';
+import { AboutModal } from './components/AboutModal';
 
 const ToastNotification = () => {
   const { toast } = useShop();
@@ -34,41 +34,69 @@ const ToastNotification = () => {
 };
 
 const MainApp = () => {
+  const { setIsAdminOpen } = useShop();
+
+  // Hidden /admin routing: Only opens when navigating to /admin, /#admin, or ?admin=true
+  useEffect(() => {
+    const checkAdminRoute = () => {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      const search = window.location.search.toLowerCase();
+      if (
+        path.startsWith('/admin') ||
+        hash === '#admin' ||
+        hash === '#/admin' ||
+        search.includes('admin=true') ||
+        search.includes('admin=1')
+      ) {
+        setIsAdminOpen(true);
+      }
+    };
+
+    checkAdminRoute();
+    window.addEventListener('popstate', checkAdminRoute);
+    window.addEventListener('hashchange', checkAdminRoute);
+    return () => {
+      window.removeEventListener('popstate', checkAdminRoute);
+      window.removeEventListener('hashchange', checkAdminRoute);
+    };
+  }, [setIsAdminOpen]);
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-blue-600 selection:text-white">
-      {/* STICKY NAVBAR */}
+    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-slate-900 selection:text-white">
+      {/* PUBLIC STICKY NAVBAR */}
       <Navbar />
 
       {/* HERO SECTION */}
       <Hero />
 
-      {/* FEATURES GRID */}
+      {/* 3-PILLAR QUALITY STANDARD */}
       <FeaturesGrid />
 
-      {/* CATEGORIES SECTION */}
+      {/* MEN'S CURATED CATEGORY HUBS */}
       <CategoriesSection />
 
-      {/* PRODUCT CATALOG & FILTERS */}
+      {/* PRODUCT CATALOG WITH 4-ANGLE GALLERY & FILTERS */}
       <ProductCatalog />
 
-      {/* REVIEWS & TESTIMONIALS */}
+      {/* REVIEWS */}
       <Testimonials />
 
       {/* FOOTER */}
       <Footer />
 
-      {/* MODALS & DRAWERS */}
+      {/* CUSTOMER MODALS & DRAWERS */}
       <ProductDetailModal />
       <CartDrawer />
       <CheckoutModal />
       <OrderConfirmationModal />
-      <LiveTrackingModal />
       <WishlistModal />
-
-      {/* NEW MODALS */}
-      <AdminDashboardModal />
       <AuthModal />
       <ContactModal />
+      <AboutModal />
+
+      {/* HIDDEN ADMIN DASHBOARD (ACCESSIBLE STRICTLY VIA /admin ROUTE) */}
+      <AdminDashboardModal />
 
       {/* TOAST NOTIFICATION */}
       <ToastNotification />

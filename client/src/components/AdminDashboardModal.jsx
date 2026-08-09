@@ -17,9 +17,9 @@ export const AdminDashboardModal = () => {
   const [activeTab, setActiveTab] = useState('overview'); // overview, products, orders, customers
   const [adminToken, setAdminToken] = useState(() => localStorage.getItem('quickfit_token') || '');
 
-  // Login Form State
-  const [loginEmail, setLoginEmail] = useState('saggurthisubbu9@gmail.com');
-  const [loginPassword, setLoginPassword] = useState('QuickFitAdmin@2026!');
+  // Login Form State (Empty initial values for security - credentials stored only in backend .env)
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   // Analytics Data
@@ -144,6 +144,13 @@ export const AdminDashboardModal = () => {
     }
   }, [isAdminOpen]);
 
+  const handleClose = () => {
+    setIsAdminOpen(false);
+    if (window.location.pathname.startsWith('/admin') || window.location.hash.includes('admin')) {
+      window.history.pushState({}, '', '/');
+    }
+  };
+
   if (!isAdminOpen) return null;
 
   // Handle Admin Login Submit
@@ -153,7 +160,7 @@ export const AdminDashboardModal = () => {
     try {
       const loggedUser = await loginUser(loginEmail, loginPassword);
       if (loggedUser.role !== 'admin') {
-        showToast('Access denied. This account is not an Administrator.', 'error');
+        showToast('Access denied. Administrator privileges required.', 'error');
         logoutUser();
         return;
       }
@@ -212,19 +219,16 @@ export const AdminDashboardModal = () => {
 
   // Swap / Reorder Angle Views
   const handleSwapAngles = (angleA, angleB) => {
-    // Swap URLs
     setImagesData(prev => ({
       ...prev,
       [angleA]: prev[angleB],
       [angleB]: prev[angleA]
     }));
-    // Swap Files
     setImageFiles(prev => ({
       ...prev,
       [angleA]: prev[angleB],
       [angleB]: prev[angleA]
     }));
-    // Swap Previews
     setImagePreviews(prev => ({
       ...prev,
       [angleA]: prev[angleB],
@@ -290,7 +294,7 @@ export const AdminDashboardModal = () => {
     try {
       const finalImages = { ...imagesData };
 
-      // 1. Upload any newly selected files for each angle
+      // Upload any newly selected files for each angle
       for (const angleKey of ['front', 'back', 'left', 'right']) {
         if (imageFiles[angleKey]) {
           const formData = new FormData();
@@ -394,7 +398,7 @@ export const AdminDashboardModal = () => {
         {/* TOP HEADER */}
         <div className="bg-slate-900 text-white px-4 sm:px-6 py-4 flex items-center justify-between border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center font-black text-xl shadow-lg">
+            <div className="w-10 h-10 rounded-xl bg-slate-800 text-white flex items-center justify-center font-black text-xl shadow-xs border border-slate-700">
               ⚡
             </div>
             <div>
@@ -402,7 +406,7 @@ export const AdminDashboardModal = () => {
                 QuickFit Admin Portal
               </h2>
               <p className="text-[11px] text-slate-400 font-medium">
-                4-Angle Product Gallery, Multi-Image Upload & Order Management • Vijayawada
+                4-Angle Product Gallery, Multi-Image Upload & Order Management
               </p>
             </div>
           </div>
@@ -417,8 +421,9 @@ export const AdminDashboardModal = () => {
               </button>
             )}
             <button
-              onClick={() => setIsAdminOpen(false)}
+              onClick={handleClose}
               className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center font-bold text-sm transition-colors"
+              title="Close Admin Panel"
             >
               ✕
             </button>
@@ -430,13 +435,13 @@ export const AdminDashboardModal = () => {
           <div className="p-6 sm:p-12 max-w-md mx-auto w-full my-auto space-y-6">
             <div className="text-center space-y-2">
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                RESTRICTED ACCESS
+                RESTRICTED PORTAL
               </span>
               <h3 className="text-2xl font-black text-slate-900 font-heading">
                 Admin Authentication
               </h3>
               <p className="text-xs text-slate-500">
-                Enter your administrative credentials to manage products and 4-angle image galleries.
+                Enter your administrative credentials to manage products, catalog inventory, and orders.
               </p>
             </div>
 
@@ -448,7 +453,8 @@ export const AdminDashboardModal = () => {
                   required
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-medium focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  placeholder="admin@quickfitmenswear.com"
+                  className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-medium focus:outline-hidden focus:ring-2 focus:ring-slate-900"
                 />
               </div>
 
@@ -459,7 +465,8 @@ export const AdminDashboardModal = () => {
                   required
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-medium focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  placeholder="••••••••••••"
+                  className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-medium focus:outline-hidden focus:ring-2 focus:ring-slate-900"
                 />
               </div>
 
@@ -505,29 +512,29 @@ export const AdminDashboardModal = () => {
               {activeTab === 'overview' && (
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                    <div className="p-4 sm:p-5 rounded-2xl bg-blue-50 border border-blue-100">
-                      <div className="text-xs font-bold text-blue-600 uppercase">Total Revenue</div>
+                    <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200">
+                      <div className="text-xs font-bold text-slate-600 uppercase">Total Revenue</div>
                       <div className="text-2xl sm:text-3xl font-black text-slate-900 font-heading mt-1">
                         ₹{analytics.totalRevenue || ordersList.reduce((sum, o) => sum + (o.total_amount || 0), 0)}
                       </div>
                     </div>
 
-                    <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50 border border-emerald-100">
-                      <div className="text-xs font-bold text-emerald-600 uppercase">Total Orders</div>
+                    <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200">
+                      <div className="text-xs font-bold text-slate-600 uppercase">Total Orders</div>
                       <div className="text-2xl sm:text-3xl font-black text-slate-900 font-heading mt-1">
                         {analytics.totalOrders || ordersList.length}
                       </div>
                     </div>
 
-                    <div className="p-4 sm:p-5 rounded-2xl bg-purple-50 border border-purple-100">
-                      <div className="text-xs font-bold text-purple-600 uppercase">Live Products</div>
+                    <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200">
+                      <div className="text-xs font-bold text-slate-600 uppercase">Live Products</div>
                       <div className="text-2xl sm:text-3xl font-black text-slate-900 font-heading mt-1">
                         {productsList.length}
                       </div>
                     </div>
 
-                    <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border border-amber-100">
-                      <div className="text-xs font-bold text-amber-600 uppercase">Low Stock Warnings</div>
+                    <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border border-amber-200">
+                      <div className="text-xs font-bold text-amber-700 uppercase">Low Stock Warnings</div>
                       <div className="text-2xl sm:text-3xl font-black text-slate-900 font-heading mt-1">
                         {analytics.lowStockCount || productsList.filter(p => p.stockQuantity <= 5).length}
                       </div>
@@ -917,7 +924,7 @@ export const AdminDashboardModal = () => {
                   value={productForm.name}
                   onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
                   placeholder="e.g. Heavy French Terry Oversized Tee"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900"
                 />
               </div>
 

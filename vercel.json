@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "buildCommand": "npm run build --prefix client",
+  "outputDirectory": "client/dist",
   "rewrites": [
     {
       "source": "/api/(.*)",
@@ -8,6 +10,10 @@
     {
       "source": "/uploads/(.*)",
       "destination": "/api/index.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }

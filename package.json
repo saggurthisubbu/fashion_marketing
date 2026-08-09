@@ -2,17 +2,30 @@
   "name": "quickfit-monorepo",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix client\" \"npm run dev --prefix server\"",
     "client": "npm run dev --prefix client",
     "server": "npm run dev --prefix server",
+    "build": "npm run build --prefix client",
     "build:client": "npm run build --prefix client",
-    "install:all": "npm install --prefix client && npm install --prefix server"
+    "start": "node server/src/server.js",
+    "install:all": "npm install && npm install --prefix client && npm install --prefix server"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
   },
   "dependencies": {
-    "mongodb": "^7.5.0"
+    "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.5.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^7.5.0",
+    "mongoose": "^8.9.5",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.10.0",
+    "razorpay": "^2.9.5"
   }
 }

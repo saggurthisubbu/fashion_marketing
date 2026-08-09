@@ -1,4 +1,12 @@
 import mongoose from 'mongoose';
+import dns from 'dns';
+
+// Resolve DNS SRV records reliably on Windows environments
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (dnsErr) {
+  // ignore
+}
 
 export const connectDB = async () => {
   const mongoUri = process.env.MONGODB_URI;
@@ -16,4 +24,3 @@ export const connectDB = async () => {
     // Do not crash server, allow fallback log
   }
 };
-

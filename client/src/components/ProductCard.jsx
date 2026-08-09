@@ -5,12 +5,14 @@ import { formatSingleProductWhatsApp } from '../utils/whatsapp';
 export const ProductCard = ({ product }) => {
   const { addToCart, toggleWishlist, isInWishlist, openProductDetail } = useShop();
 
-  const isSaved = isInWishlist(product.id);
+  const isSaved = isInWishlist(product.id || product._id);
+  const stock = product.stockQuantity !== undefined ? product.stockQuantity : 25;
+  const isOutOfStock = stock <= 0 || product.inStock === false;
 
   const handleWhatsAppOrder = (e) => {
     e.stopPropagation();
-    const defaultSize = product.sizes ? product.sizes[0] : 'M';
-    const defaultColor = product.colors ? product.colors[0].name : '';
+    const defaultSize = product.sizes && product.sizes.length > 0 ? product.sizes[0] : 'M';
+    const defaultColor = product.colors && product.colors.length > 0 ? (product.colors[0].name || 'Standard') : 'Standard';
     const url = formatSingleProductWhatsApp(product, defaultSize, defaultColor);
     window.open(url, '_blank');
   };
@@ -18,30 +20,22 @@ export const ProductCard = ({ product }) => {
   return (
     <div
       onClick={() => openProductDetail(product)}
-      className="group glass-card rounded-3xl overflow-hidden border border-slate-200/80 hover:border-blue-400/80 shadow-md hover:shadow-2xl transition-all duration-300 flex flex-col justify-between cursor-pointer relative"
+      className="group bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200 hover:border-slate-400 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between cursor-pointer relative"
     >
-      {/* IMAGE CONTAINER WITH HOVER ZOOM */}
+      {/* IMAGE CONTAINER WITH 3:4 ASPECT RATIO */}
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-100">
         <img
           src={product.image}
           alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
         />
 
         {/* DISCOUNT BADGE */}
         {product.discount && (
-          <div className="absolute top-3 left-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-[11px] font-black px-2.5 py-1 rounded-full shadow-md">
+          <div className="absolute top-2.5 left-2.5 bg-slate-900 text-white text-[9px] sm:text-[11px] font-black px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md shadow-xs uppercase tracking-wider">
             {product.discount}
           </div>
         )}
-
-        {/* EXPRESS 60 MIN BADGE */}
-        <div className="absolute bottom-3 left-3 glass-panel px-2.5 py-1 rounded-full border border-white/60 flex items-center gap-1.5 shadow-sm">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="text-[10px] font-extrabold text-slate-800 uppercase tracking-wider">
-            {product.expressDelivery}
-          </span>
-        </div>
 
         {/* WISHLIST BUTTON */}
         <button
@@ -49,84 +43,98 @@ export const ProductCard = ({ product }) => {
             e.stopPropagation();
             toggleWishlist(product);
           }}
-          className="absolute top-3 right-3 p-2 rounded-full bg-white/80 backdrop-blur-md border border-white/80 shadow-md hover:bg-white transition-transform active:scale-95"
+          className="absolute top-2.5 right-2.5 p-1.5 sm:p-2 rounded-full bg-white/90 backdrop-blur-xs border border-slate-200 text-slate-700 shadow-xs hover:bg-white transition-transform active:scale-90 !min-h-[36px] !min-w-[36px] flex items-center justify-center"
           title="Save to Wishlist"
         >
-          <svg className="w-4 h-4" fill={isSaved ? '#e11d48' : 'none'} viewBox="0 0 24 24" stroke={isSaved ? '#e11d48' : '#475569'}>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-          </svg>
+          <span className={`text-sm ${isSaved ? 'text-rose-500 font-bold' : 'text-slate-600'}`}>
+            {isSaved ? '♥' : '♡'}
+          </span>
         </button>
 
-        {/* QUICK VIEW OVERLAY TRIGGER */}
-        <div className="absolute inset-0 bg-slate-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-          <span className="bg-white/95 text-slate-900 text-xs font-bold px-4 py-2 rounded-full shadow-xl transform translate-y-2 group-hover:translate-y-0 transition-transform">
-            Quick View 👁️
-          </span>
+        {/* STOCK STATUS PILL */}
+        <div className="absolute bottom-2.5 left-2.5">
+          {isOutOfStock ? (
+            <span className="px-2 py-0.5 rounded-sm bg-slate-900/90 text-white text-[9px] font-bold uppercase tracking-wider">
+              Out of Stock
+            </span>
+          ) : stock <= 5 ? (
+            <span className="px-2 py-0.5 rounded-sm bg-amber-500 text-white text-[9px] font-bold uppercase tracking-wider">
+              Only {stock} Left
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded-sm bg-emerald-600 text-white text-[9px] font-bold uppercase tracking-wider">
+              In Stock
+            </span>
+          )}
         </div>
       </div>
 
       {/* CONTENT BODY */}
-      <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
+      <div className="p-3 sm:p-5 flex-1 flex flex-col justify-between space-y-2 sm:space-y-3">
         
         <div>
-          {/* BOUTIQUE & CATEGORY TAG */}
-          <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400 mb-1">
-            <span className="text-blue-600 font-bold">{product.category} • {product.subcategory}</span>
-            <span className="truncate max-w-[120px]" title={product.boutique}>{product.boutique.split(',')[0]}</span>
+          {/* CATEGORY */}
+          <div className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            {product.subcategory || product.category || "Men's Apparel"}
           </div>
 
           {/* TITLE */}
-          <h3 className="text-base font-bold text-slate-900 line-clamp-1 font-heading group-hover:text-blue-600 transition-colors">
+          <h3 className="text-xs sm:text-sm font-black text-slate-900 line-clamp-1 font-heading group-hover:text-blue-600 transition-colors uppercase mt-0.5">
             {product.name}
           </h3>
 
-          {/* RATING STARS */}
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <div className="flex text-amber-400">
-              {'★'.repeat(Math.floor(product.rating))}
+          {/* SIZES */}
+          {product.sizes && product.sizes.length > 0 && (
+            <div className="flex items-center gap-1 mt-1 overflow-hidden">
+              <span className="text-[9px] sm:text-[10px] text-slate-400 font-semibold uppercase">Sizes:</span>
+              <span className="text-[9px] sm:text-[10px] text-slate-700 font-bold truncate">
+                {product.sizes.join(', ')}
+              </span>
             </div>
-            <span className="text-xs font-bold text-slate-800">{product.rating}</span>
-            <span className="text-[11px] text-slate-400">({product.reviewsCount})</span>
-          </div>
+          )}
         </div>
 
-        {/* PRICING & ACTION BUTTONS */}
-        <div className="pt-2 border-t border-slate-100 space-y-3">
+        {/* PRICING & ACTIONS */}
+        <div className="pt-2 border-t border-slate-100 space-y-2">
           
           <div className="flex items-baseline justify-between">
-            <div className="flex items-baseline gap-2">
-              <span className="text-xl font-black text-slate-900 font-heading">₹{product.price}</span>
-              {product.originalPrice && (
-                <span className="text-xs text-slate-400 line-through">₹{product.originalPrice}</span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-base sm:text-lg font-black text-slate-900 font-heading">
+                ₹{product.price}
+              </span>
+              {product.originalPrice && product.originalPrice > product.price && (
+                <span className="text-[10px] sm:text-xs text-slate-400 line-through">
+                  ₹{product.originalPrice}
+                </span>
               )}
             </div>
-            <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-              IN STOCK
-            </span>
           </div>
 
-          {/* ACTION BUTTONS (ADD TO BAG & WHATSAPP) */}
-          <div className="grid grid-cols-2 gap-2 pt-1">
+          {/* BUTTONS */}
+          <div className="grid grid-cols-2 gap-1.5 pt-0.5">
             <button
+              disabled={isOutOfStock}
               onClick={(e) => {
                 e.stopPropagation();
-                addToCart(product);
+                const defaultSize = product.sizes && product.sizes.length > 0 ? product.sizes[0] : 'M';
+                addToCart(product, defaultSize);
               }}
-              className="px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-blue-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+              className={`py-2 px-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-colors flex items-center justify-center !min-h-[38px] ${
+                isOutOfStock
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  : 'bg-slate-900 hover:bg-black text-white shadow-xs'
+              }`}
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              <span>Add to Bag</span>
+              Add to Bag
             </button>
 
             <button
               onClick={handleWhatsAppOrder}
-              className="px-3 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm"
-              title="Instant WhatsApp Order"
+              className="py-2 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] sm:text-xs font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-1 shadow-xs !min-h-[38px]"
+              title="Order on WhatsApp"
             >
-              <span className="text-sm">💬</span>
-              <span>WhatsApp</span>
+              <span>💬</span>
+              <span className="hidden xs:inline">WhatsApp</span>
             </button>
           </div>
 

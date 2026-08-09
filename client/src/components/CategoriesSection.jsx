@@ -5,76 +5,74 @@ import { useShop } from '../context/ShopContext';
 export const CategoriesSection = () => {
   const { setSelectedCategory } = useShop();
 
-  const handleSelectCategory = (slug) => {
-    setSelectedCategory(slug);
-    const catalog = document.getElementById('catalog');
-    if (catalog) {
-      catalog.scrollIntoView({ behavior: 'smooth' });
+  const handleCategoryClick = (categorySlug) => {
+    setSelectedCategory(categorySlug);
+    const catalogElement = document.getElementById('catalog-section');
+    if (catalogElement) {
+      catalogElement.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
   return (
-    <section id="categories" className="py-20 bg-slate-50 relative overflow-hidden">
+    <section className="py-12 sm:py-16 bg-white border-y border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* SECTION HEADER */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12">
+        {/* HEADER */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 sm:mb-12">
           <div>
-            <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-extrabold tracking-wider uppercase">
-              CURATED COLLECTIONS
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 font-heading mt-2">
-              Explore 3D Category Hubs
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-900 text-xs font-black uppercase tracking-wider mb-2">
+              MEN'S APPAREL HUBS
+            </div>
+            <h2 className="text-2xl sm:text-4xl font-black font-heading text-slate-900 tracking-tight">
+              Men's Curated Collections
             </h2>
           </div>
-          <p className="text-slate-600 text-sm max-w-md mt-3 md:mt-0">
-            Browse high-demand Vijayawada boutique collections ready for 60-minute doorstep dispatch.
+          <p className="text-slate-500 text-xs sm:text-sm max-w-md mt-2 sm:mt-0">
+            Engineered heavyweight fabrics and modern streetwear fits crafted for everyday luxury.
           </p>
         </div>
 
-        {/* CATEGORIES GRID */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {/* 4 MEN'S CATEGORIES GRID */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
           {categoriesData.map((cat) => (
             <div
               key={cat.id}
-              onClick={() => handleSelectCategory(cat.slug)}
-              className="group relative h-72 rounded-3xl overflow-hidden glass-card cursor-pointer card-3d shadow-md hover:shadow-2xl transition-all duration-500"
+              onClick={() => handleCategoryClick(cat.slug)}
+              className="group relative overflow-hidden rounded-2xl sm:rounded-3xl cursor-pointer bg-slate-900 aspect-[3/4] shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
             >
-              {/* IMAGE BACKGROUND */}
+              {/* BACKGROUND IMAGE */}
               <img
                 src={cat.image}
                 alt={cat.name}
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 opacity-85 group-hover:opacity-95"
               />
 
-              {/* GRADIENT OVERLAY */}
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent"></div>
+              {/* DARK GRADIENT OVERLAY */}
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
 
-              {/* ITEM COUNT BADGE */}
-              <div className="absolute top-4 right-4 glass-panel px-3 py-1 rounded-full border border-white/40">
-                <span className="text-[10px] font-black text-slate-900">{cat.itemCount}</span>
+              {/* BADGE */}
+              <div className="absolute top-3 right-3 sm:top-4 sm:right-4">
+                <span className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[10px] sm:text-xs font-bold border border-white/20 shadow-sm">
+                  {cat.itemCount}
+                </span>
               </div>
 
-              {/* CARD DETAILS */}
-              <div className="absolute bottom-4 left-4 right-4 text-white space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-orange-400">
-                  60-MIN EXPRESS
+              {/* CARD INFO */}
+              <div className="absolute bottom-0 inset-x-0 p-4 sm:p-6 text-white space-y-1">
+                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-orange-400">
+                  MEN'S EDITION
                 </span>
-                <h3 className="text-2xl font-black font-heading text-white group-hover:text-blue-300 transition-colors">
+                <h3 className="text-base sm:text-xl font-black font-heading leading-tight">
                   {cat.name}
                 </h3>
-                <p className="text-xs text-slate-300 line-clamp-1">
+                <p className="text-slate-300 text-[11px] sm:text-xs line-clamp-1">
                   {cat.tagline}
                 </p>
-
-                <div className="pt-2 flex items-center gap-1 text-xs font-bold text-blue-400 group-hover:text-orange-400 transition-colors">
-                  <span>Shop Collection</span>
-                  <svg className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                  </svg>
+                <div className="pt-2 flex items-center gap-1.5 text-xs font-bold text-white group-hover:text-orange-400 transition-colors">
+                  <span>Explore Now</span>
+                  <span>→</span>
                 </div>
               </div>
-
             </div>
           ))}
         </div>

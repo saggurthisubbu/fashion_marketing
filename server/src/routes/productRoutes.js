@@ -19,7 +19,7 @@ router.get('/', async (req, res) => {
     if (search) {
       filter.$or = [
         { name: { $regex: search, $options: 'i' } },
-        { boutique: { $regex: search, $options: 'i' } },
+        { subcategory: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } }
       ];
     }
@@ -45,10 +45,37 @@ router.get('/:id', async (req, res) => {
 // Create product (Admin)
 router.post('/', protect, adminOnly, async (req, res) => {
   try {
-    const product = new Product(req.body);
+    const data = { ...req.body };
+
+    // Auto-calculate discount if originalPrice > price
+    if (data.price && data.originalPrice && Number(data.originalPrice) > Number(data.price)) {
+      const discountPercent = Math.round(((data.originalPrice - data.price) / data.originalPrice) * 100);
+      data.discount = `${discountPercent}% OFF`;
+    }
+
+    // Default category to Men
+    if (!data.category) data.category = 'Men';
+    if (!data.subcategory) data.subcategory = 'Oversized T-Shirts';
+
+    // Normalize sizes if string
+    if (typeof data.sizes === 'string') {
+      data.sizes = data.sizes.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    if (!data.sizes || data.sizes.length === 0) {
+      data.sizes = ['S', 'M', 'L', 'XL', 'XXL'];
+    }
+
+    // Fallback image if empty
+    if (!data.image) {
+      data.image = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop';
+    }
+
+    const product = new Product(data);
     const savedProduct = await product.save();
+    console.log(`✅ [Product Created]: "${savedProduct.name}" | ID: ${savedProduct._id}`);
     res.status(201).json(savedProduct);
   } catch (error) {
+    console.error('❌ [Product Creation Error]:', error.message);
     res.status(400).json({ message: error.message });
   }
 });

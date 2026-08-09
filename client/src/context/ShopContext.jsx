@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { productsData } from '../data/products';
 
@@ -9,18 +9,37 @@ const API_BASE_URL = 'http://localhost:5000/api';
 export const ShopProvider = ({ children }) => {
   // --- STATE MANAGEMENT ---
   const [products, setProducts] = useState(productsData);
-  const [cart, setCart] = useState([]);
-  const [wishlist, setWishlist] = useState([]);
+  const [cart, setCart] = useState(() => {
+    try {
+      const saved = localStorage.getItem('quickfit_cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [wishlist, setWishlist] = useState(() => {
+    try {
+      const saved = localStorage.getItem('quickfit_wishlist');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedSubcategory, setSelectedSubcategory] = useState('All');
-  const [sortBy, setSortBy] = useState('popular');
-  const [priceRange, setPriceRange] = useState(6000);
+  const [sortBy, setSortBy] = useState('newest');
 
   // User & Auth State
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('quickfit_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('quickfit_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
   const [token, setToken] = useState(() => localStorage.getItem('quickfit_token') || '');
 
@@ -52,23 +71,39 @@ export const ShopProvider = ({ children }) => {
     setTimeout(() => setToast(null), 3000);
   };
 
+  // Sync Cart & Wishlist to localStorage
+  useEffect(() => {
+    localStorage.setItem('quickfit_cart', JSON.stringify(cart));
+  }, [cart]);
+
+  useEffect(() => {
+    localStorage.setItem('quickfit_wishlist', JSON.stringify(wishlist));
+  }, [wishlist]);
+
   // --- FETCH PRODUCTS FROM BACKEND ---
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       const res = await axios.get(`${API_BASE_URL}/products`);
-      if (res.data && res.data.length > 0) {
+      if (Array.isArray(res.data) && res.data.length > 0) {
         // Normalize MongoDB _id to id for consistency
-        const normalized = res.data.map(p => ({ ...p, id: p._id || p.id }));
+        const normalized = res.data.map(p => ({
+          ...p,
+          id: p._id || p.id,
+          stockQuantity: p.stockQuantity !== undefined ? p.stockQuantity : 25
+        }));
         setProducts(normalized);
+      } else {
+        setProducts(productsData);
       }
     } catch (err) {
-      console.warn('[ShopContext]: Server connection offline, using fallback catalog data.');
+      console.warn('[ShopContext]: Server connection offline, using fallback catalog data.', err.message);
+      setProducts(productsData);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [fetchProducts]);
 
   // --- AUTHENTICATION FUNCTIONS ---
   const loginUser = async (email, password) => {
@@ -96,28 +131,38 @@ export const ShopProvider = ({ children }) => {
   };
 
   // --- CART FUNCTIONS ---
-  const addToCart = (product, size = 'M', color = '') => {
-    if (product.stockQuantity <= 0 || product.inStock === false) {
-      showToast(`Sorry! "${product.name}" is currently Out of Stock.`, 'error');
+  const addToCart = (product, size = 'M', color = 'Standard') => {
+    const stock = product.stockQuantity !== undefined ? product.stockQuantity : 25;
+    if (stock <= 0 || product.inStock === false) {
+      showToast(`"${product.name}" is Out of Stock.`, 'error');
       return;
     }
 
     setCart((prevCart) => {
       const existingIndex = prevCart.findIndex(
-        (item) => item.id === product.id && item.selectedSize === size && item.selectedColor === color
+        (item) => (item.id === product.id || item.id === product._id) && item.selectedSize === size && item.selectedColor === color
       );
       if (existingIndex > -1) {
         const updated = [...prevCart];
-        if (updated[existingIndex].quantity >= product.stockQuantity) {
-          showToast(`Cannot add more. Only ${product.stockQuantity} in stock.`, 'warning');
+        if (updated[existingIndex].quantity >= stock) {
+          showToast(`Only ${stock} in stock.`, 'warning');
           return prevCart;
         }
         updated[existingIndex].quantity += 1;
         return updated;
       }
-      return [...prevCart, { ...product, selectedSize: size, selectedColor: color, quantity: 1 }];
+      return [
+        ...prevCart,
+        {
+          ...product,
+          id: product.id || product._id,
+          selectedSize: size,
+          selectedColor: color,
+          quantity: 1
+        }
+      ];
     });
-    showToast(`Added "${product.name}" to cart! ⚡ Express 60-min delivery queued.`);
+    showToast(`Added "${product.name}" to Bag! 🛍️`);
   };
 
   const updateQuantity = (id, size, color, delta) => {
@@ -126,6 +171,11 @@ export const ShopProvider = ({ children }) => {
         .map((item) => {
           if (item.id === id && item.selectedSize === size && item.selectedColor === color) {
             const newQty = item.quantity + delta;
+            const stock = item.stockQuantity !== undefined ? item.stockQuantity : 99;
+            if (newQty > stock) {
+              showToast(`Only ${stock} in stock.`, 'warning');
+              return item;
+            }
             return newQty > 0 ? { ...item, quantity: newQty } : null;
           }
           return item;
@@ -135,23 +185,25 @@ export const ShopProvider = ({ children }) => {
   };
 
   const removeFromCart = (id, size, color) => {
-    setCart((prevCart) => prevCart.filter((item) => !(item.id === id && item.selectedSize === size && item.selectedColor === color)));
+    setCart((prevCart) =>
+      prevCart.filter((item) => !(item.id === id && item.selectedSize === size && item.selectedColor === color))
+    );
     showToast('Item removed from cart.', 'info');
   };
 
   const clearCart = () => {
     setCart([]);
     setAppliedPromo(null);
-    setPromoCode('');
   };
 
   // --- WISHLIST FUNCTIONS ---
   const toggleWishlist = (product) => {
+    const prodId = product.id || product._id;
     setWishlist((prev) => {
-      const exists = prev.some((item) => item.id === product.id);
+      const exists = prev.some((item) => (item.id || item._id) === prodId);
       if (exists) {
         showToast(`Removed "${product.name}" from Wishlist.`, 'info');
-        return prev.filter((item) => item.id !== product.id);
+        return prev.filter((item) => (item.id || item._id) !== prodId);
       } else {
         showToast(`Saved "${product.name}" to Wishlist! ❤️`);
         return [...prev, product];
@@ -159,46 +211,42 @@ export const ShopProvider = ({ children }) => {
     });
   };
 
-  const isInWishlist = (productId) => wishlist.some((item) => item.id === productId);
+  const isInWishlist = (productId) =>
+    wishlist.some((item) => item.id === productId || item._id === productId);
 
-  // --- PROMO CODE LOGIC ---
-  const applyPromoCode = (codeToApply) => {
-    const cleanCode = (codeToApply || promoCode).trim().toUpperCase();
-    if (cleanCode === 'QUICK10') {
-      setAppliedPromo({ code: 'QUICK10', discountPercent: 10, label: '10% OFF QuickFit Special' });
-      setPromoError('');
-      showToast('Promo code QUICK10 applied! 10% OFF');
-    } else if (cleanCode === 'VIJAYAWADA') {
-      setAppliedPromo({ code: 'VIJAYAWADA', discountPercent: 15, label: '15% OFF Vijayawada Express' });
-      setPromoError('');
-      showToast('Promo code VIJAYAWADA applied! 15% OFF');
-    } else if (cleanCode === 'EXPRESS50') {
-      setAppliedPromo({ code: 'EXPRESS50', discountFlat: 50, label: '₹50 Instant Discount' });
-      setPromoError('');
-      showToast('Promo code EXPRESS50 applied! ₹50 Instant Off');
+  // --- PROMO COUPON SYSTEM ---
+  const applyPromoCode = () => {
+    const code = promoCode.trim().toUpperCase();
+    setPromoError('');
+
+    if (!code) {
+      setPromoError('Please enter a coupon code.');
+      return;
+    }
+
+    if (code === 'QUICK60' || code === 'FIRSTFIT') {
+      const discount = code === 'QUICK60' ? 150 : 200;
+      setAppliedPromo({ code, discount, type: 'flat' });
+      showToast(`Promo "${code}" applied! ₹${discount} saved. 🎉`);
+      setPromoCode('');
     } else {
-      setPromoError('Invalid Promo Code. Try "QUICK10" or "VIJAYAWADA"');
-      setAppliedPromo(null);
+      setPromoError('Invalid coupon code. Try QUICK60');
     }
   };
 
-  // --- CALCULATIONS ---
+  const removePromo = () => {
+    setAppliedPromo(null);
+    showToast('Coupon removed.', 'info');
+  };
+
+  // --- TOTAL CALCULATIONS ---
   const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-  let discountAmount = 0;
-  if (appliedPromo) {
-    if (appliedPromo.discountPercent) {
-      discountAmount = Math.round((cartSubtotal * appliedPromo.discountPercent) / 100);
-    } else if (appliedPromo.discountFlat) {
-      discountAmount = Math.min(appliedPromo.discountFlat, cartSubtotal);
-    }
-  }
-
-  const deliveryFee = cartSubtotal >= 1999 || cartSubtotal === 0 ? 0 : 49;
-  const cartGrandTotal = Math.max(0, cartSubtotal - discountAmount + deliveryFee);
+  const discountAmount = appliedPromo ? appliedPromo.discount : 0;
+  const deliveryFee = cartSubtotal > 999 || cartSubtotal === 0 ? 0 : 49;
+  const cartGrandTotal = Math.max(0, cartSubtotal - discountAmount + (cart.length > 0 ? deliveryFee : 0));
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // --- QUICK VIEW MODAL ---
+  // Quick View Modal
   const openProductDetail = (product) => {
     setSelectedProduct(product);
     setIsDetailModalOpen(true);
@@ -224,8 +272,6 @@ export const ShopProvider = ({ children }) => {
         setSelectedSubcategory,
         sortBy,
         setSortBy,
-        priceRange,
-        setPriceRange,
         selectedProduct,
         setSelectedProduct,
         isDetailModalOpen,
@@ -244,21 +290,24 @@ export const ShopProvider = ({ children }) => {
         setIsAdminOpen,
         isAuthModalOpen,
         setIsAuthModalOpen,
+        isContactOpen: isContactModalOpen,
+        setIsContactOpen: setIsContactModalOpen,
         isContactModalOpen,
         setIsContactModalOpen,
         lastOrder,
         setLastOrder,
-        promoCode,
-        setPromoCode,
-        appliedPromo,
-        promoError,
-        applyPromoCode,
         addToCart,
         updateQuantity,
         removeFromCart,
         clearCart,
         toggleWishlist,
         isInWishlist,
+        promoCode,
+        setPromoCode,
+        appliedPromo,
+        promoError,
+        applyPromoCode,
+        removePromo,
         cartSubtotal,
         discountAmount,
         deliveryFee,

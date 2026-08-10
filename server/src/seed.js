@@ -190,6 +190,11 @@ const initialProducts = [
   }
 ];
 
+import { DeliveryPartner } from './models/DeliveryPartner.js';
+import { Category } from './models/Category.js';
+import { Setting } from './models/Setting.js';
+import { Notification } from './models/Notification.js';
+
 export const seedDatabase = async () => {
   try {
     const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/quickfit';
@@ -198,31 +203,32 @@ export const seedDatabase = async () => {
     }
     console.log('[MONGODB] Seeder connected to database.');
 
-    // 1. Seed/Update Admin User
-    const adminEmail = process.env.ADMIN_EMAIL || 'saggurthisubbu9@gmail.com';
-    const adminPhone = process.env.ADMIN_PHONE || '+91 7396629821';
-    const adminPassword = process.env.ADMIN_PASSWORD || 'QuickFitAdmin@2026!';
-
-    let admin = await User.findOne({ email: adminEmail });
+    // 1. Seed/Update Default Admin User (Admin ID: admin, Password: admin123)
+    const defaultAdminEmail = 'admin@quickfit.com';
+    let admin = await User.findOne({ $or: [{ adminId: 'admin' }, { email: defaultAdminEmail }, { email: 'saggurthisubbu9@gmail.com' }] });
+    
     if (!admin) {
       admin = new User({
         name: 'QuickFit Administrator',
-        email: adminEmail,
-        password: adminPassword,
-        phone: adminPhone,
+        email: defaultAdminEmail,
+        adminId: 'admin',
+        password: 'admin123',
+        phone: '+91 7396629821',
         role: 'admin',
         address: {
           street: 'Central Mall Boulevard',
-          area: 'Benz Circle, Vijayawada'
+          area: 'Benz Circle, Vijayawada',
+          city: 'Vijayawada'
         }
       });
       await admin.save();
-      console.log(`🔑 [Seeder]: Admin Created -> Email: ${adminEmail}`);
+      console.log('🔑 [Seeder]: Default Admin Created -> Admin ID: admin | Password: admin123');
     } else {
-      admin.password = adminPassword;
+      admin.adminId = 'admin';
       admin.role = 'admin';
+      admin.password = 'admin123';
       await admin.save();
-      console.log(`🔑 [Seeder]: Admin Verified -> Email: ${adminEmail}`);
+      console.log('🔑 [Seeder]: Admin Verified & Updated -> Admin ID: admin | Password: admin123');
     }
 
     // 2. Safe product seeding: ONLY seed defaults if the database has ZERO products
@@ -231,10 +237,144 @@ export const seedDatabase = async () => {
       await Product.insertMany(initialProducts);
       console.log(`🛍️ [Seeder]: Database was empty. Initialized with ${initialProducts.length} starter products.`);
     } else {
-      console.log(`🛍️ [Seeder]: Preserved ${productCount} existing products in MongoDB Atlas. No products deleted.`);
+      console.log(`🛍️ [Seeder]: Preserved ${productCount} existing products in database.`);
     }
 
-    console.log('✅ [Seeder]: Initialization complete.');
+    // 3. Seed Delivery Partners if empty
+    const partnerCount = await DeliveryPartner.countDocuments();
+    if (partnerCount === 0) {
+      await DeliveryPartner.insertMany([
+        {
+          name: 'Ravi Kumar (Quick Rider #1)',
+          phone: '+91 9848012345',
+          email: 'ravi.rider@quickfit.com',
+          vehicleNumber: 'AP 16 AB 1234',
+          vehicleType: 'Electric Bike',
+          status: 'Available',
+          zone: 'Benz Circle & MG Road',
+          activeOrdersCount: 0,
+          completedDeliveries: 142,
+          rating: 4.95
+        },
+        {
+          name: 'Suresh Varma (Express Rider #2)',
+          phone: '+91 9848056789',
+          email: 'suresh.rider@quickfit.com',
+          vehicleNumber: 'AP 16 CD 5678',
+          vehicleType: 'Bike',
+          status: 'On Delivery',
+          zone: 'Governorpet & Eluru Road',
+          activeOrdersCount: 1,
+          completedDeliveries: 98,
+          rating: 4.88
+        },
+        {
+          name: 'Sai Teja (Hyperlocal Rider #3)',
+          phone: '+91 9848099887',
+          email: 'saiteja.rider@quickfit.com',
+          vehicleNumber: 'AP 16 EF 9012',
+          vehicleType: 'Scooter',
+          status: 'Available',
+          zone: 'Labbipet & Bandal Road',
+          activeOrdersCount: 0,
+          completedDeliveries: 76,
+          rating: 4.92
+        }
+      ]);
+      console.log('🚚 [Seeder]: Initialized 3 QuickFit Delivery Partners.');
+    }
+
+    // 4. Seed Categories if empty
+    const categoryCount = await Category.countDocuments();
+    if (categoryCount === 0) {
+      await Category.insertMany([
+        {
+          name: 'Oversized T-Shirts',
+          slug: 'oversized-t-shirts',
+          description: '240+ GSM ultra-heavy boxy streetwear fits with drop seams.',
+          image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop',
+          subcategories: ['Heavyweight Boxy', 'Acid Wash', 'Raw Cotton'],
+          itemCount: 2,
+          isActive: true,
+          sortOrder: 1
+        },
+        {
+          name: 'Drop Shoulder T-Shirts',
+          slug: 'drop-shoulder-t-shirts',
+          description: 'Relaxed modern drape engineered for European streetwear silhouettes.',
+          image: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=1000&auto=format&fit=crop',
+          subcategories: ['Minimalist Monochrome', 'Signature Drop', 'Chalk Series'],
+          itemCount: 2,
+          isActive: true,
+          sortOrder: 2
+        },
+        {
+          name: 'Polo T-Shirts',
+          slug: 'polo-t-shirts',
+          description: 'Double mercerized Supima cotton pique luxury collars.',
+          image: 'https://images.unsplash.com/photo-1625910513413-5b8d2b96dc36?q=80&w=1000&auto=format&fit=crop',
+          subcategories: ['Luxury Pique', 'Textured Knit', 'Matte Finish'],
+          itemCount: 2,
+          isActive: true,
+          sortOrder: 3
+        },
+        {
+          name: 'Linen Shirts',
+          slug: 'linen-shirts',
+          description: '100% pure European breezy linen for ultimate breathable luxury.',
+          image: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?q=80&w=1000&auto=format&fit=crop',
+          subcategories: ['Pure White Classic', 'Sky Linen', 'Resort Collar'],
+          itemCount: 1,
+          isActive: true,
+          sortOrder: 4
+        }
+      ]);
+      console.log('🏷️ [Seeder]: Initialized 4 Master Apparel Categories.');
+    }
+
+    // 5. Seed Store Settings if empty
+    const settingsCount = await Setting.countDocuments();
+    if (settingsCount === 0) {
+      await Setting.create({
+        storeName: 'QuickFit Menswear Vijayawada',
+        contactEmail: 'admin@quickfit.com',
+        supportPhone: '+91 7396629821',
+        storeAddress: 'Benz Circle, MG Road, Vijayawada, Andhra Pradesh 520010',
+        currency: 'INR',
+        currencySymbol: '₹',
+        deliveryFee: 49,
+        freeDeliveryThreshold: 999,
+        lowStockThreshold: 10,
+        taxPercent: 5,
+        expressDeliveryTime: '45-60 Mins',
+        liveTrackingEnabled: true
+      });
+      console.log('⚙️ [Seeder]: Initialized Default Store Settings.');
+    }
+
+    // 6. Seed Sample Notifications if empty
+    const notificationCount = await Notification.countDocuments();
+    if (notificationCount === 0) {
+      await Notification.insertMany([
+        {
+          title: 'System Initialized',
+          message: 'QuickFit Admin Portal is fully connected and ready for express operations.',
+          type: 'system',
+          priority: 'low',
+          isRead: false
+        },
+        {
+          title: 'Inventory Alert',
+          message: 'Monochrome Chalk White Drop Shoulder Tee is running low (20 items left).',
+          type: 'inventory',
+          priority: 'medium',
+          isRead: false
+        }
+      ]);
+      console.log('🔔 [Seeder]: Initialized Starter Notifications.');
+    }
+
+    console.log('✅ [Seeder]: All Collections Verified & Initialized.');
   } catch (error) {
     console.error('❌ [Seeder Error]:', error.message);
   }

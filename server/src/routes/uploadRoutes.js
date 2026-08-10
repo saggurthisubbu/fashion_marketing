@@ -3,13 +3,30 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { v2 as cloudinary } from 'cloudinary';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-// Ensure uploads directory exists
+// Configure Cloudinary if credentials are provided in environment
+const hasCloudinary = Boolean(
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET
+);
+
+if (hasCloudinary) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_key_secret: process.env.CLOUDINARY_API_SECRET
+  });
+  console.log('☁️ [Upload]: Cloudinary integration initialized.');
+}
+
+// Ensure uploads directory exists for disk storage
 const uploadsDir = path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -52,7 +69,7 @@ const upload = multer({
 
 // POST /api/upload - Upload Single Image
 router.post('/', (req, res) => {
-  upload.single('image')(req, res, (err) => {
+  upload.single('image')(req, res, async (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({ message: 'File size exceeds 5MB limit. Please upload a smaller image.' });
@@ -66,21 +83,46 @@ router.post('/', (req, res) => {
       return res.status(400).json({ message: 'Please select an image file to upload.' });
     }
 
-    // Relative path is portable across localhost, mobile Wi-Fi, and production deployments
-    const relativePath = `/uploads/${req.file.filename}`;
+    try {
+      // 1. If Cloudinary credentials are configured, upload to Cloudinary
+      if (hasCloudinary) {
+        const uploadResult = await cloudinary.uploader.upload(req.file.path, {
+          folder: 'quickfit/products',
+          resource_type: 'image'
+        });
 
-    console.log(`[UPLOAD] Image saved successfully: ${req.file.filename} (${(req.file.size / 1024).toFixed(1)} KB) -> ${relativePath}`);
+        console.log(`[UPLOAD] Image uploaded to Cloudinary: ${uploadResult.secure_url}`);
 
-    res.status(200).json({
-      success: true,
-      message: 'Image uploaded successfully!',
-      filename: req.file.filename,
-      imageUrl: relativePath,
-      url: relativePath,
-      path: relativePath,
-      size: req.file.size,
-      mimetype: req.file.mimetype
-    });
+        return res.status(200).json({
+          success: true,
+          message: 'Image uploaded to Cloudinary successfully!',
+          filename: req.file.filename,
+          imageUrl: uploadResult.secure_url,
+          url: uploadResult.secure_url,
+          path: uploadResult.secure_url,
+          size: req.file.size,
+          mimetype: req.file.mimetype
+        });
+      }
+
+      // 2. Standard Local Disk Storage
+      const relativePath = `/uploads/${req.file.filename}`;
+      console.log(`[UPLOAD] Image saved successfully on local disk: ${req.file.filename} (${(req.file.size / 1024).toFixed(1)} KB) -> ${relativePath}`);
+
+      res.status(200).json({
+        success: true,
+        message: 'Image uploaded successfully!',
+        filename: req.file.filename,
+        imageUrl: relativePath,
+        url: relativePath,
+        path: relativePath,
+        size: req.file.size,
+        mimetype: req.file.mimetype
+      });
+    } catch (uploadErr) {
+      console.error('[UPLOAD ERROR]:', uploadErr.message);
+      res.status(500).json({ message: 'Failed to process image upload.' });
+    }
   });
 });
 

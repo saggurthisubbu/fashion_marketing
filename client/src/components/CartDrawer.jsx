@@ -1,5 +1,6 @@
 import React from 'react';
 import { useShop } from '../context/ShopContext';
+import { resolveImageUrl } from '../config/api';
 
 export const CartDrawer = () => {
   const {
@@ -28,29 +29,26 @@ export const CartDrawer = () => {
       {/* BACKDROP */}
       <div
         onClick={() => setIsCartOpen(false)}
-        className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm transition-opacity animate-in fade-in duration-300"
+        className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-300"
       ></div>
 
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
         
         {/* SLIDE OVER DRAWER */}
-        <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-300 border-l border-slate-100">
+        <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
           
           {/* HEADER */}
-          <div className="p-6 bg-slate-900 text-white flex items-center justify-between shadow-md">
+          <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center font-black text-sm">
-                🛍️
-              </div>
-              <div>
-                <h2 className="text-lg font-black font-heading text-white">Your Express Bag</h2>
-                <p className="text-xs text-slate-300">Vijayawada 60-Minute Doorstep Express</p>
-              </div>
+              <span className="text-xl">🛍️</span>
+              <h2 className="text-lg font-black text-slate-900 font-heading">
+                Shopping Bag ({cart.reduce((acc, item) => acc + item.quantity, 0)})
+              </h2>
             </div>
 
             <button
               onClick={() => setIsCartOpen(false)}
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold flex items-center justify-center transition-colors"
+              className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 flex items-center justify-center font-bold"
             >
               ✕
             </button>
@@ -66,8 +64,13 @@ export const CartDrawer = () => {
                 >
                   {/* THUMBNAIL */}
                   <img
-                    src={item.image}
+                    src={resolveImageUrl(item.image || item.images?.front)}
                     alt={item.name}
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = '/placeholder-product.jpg';
+                    }}
                     className="w-20 h-24 rounded-xl object-cover bg-slate-100 flex-shrink-0"
                   />
 

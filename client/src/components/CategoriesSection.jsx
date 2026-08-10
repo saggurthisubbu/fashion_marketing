@@ -3,7 +3,7 @@ import { categoriesData } from '../data/categories';
 import { useShop } from '../context/ShopContext';
 
 export const CategoriesSection = () => {
-  const { setSelectedCategory } = useShop();
+  const { setSelectedCategory, products } = useShop();
 
   const handleCategoryClick = (categorySlug) => {
     setSelectedCategory(categorySlug);
@@ -14,7 +14,7 @@ export const CategoriesSection = () => {
   };
 
   return (
-    <section className="py-12 sm:py-16 bg-white border-y border-slate-200">
+    <section id="categories-section" className="py-12 sm:py-16 bg-white border-y border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* HEADER */}
@@ -34,50 +34,58 @@ export const CategoriesSection = () => {
 
         {/* 4 MEN'S CATEGORIES GRID */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-          {categoriesData.map((cat) => (
-            <div
-              key={cat.id}
-              onClick={() => handleCategoryClick(cat.slug)}
-              className="group relative overflow-hidden rounded-2xl sm:rounded-3xl cursor-pointer bg-slate-900 aspect-[3/4] shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-            >
-              {/* BACKGROUND IMAGE */}
-              <img
-                src={cat.image}
-                alt={cat.name}
-                className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 opacity-85 group-hover:opacity-95"
-              />
+          {categoriesData.map((cat) => {
+            const count = products.filter(
+              p => p.subcategory === cat.slug || p.category === cat.slug || p.name?.toLowerCase().includes(cat.slug.toLowerCase())
+            ).length;
 
-              {/* DARK GRADIENT OVERLAY */}
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
+            return (
+              <div
+                key={cat.id}
+                onClick={() => handleCategoryClick(cat.slug)}
+                className="group relative overflow-hidden rounded-2xl sm:rounded-3xl cursor-pointer bg-slate-900 aspect-[3/4] shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+              >
+                {/* BACKGROUND IMAGE */}
+                <img
+                  src={cat.image}
+                  alt={cat.name}
+                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 opacity-85 group-hover:opacity-95"
+                />
 
-              {/* BADGE */}
-              <div className="absolute top-3 right-3 sm:top-4 sm:right-4">
-                <span className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[10px] sm:text-xs font-bold border border-white/20 shadow-sm">
-                  {cat.itemCount}
-                </span>
-              </div>
+                {/* DARK GRADIENT OVERLAY */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
 
-              {/* CARD INFO */}
-              <div className="absolute bottom-0 inset-x-0 p-4 sm:p-6 text-white space-y-1">
-                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-orange-400">
-                  MEN'S EDITION
-                </span>
-                <h3 className="text-base sm:text-xl font-black font-heading leading-tight">
-                  {cat.name}
-                </h3>
-                <p className="text-slate-300 text-[11px] sm:text-xs line-clamp-1">
-                  {cat.tagline}
-                </p>
-                <div className="pt-2 flex items-center gap-1.5 text-xs font-bold text-white group-hover:text-orange-400 transition-colors">
-                  <span>Explore Now</span>
-                  <span>→</span>
+                {/* BADGE */}
+                <div className="absolute top-3 right-3 sm:top-4 sm:right-4">
+                  <span className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[10px] sm:text-xs font-bold border border-white/20 shadow-sm">
+                    {count > 0 ? `${count} Items` : cat.itemCount}
+                  </span>
+                </div>
+
+                {/* CARD INFO */}
+                <div className="absolute bottom-0 inset-x-0 p-4 sm:p-6 text-white space-y-1">
+                  <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-orange-400">
+                    MEN'S EDITION
+                  </span>
+                  <h3 className="text-base sm:text-xl font-black font-heading leading-tight">
+                    {cat.name}
+                  </h3>
+                  <p className="text-slate-300 text-[11px] sm:text-xs line-clamp-1">
+                    {cat.tagline}
+                  </p>
+                  <div className="pt-2 flex items-center gap-1.5 text-xs font-bold text-white group-hover:text-orange-400 transition-colors">
+                    <span>Explore Now</span>
+                    <span>→</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
       </div>
     </section>
   );
 };
+
+export default CategoriesSection;

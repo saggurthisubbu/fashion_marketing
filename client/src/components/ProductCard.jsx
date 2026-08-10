@@ -1,6 +1,7 @@
 import React from 'react';
 import { useShop } from '../context/ShopContext';
 import { formatSingleProductWhatsApp } from '../utils/whatsapp';
+import { resolveImageUrl } from '../config/api';
 
 export const ProductCard = ({ product }) => {
   const { addToCart, toggleWishlist, isInWishlist, openProductDetail } = useShop();
@@ -9,9 +10,11 @@ export const ProductCard = ({ product }) => {
   const stock = product.stockQuantity !== undefined ? product.stockQuantity : 25;
   const isOutOfStock = stock <= 0 || product.inStock === false;
 
-  const frontImage = product.images?.front || product.image || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop';
-  const backImage = product.images?.back || frontImage;
-  const hasBackImage = Boolean(product.images?.back && product.images.back !== frontImage);
+  const rawFront = product.images?.front || product.image || product.images?.primary || '';
+  const rawBack = product.images?.back || '';
+  const frontImage = resolveImageUrl(rawFront);
+  const backImage = rawBack ? resolveImageUrl(rawBack) : frontImage;
+  const hasBackImage = Boolean(rawBack && rawBack !== rawFront);
 
   // Available angles count
   const angleCount = product.images
@@ -37,7 +40,13 @@ export const ProductCard = ({ product }) => {
         {/* FRONT VIEW (DEFAULT) */}
         <img
           src={frontImage}
-          alt={`${product.name} Front View`}
+          alt={product.name || "Product Image"}
+          loading="lazy"
+          onError={(e) => {
+            console.warn('[IMAGE ERROR] Failed to load image on ProductCard for:', product.name, '-> fallback to placeholder');
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = '/placeholder-product.jpg';
+          }}
           className={`w-full h-full object-cover transition-all duration-500 ease-out ${
             hasBackImage ? 'group-hover:opacity-0 group-hover:scale-105' : 'group-hover:scale-105'
           }`}
@@ -48,6 +57,11 @@ export const ProductCard = ({ product }) => {
           <img
             src={backImage}
             alt={`${product.name} Back View`}
+            loading="lazy"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = frontImage || '/placeholder-product.jpg';
+            }}
             className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500 ease-out"
           />
         )}

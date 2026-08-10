@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="600" height="800">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#18181b"/>
+      <stop offset="50%" stop-color="#09090b"/>
+      <stop offset="100%" stop-color="#18181b"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="800" fill="url(#bg)"/>
+  
+  <!-- Subtle Grid Pattern -->
+  <g opacity="0.05" stroke="#ffffff" stroke-width="1">
+    <line x1="100" y1="0" x2="100" y2="800"/>
+    <line x1="200" y1="0" x2="200" y2="800"/>
+    <line x1="300" y1="0" x2="300" y2="800"/>
+    <line x1="400" y1="0" x2="400" y2="800"/>
+    <line x1="500" y1="0" x2="500" y2="800"/>
+    <line x1="0" y1="150" x2="600" y2="150"/>
+    <line x1="0" y1="300" x2="600" y2="300"/>
+    <line x1="0" y1="450" x2="600" y2="450"/>
+    <line x1="0" y1="600" x2="600" y2="600"/>
+  </g>
+
+  <!-- Centered Luxury Emblem -->
+  <g transform="translate(300, 350)">
+    <!-- Outer Shield / Diamond -->
+    <rect x="-60" y="-60" width="120" height="120" rx="28" fill="#27272a" stroke="#3f3f46" stroke-width="2"/>
+    
+    <!-- T-Shirt / Apparel Icon -->
+    <path d="M-28 -24 L-14 -32 C-7 -26 7 -26 14 -32 L28 -24 L36 -8 L24 -4 L24 32 L-24 32 L-24 -4 L-36 -8 Z" fill="none" stroke="url(#accent)" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+    
+    <!-- Sparkle Accent -->
+    <circle cx="0" cy="-6" r="3" fill="#60a5fa"/>
+  </g>
+
+  <!-- Typography -->
+  <text x="300" y="470" text-anchor="middle" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="900" letter-spacing="3">QUICKFIT</text>
+  <text x="300" y="500" text-anchor="middle" fill="#71717a" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600" letter-spacing="1.5">PREMIUM MEN'S APPAREL</text>
+  
+  <rect x="250" y="530" width="100" height="26" rx="13" fill="#27272a" stroke="#3f3f46" stroke-width="1"/>
+  <text x="300" y="547" text-anchor="middle" fill="#a1a1aa" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="1">STUDIO PREVIEW</text>
+</svg>

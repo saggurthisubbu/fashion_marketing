@@ -35,12 +35,18 @@ const productSchema = new mongoose.Schema({
 
 // Auto-sync image and gallery before save
 productSchema.pre('save', function (next) {
+  const DEFAULT_IMG = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop';
+
   // Sync primary image
   if (this.images && this.images.front) {
     this.image = this.images.front;
   } else if (this.image && (!this.images || !this.images.front)) {
     if (!this.images) this.images = {};
     this.images.front = this.image;
+  } else {
+    this.image = DEFAULT_IMG;
+    if (!this.images) this.images = {};
+    this.images.front = DEFAULT_IMG;
   }
 
   // Populate gallery array

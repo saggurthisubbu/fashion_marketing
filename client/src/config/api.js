@@ -48,22 +48,40 @@ console.log('[API CONFIG] Environment:', isProd ? 'PRODUCTION' : 'DEVELOPMENT');
 console.log('[API CONFIG] Active Base URL:', API_BASE_URL);
 console.log('[API CONFIG] Active Origin:', API_ORIGIN);
 
+export const DEFAULT_PLACEHOLDER_IMAGE = '/placeholder-product.jpg';
+
 /**
- * Normalizes image URLs for cross-device compatibility across Localhost, Mobile, and Render.
+ * Normalizes image URLs for cross-device compatibility across Localhost, Mobile, Cloudinary, and Render.
  */
 export const resolveImageUrl = (imgUrl) => {
   if (!imgUrl || typeof imgUrl !== 'string' || imgUrl.trim() === '') {
-    return 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop';
+    return DEFAULT_PLACEHOLDER_IMAGE;
   }
 
   const trimmed = imgUrl.trim();
 
-  // If image URL is stored with /uploads/ (relative or with old host)
-  if (trimmed.includes('/uploads/')) {
-    const relativePart = '/uploads/' + trimmed.split('/uploads/')[1];
-    return `${API_ORIGIN}${relativePart}`;
+  // If already a valid absolute URL (Cloudinary, Unsplash, HTTPS CDN, or data URI)
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:image/')) {
+    // If it points to an old localhost:5000/uploads path, re-map to current API_ORIGIN
+    if (trimmed.includes('/uploads/')) {
+      const relativePart = '/uploads/' + trimmed.split('/uploads/')[1];
+      return `${API_ORIGIN}${relativePart}`;
+    }
+    return trimmed;
   }
 
-  // Direct external image URLs (e.g. Unsplash, Cloudinary)
-  return trimmed;
+  // If image URL is stored with /uploads/ (relative path from multer)
+  if (trimmed.startsWith('/uploads/') || trimmed.startsWith('uploads/')) {
+    const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return `${API_ORIGIN}${cleanPath}`;
+  }
+
+  // Fallback for root-relative paths like /placeholder-product.jpg
+  if (trimmed.startsWith('/')) {
+    return trimmed;
+  }
+
+  console.warn('[IMAGE DEBUG] Unrecognized image format, resolving with fallback:', imgUrl);
+  return `${API_ORIGIN}/${trimmed}`;
 };
+

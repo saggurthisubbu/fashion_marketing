@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useShop } from '../context/ShopContext';
 import { formatQuickFitWhatsAppOrder } from '../utils/whatsapp';
+import { resolveImageUrl } from '../config/api';
 
 export const ProductDetailModal = () => {
   const { selectedProduct, isDetailModalOpen, setIsDetailModalOpen, addToCart, showToast } = useShop();
@@ -25,12 +26,12 @@ export const ProductDetailModal = () => {
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
 
-  // Compute available 4-angle views
+  // Compute available 4-angle views with resolved URLs
   const angleViews = selectedProduct ? [
-    { key: 'front', label: 'Front View', badge: 'FRONT', url: selectedProduct.images?.front || selectedProduct.image },
-    { key: 'back', label: 'Back View', badge: 'BACK', url: selectedProduct.images?.back },
-    { key: 'left', label: 'Left Side View', badge: 'LEFT', url: selectedProduct.images?.left },
-    { key: 'right', label: 'Right Side View', badge: 'RIGHT', url: selectedProduct.images?.right }
+    { key: 'front', label: 'Front View', badge: 'FRONT', url: resolveImageUrl(selectedProduct.images?.front || selectedProduct.image) },
+    { key: 'back', label: 'Back View', badge: 'BACK', url: selectedProduct.images?.back ? resolveImageUrl(selectedProduct.images.back) : null },
+    { key: 'left', label: 'Left Side View', badge: 'LEFT', url: selectedProduct.images?.left ? resolveImageUrl(selectedProduct.images.left) : null },
+    { key: 'right', label: 'Right Side View', badge: 'RIGHT', url: selectedProduct.images?.right ? resolveImageUrl(selectedProduct.images.right) : null }
   ].filter(v => Boolean(v.url)) : [];
 
   // Reset state when selectedProduct changes
@@ -202,6 +203,12 @@ export const ProductDetailModal = () => {
             <img
               src={currentAngle.url}
               alt={`${selectedProduct.name} - ${currentAngle.label}`}
+              loading="lazy"
+              onError={(e) => {
+                console.warn('[IMAGE ERROR] Failed to load detail modal image for:', selectedProduct.name);
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = '/placeholder-product.jpg';
+              }}
               className="w-full h-full object-cover transition-transform duration-200 ease-out pointer-events-none"
               style={
                 isZoomed
@@ -293,6 +300,11 @@ export const ProductDetailModal = () => {
                       <img
                         src={angle.url}
                         alt={angle.label}
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = '/placeholder-product.jpg';
+                        }}
                         className="w-full h-full object-cover rounded-lg"
                       />
                       <div className={`absolute bottom-1 inset-x-1 py-0.5 rounded text-center text-[8px] sm:text-[9px] font-black uppercase tracking-wider ${

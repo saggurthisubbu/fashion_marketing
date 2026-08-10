@@ -24,12 +24,19 @@ const orderSchema = new mongoose.Schema({
   items: [orderItemSchema],
   totalAmount: { type: Number, required: true },
   paymentMethod: { type: String, enum: ['COD', 'UPI (GPay/PhonePe)', 'Razorpay'], default: 'COD' },
-  paymentStatus: { type: String, enum: ['Pending', 'Paid'], default: 'Pending' },
+  paymentStatus: { type: String, enum: ['Pending', 'Paid', 'Failed', 'Refunded'], default: 'Pending' },
   deliveryStatus: {
     type: String,
     enum: ['Pending', 'Confirmed', 'Packed', 'Out For Delivery', 'Delivered', 'Cancelled'],
-    default: 'Pending'
+    default: 'Confirmed'
   },
+  assignedPartner: {
+    id: { type: mongoose.Schema.Types.ObjectId, ref: 'DeliveryPartner' },
+    name: { type: String, default: '' },
+    phone: { type: String, default: '' },
+    vehicleNumber: { type: String, default: '' }
+  },
+  locationLink: { type: String, default: '' },
   deliveryEta: { type: String, default: '45 Mins' },
   orderDate: { type: Date, default: Date.now }
 }, { timestamps: true });

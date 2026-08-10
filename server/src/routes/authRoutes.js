@@ -42,13 +42,27 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Login (Customer or Admin)
+// Login (Customer or Admin - supports entering Admin ID e.g. 'admin' or Email)
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, identifier, adminId, password } = req.body;
+  const loginKey = (identifier || adminId || email || '').trim();
+
+  if (!loginKey || !password) {
+    return res.status(400).json({ message: 'Please provide Login ID/Email and Password' });
+  }
+
   try {
-    const user = await User.findOne({ email });
+    // Search user by email, adminId, or lowercase match
+    const user = await User.findOne({
+      $or: [
+        { email: { $regex: new RegExp(`^${loginKey}$`, 'i') } },
+        { adminId: { $regex: new RegExp(`^${loginKey}$`, 'i') } },
+        { name: { $regex: new RegExp(`^${loginKey}$`, 'i') } }
+      ]
+    });
+
     if (!user) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid Admin ID / Email or Password' });
     }
 
     if (user.isBlocked) {
@@ -57,13 +71,14 @@ router.post('/login', async (req, res) => {
 
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid Admin ID / Email or Password' });
     }
 
     res.json({
       _id: user._id,
       name: user.name,
       email: user.email,
+      adminId: user.adminId || (user.role === 'admin' ? 'admin' : undefined),
       phone: user.phone,
       role: user.role,
       token: generateToken(user._id)

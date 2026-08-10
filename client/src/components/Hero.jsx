@@ -1,8 +1,10 @@
 import React from 'react';
 import { useShop } from '../context/ShopContext';
+import { resolveImageUrl } from '../config/api';
 
 export const Hero = () => {
-  const { setSelectedCategory } = useShop();
+  const { setSelectedCategory, products, openProductDetail } = useShop();
+  const featuredProduct = products.length > 0 ? products[0] : null;
 
   const handleShopNow = () => {
     setSelectedCategory('All');
@@ -18,6 +20,10 @@ export const Hero = () => {
       categories.scrollIntoView({ behavior: 'smooth' });
     }
   };
+
+  const heroImageSrc = resolveImageUrl(
+    featuredProduct?.images?.front || featuredProduct?.image || "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop"
+  );
 
   return (
     <section className="relative overflow-hidden pt-8 pb-16 lg:pt-16 lg:pb-24 bg-gradient-to-b from-slate-50 via-slate-100/60 to-white">
@@ -86,10 +92,18 @@ export const Hero = () => {
 
           {/* RIGHT COLUMN - HERO IMAGE CARD */}
           <div className="lg:col-span-5 flex justify-center">
-            <div className="relative w-full max-w-sm sm:max-w-md aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl border border-slate-200 group">
+            <div
+              onClick={() => featuredProduct && openProductDetail(featuredProduct)}
+              className="relative w-full max-w-sm sm:max-w-md aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl border border-slate-200 group cursor-pointer"
+            >
               <img
-                src="https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop"
-                alt="QuickFit Men's Streetwear"
+                src={heroImageSrc}
+                alt={featuredProduct?.name || "QuickFit Men's Streetwear"}
+                loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = '/placeholder-product.jpg';
+                }}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               />
 
@@ -97,11 +111,17 @@ export const Hero = () => {
 
               <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-slate-100 flex items-center justify-between text-slate-900">
                 <div>
-                  <span className="text-[10px] font-black uppercase text-orange-600 tracking-wider">Heavy French Terry</span>
-                  <h3 className="text-xs sm:text-sm font-black uppercase">Monochrome Boxy Oversized Tee</h3>
+                  <span className="text-[10px] font-black uppercase text-orange-600 tracking-wider">
+                    {featuredProduct?.subcategory || "Heavy French Terry"}
+                  </span>
+                  <h3 className="text-xs sm:text-sm font-black uppercase line-clamp-1">
+                    {featuredProduct?.name || "Monochrome Boxy Oversized Tee"}
+                  </h3>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm sm:text-base font-black text-slate-900">₹1,499</div>
+                <div className="text-right shrink-0 ml-2">
+                  <div className="text-sm sm:text-base font-black text-slate-900">
+                    ₹{featuredProduct?.price || 1499}
+                  </div>
                 </div>
               </div>
             </div>

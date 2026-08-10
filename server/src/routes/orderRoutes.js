@@ -2,6 +2,7 @@ import express from 'express';
 import { Order } from '../models/Order.js';
 import { Product } from '../models/Product.js';
 import { User } from '../models/User.js';
+import { Notification } from '../models/Notification.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import { sendEmailNotification } from '../utils/notifications.js';
 
@@ -72,6 +73,19 @@ router.post('/', async (req, res) => {
 
     // 4. Trigger Email notification to admin (configured in env)
     sendEmailNotification(createdOrder);
+
+    // 5. In-App Admin Notification
+    try {
+      await Notification.create({
+        title: `New Order #${createdOrder.orderId}`,
+        message: `${createdOrder.customer.name} ordered ${createdOrder.items.length} items (₹${createdOrder.totalAmount}) via ${createdOrder.paymentMethod}.`,
+        type: 'order',
+        orderId: createdOrder.orderId,
+        priority: 'high'
+      });
+    } catch (notifErr) {
+      console.warn('Could not create in-app notification:', notifErr.message);
+    }
 
     res.status(201).json(createdOrder);
   } catch (error) {

@@ -22,7 +22,7 @@ export const categoriesData = [
     name: "Polo T-Shirts",
     tagline: "Double-Mercerized Luxury Pique Knits",
     itemCount: "Structured Fit",
-    image: "https://images.unsplash.com/photo-1625910513413-5b8d2b96dc36?q=80&w=800&auto=format&fit=crop",
+    image: "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=80&w=800&auto=format&fit=crop",
     gradient: "from-neutral-900 to-zinc-900",
     slug: "Polo T-Shirts"
   },

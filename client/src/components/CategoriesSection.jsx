@@ -49,6 +49,11 @@ export const CategoriesSection = () => {
                 <img
                   src={cat.image}
                   alt={cat.name}
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = '/placeholder-product.jpg';
+                  }}
                   className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 opacity-85 group-hover:opacity-95"
                 />
 

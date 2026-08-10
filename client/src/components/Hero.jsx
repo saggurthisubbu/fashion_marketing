@@ -15,9 +15,9 @@ export const Hero = () => {
   };
 
   const handleExplore = () => {
-    const categories = document.getElementById('categories-section');
-    if (categories) {
-      categories.scrollIntoView({ behavior: 'smooth' });
+    const catalog = document.getElementById('catalog-section');
+    if (catalog) {
+      catalog.scrollIntoView({ behavior: 'smooth' });
     }
   };
 

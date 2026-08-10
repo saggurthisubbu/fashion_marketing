@@ -3,7 +3,6 @@ import { ShopProvider, useShop } from './context/ShopContext';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { FeaturesGrid } from './components/FeaturesGrid';
-import { CategoriesSection } from './components/CategoriesSection';
 import { ProductCatalog } from './components/ProductCatalog';
 import { ProductDetailModal } from './components/ProductDetailModal';
 import { CartDrawer } from './components/CartDrawer';
@@ -72,9 +71,6 @@ const MainApp = () => {
 
       {/* 3-PILLAR QUALITY STANDARD */}
       <FeaturesGrid />
-
-      {/* MEN'S CURATED CATEGORY HUBS */}
-      <CategoriesSection />
 
       {/* PRODUCT CATALOG WITH 4-ANGLE GALLERY & FILTERS */}
       <ProductCatalog />

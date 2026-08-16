@@ -13,7 +13,7 @@ import {
   Eye,
   AlertCircle
 } from 'lucide-react';
-import { resolveImageUrl } from '../../../config/api';
+import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../../../config/api';
 
 export const AdminProductsTab = ({
   productsList = [],
@@ -28,9 +28,16 @@ export const AdminProductsTab = ({
   const [selectedSubcategory, setSelectedSubcategory] = useState('All');
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
 
-  const filteredProducts = productsList.filter((prod) => {
-    const matchesCategory = selectedCategory === 'All' || prod.category === selectedCategory;
-    const matchesSub = selectedSubcategory === 'All' || prod.subcategory === selectedSubcategory;
+  const filteredProducts = (productsList || []).filter((prod) => {
+    if (!prod) return false;
+    const prodCategory = (prod.category || '').trim().toLowerCase();
+    const filterCategory = selectedCategory.trim().toLowerCase();
+    const matchesCategory = selectedCategory === 'All' || prodCategory === filterCategory;
+
+    const prodSub = (prod.subcategory || '').trim().toLowerCase();
+    const filterSub = selectedSubcategory.trim().toLowerCase();
+    const matchesSub = selectedSubcategory === 'All' || prodSub === filterSub;
+
     const query = searchTerm.toLowerCase().trim();
     if (!query) return matchesCategory && matchesSub;
 
@@ -159,7 +166,7 @@ export const AdminProductsTab = ({
                             loading="lazy"
                             onError={(e) => {
                               e.currentTarget.onerror = null;
-                              e.currentTarget.src = '/placeholder-product.jpg';
+                              e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
                             }}
                             className="w-12 h-16 object-cover rounded-xl border border-zinc-800 bg-zinc-950 shadow-sm"
                           />
@@ -285,7 +292,7 @@ export const AdminProductsTab = ({
                     loading="lazy"
                     onError={(e) => {
                       e.currentTarget.onerror = null;
-                      e.currentTarget.src = '/placeholder-product.jpg';
+                      e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
                     }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />

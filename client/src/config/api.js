@@ -23,22 +23,16 @@ const computeApiUrl = () => {
   if (typeof window !== 'undefined') {
     const { hostname } = window.location;
 
-    // IN LOCALHOST DEVELOPMENT ONLY
-    if (!isProd && (hostname === 'localhost' || hostname === '127.0.0.1')) {
-      return 'http://localhost:5000/api';
-    }
-
-    // Local mobile phone testing on Wi-Fi (e.g. 192.168.x.x) during local dev
-    if (!isProd && /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) {
+    // Local development/testing fallback
+    if (!isProd && (hostname === 'localhost' || hostname === '127.0.0.1' || /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname))) {
       return `http://${hostname}:5000/api`;
     }
 
-    // PRODUCTION BUILD / DEPLOYED DOMAIN (Vercel, custom domain, etc.)
-    // Single source of truth backend is deployed on Render
+    // Default to Live Render MongoDB Atlas Backend
     return PRODUCTION_RENDER_API;
   }
 
-  return isProd ? PRODUCTION_RENDER_API : 'http://localhost:5000/api';
+  return PRODUCTION_RENDER_API;
 };
 
 export const API_BASE_URL = computeApiUrl();
@@ -48,10 +42,11 @@ console.log('[API CONFIG] Environment:', isProd ? 'PRODUCTION' : 'DEVELOPMENT');
 console.log('[API CONFIG] Active Base URL:', API_BASE_URL);
 console.log('[API CONFIG] Active Origin:', API_ORIGIN);
 
-export const DEFAULT_PLACEHOLDER_IMAGE = '/placeholder-product.jpg';
+export const DEFAULT_PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 800' width='600' height='800'%3E%3Cdefs%3E%3ClinearGradient id='bg' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2318181b'/%3E%3Cstop offset='100%25' stop-color='%2309090b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='600' height='800' fill='url(%23bg)'/%3E%3Ctext x='300' y='380' text-anchor='middle' fill='%23ffffff' font-family='system-ui, sans-serif' font-size='22' font-weight='900' letter-spacing='2'%3EQUICKFIT%3C/text%3E%3Ctext x='300' y='420' text-anchor='middle' fill='%2371717a' font-family='system-ui, sans-serif' font-size='13' font-weight='600' letter-spacing='1'%3EPREMIUM APPAREL%3C/text%3E%3C/svg%3E";
 
 /**
  * Normalizes image URLs for cross-device compatibility across Localhost, Mobile, Cloudinary, and Render.
+ * Supports Blob URLs, Base64 Data URIs, Cloudinary HTTPS URLs, Relative Multer Paths, and Root Assets.
  */
 export const resolveImageUrl = (imgUrl) => {
   if (!imgUrl || typeof imgUrl !== 'string' || imgUrl.trim() === '') {
@@ -60,9 +55,19 @@ export const resolveImageUrl = (imgUrl) => {
 
   const trimmed = imgUrl.trim();
 
-  // If already a valid absolute URL (Cloudinary, Unsplash, HTTPS CDN, or data URI)
-  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:image/')) {
-    // If it points to an old localhost:5000/uploads path, re-map to current API_ORIGIN
+  // 1. Direct Blob URL (from URL.createObjectURL during admin upload preview)
+  if (trimmed.startsWith('blob:')) {
+    return trimmed;
+  }
+
+  // 2. Direct Base64 Data URI (from FileReader during instant preview)
+  if (trimmed.startsWith('data:image/')) {
+    return trimmed;
+  }
+
+  // 3. Absolute URL (Cloudinary, Unsplash, external CDN)
+  if (/^https?:\/\//i.test(trimmed)) {
+    // If it points to an old localhost:5000/uploads path on mobile/production, re-map to current API_ORIGIN
     if (trimmed.includes('/uploads/')) {
       const relativePart = '/uploads/' + trimmed.split('/uploads/')[1];
       return `${API_ORIGIN}${relativePart}`;
@@ -70,18 +75,17 @@ export const resolveImageUrl = (imgUrl) => {
     return trimmed;
   }
 
-  // If image URL is stored with /uploads/ (relative path from multer)
+  // 4. Relative backend upload path (e.g., /uploads/image.jpg or uploads/image.jpg)
   if (trimmed.startsWith('/uploads/') || trimmed.startsWith('uploads/')) {
     const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
     return `${API_ORIGIN}${cleanPath}`;
   }
 
-  // Fallback for root-relative paths like /placeholder-product.jpg
+  // 5. Root asset path (e.g. /placeholder-product.svg)
   if (trimmed.startsWith('/')) {
     return trimmed;
   }
 
-  console.warn('[IMAGE DEBUG] Unrecognized image format, resolving with fallback:', imgUrl);
+  // 6. Generic relative path fallback
   return `${API_ORIGIN}/${trimmed}`;
 };
-

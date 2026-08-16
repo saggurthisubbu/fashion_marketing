@@ -1,6 +1,6 @@
 import React from 'react';
 import { useShop } from '../context/ShopContext';
-import { resolveImageUrl } from '../config/api';
+import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 
 export const WishlistModal = () => {
   const { wishlist, isWishlistOpen, setIsWishlistOpen, toggleWishlist, addToCart } = useShop();
@@ -55,7 +55,7 @@ export const WishlistModal = () => {
                     loading="lazy"
                     onError={(e) => {
                       e.currentTarget.onerror = null;
-                      e.currentTarget.src = '/placeholder-product.jpg';
+                      e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
                     }}
                     className="w-20 h-24 rounded-xl object-cover bg-slate-100 flex-shrink-0"
                   />

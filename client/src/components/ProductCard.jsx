@@ -1,7 +1,7 @@
 import React from 'react';
 import { useShop } from '../context/ShopContext';
 import { formatSingleProductWhatsApp } from '../utils/whatsapp';
-import { resolveImageUrl } from '../config/api';
+import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 
 export const ProductCard = ({ product }) => {
   const { addToCart, toggleWishlist, isInWishlist, openProductDetail } = useShop();
@@ -45,7 +45,7 @@ export const ProductCard = ({ product }) => {
           onError={(e) => {
             console.warn('[IMAGE ERROR] Failed to load image on ProductCard for:', product.name, '-> fallback to placeholder');
             e.currentTarget.onerror = null;
-            e.currentTarget.src = '/placeholder-product.jpg';
+            e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
           }}
           className={`w-full h-full object-cover transition-all duration-500 ease-out ${
             hasBackImage ? 'group-hover:opacity-0 group-hover:scale-105' : 'group-hover:scale-105'
@@ -60,7 +60,7 @@ export const ProductCard = ({ product }) => {
             loading="lazy"
             onError={(e) => {
               e.currentTarget.onerror = null;
-              e.currentTarget.src = frontImage || '/placeholder-product.jpg';
+              e.currentTarget.src = frontImage || DEFAULT_PLACEHOLDER_IMAGE;
             }}
             className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500 ease-out"
           />

@@ -38,7 +38,16 @@ const orderSchema = new mongoose.Schema({
   },
   locationLink: { type: String, default: '' },
   deliveryEta: { type: String, default: '45 Mins' },
-  orderDate: { type: Date, default: Date.now }
+  orderDate: { type: Date, default: Date.now },
+  customerLocation: {
+    lat: { type: Number, default: null },
+    lng: { type: Number, default: null }
+  },
+  assignedStore: {
+    id: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null },
+    name: { type: String, default: '' },
+    distanceKm: { type: Number, default: null }
+  }
 }, { timestamps: true });
 
 export const Order = mongoose.model('Order', orderSchema);

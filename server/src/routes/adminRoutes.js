@@ -7,6 +7,7 @@ import { DeliveryPartner } from '../models/DeliveryPartner.js';
 import { Category } from '../models/Category.js';
 import { Setting } from '../models/Setting.js';
 import { Notification } from '../models/Notification.js';
+import { Store } from '../models/Store.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -570,6 +571,78 @@ router.put('/change-password', protect, adminOnly, async (req, res) => {
     admin.password = newPassword;
     await admin.save();
     res.json({ message: 'Admin password updated successfully!' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==========================================
+// STORE MANAGEMENT (ADMIN CRUD)
+// ==========================================
+
+// GET all stores (admin)
+router.get('/stores', protect, adminOnly, async (req, res) => {
+  try {
+    const stores = await Store.find({}).sort({ createdAt: -1 });
+    res.json(stores);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// POST create store (admin)
+router.post('/stores', protect, adminOnly, async (req, res) => {
+  try {
+    const { name, address, contactNumber, location, deliveryRadiusKm, status } = req.body;
+
+    if (!name || !address || !contactNumber || !location?.lat || !location?.lng) {
+      return res.status(400).json({ message: 'Name, address, contact number, and location (lat/lng) are required.' });
+    }
+
+    const store = new Store({
+      name: name.trim(),
+      address: address.trim(),
+      contactNumber: contactNumber.trim(),
+      location: { lat: Number(location.lat), lng: Number(location.lng) },
+      deliveryRadiusKm: deliveryRadiusKm ? Number(deliveryRadiusKm) : 10,
+      status: status || 'Active'
+    });
+
+    const created = await store.save();
+    res.status(201).json(created);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// PUT update store (admin)
+router.put('/stores/:id', protect, adminOnly, async (req, res) => {
+  try {
+    const { name, address, contactNumber, location, deliveryRadiusKm, status } = req.body;
+    const store = await Store.findById(req.params.id);
+    if (!store) return res.status(404).json({ message: 'Store not found.' });
+
+    if (name) store.name = name.trim();
+    if (address) store.address = address.trim();
+    if (contactNumber) store.contactNumber = contactNumber.trim();
+    if (location?.lat !== undefined) store.location.lat = Number(location.lat);
+    if (location?.lng !== undefined) store.location.lng = Number(location.lng);
+    if (deliveryRadiusKm !== undefined) store.deliveryRadiusKm = Number(deliveryRadiusKm);
+    if (status) store.status = status;
+
+    const updated = await store.save();
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// DELETE store (admin)
+router.delete('/stores/:id', protect, adminOnly, async (req, res) => {
+  try {
+    const store = await Store.findByIdAndDelete(req.params.id);
+    if (!store) return res.status(404).json({ message: 'Store not found.' });
+    res.json({ message: `Store "${store.name}" deleted successfully.` });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -89,7 +89,10 @@ export const ShopProvider = ({ children }) => {
     setProductsError(null);
     try {
       console.log('[PRODUCT FETCH] Requesting products from MongoDB API endpoint:', `${API_BASE_URL}/products`);
-      const res = await axios.get(`${API_BASE_URL}/products`);
+      const res = await axios.get(`${API_BASE_URL}/products`, {
+        params: { _t: Date.now() },
+        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+      });
       const rawData = Array.isArray(res.data) ? res.data : [];
 
       // Normalize MongoDB documents and dynamically resolve multi-angle images
@@ -151,6 +154,24 @@ export const ShopProvider = ({ children }) => {
 
   useEffect(() => {
     fetchProducts();
+
+    // Auto-refresh when tab gains focus
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchProducts();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', fetchProducts);
+
+    // Periodic sync every 20 seconds
+    const interval = setInterval(fetchProducts, 20000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', fetchProducts);
+      clearInterval(interval);
+    };
   }, [fetchProducts]);
 
   // --- AUTHENTICATION FUNCTIONS ---

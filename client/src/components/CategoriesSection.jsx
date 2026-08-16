@@ -35,9 +35,21 @@ export const CategoriesSection = () => {
         {/* 4 MEN'S CATEGORIES GRID */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
           {categoriesData.map((cat) => {
-            const count = products.filter(
-              p => p.subcategory === cat.slug || p.category === cat.slug || p.name?.toLowerCase().includes(cat.slug.toLowerCase())
-            ).length;
+            const normalize = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const catNorm = normalize(cat.slug);
+
+            const count = products.filter((p) => {
+              const subNorm = normalize(p.subcategory);
+              const mainNorm = normalize(p.category);
+              const nameNorm = normalize(p.name);
+              return (
+                subNorm === catNorm ||
+                subNorm.includes(catNorm) ||
+                catNorm.includes(subNorm) ||
+                mainNorm === catNorm ||
+                nameNorm.includes(catNorm)
+              );
+            }).length;
 
             return (
               <div

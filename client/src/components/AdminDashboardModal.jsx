@@ -14,8 +14,9 @@ import { AdminPaymentsTab } from './admin/tabs/AdminPaymentsTab';
 import { AdminAnalyticsTab } from './admin/tabs/AdminAnalyticsTab';
 import { AdminNotificationsTab } from './admin/tabs/AdminNotificationsTab';
 import { AdminSettingsTab } from './admin/tabs/AdminSettingsTab';
+import { AdminStoresTab } from './admin/tabs/AdminStoresTab';
 import { Camera, X, Upload } from 'lucide-react';
-import { resolveImageUrl } from '../config/api';
+import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 
 export const AdminDashboardModal = () => {
   const {
@@ -27,7 +28,8 @@ export const AdminDashboardModal = () => {
     setUser,
     token,
     setToken,
-    fetchProducts
+    fetchProducts,
+    products = []
   } = useShop();
 
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -46,6 +48,7 @@ export const AdminDashboardModal = () => {
   const [notifications, setNotifications] = useState([]);
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
   const [settings, setSettings] = useState({});
+  const [storesList, setStoresList] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
 
   // Add / Edit Product Modal State
@@ -125,7 +128,8 @@ export const AdminDashboardModal = () => {
         deliveryRes,
         catRes,
         notifRes,
-        settingsRes
+        settingsRes,
+        storesRes
       ] = await Promise.all([
         axios.get(`${API_BASE_URL}/admin/analytics`, auth).catch(() => ({ data: {} })),
         axios.get(`${API_BASE_URL}/products`).catch(() => ({ data: [] })),
@@ -134,11 +138,15 @@ export const AdminDashboardModal = () => {
         axios.get(`${API_BASE_URL}/admin/delivery-partners`, auth).catch(() => ({ data: [] })),
         axios.get(`${API_BASE_URL}/admin/categories`, auth).catch(() => ({ data: [] })),
         axios.get(`${API_BASE_URL}/admin/notifications`, auth).catch(() => ({ data: { notifications: [], unreadCount: 0 } })),
-        axios.get(`${API_BASE_URL}/admin/settings`, auth).catch(() => ({ data: {} }))
+        axios.get(`${API_BASE_URL}/admin/settings`, auth).catch(() => ({ data: {} })),
+        axios.get(`${API_BASE_URL}/admin/stores`, auth).catch(() => ({ data: [] }))
       ]);
 
       setAnalytics(analyticsRes.data || {});
-      setProductsList(prodRes.data || []);
+      const loadedProducts = Array.isArray(prodRes.data) && prodRes.data.length > 0
+        ? prodRes.data
+        : (Array.isArray(products) && products.length > 0 ? products : []);
+      setProductsList(loadedProducts);
       setOrdersList(orderRes.data || []);
       setCustomersList(custRes.data || []);
       setDeliveryPartners(deliveryRes.data || []);
@@ -146,8 +154,12 @@ export const AdminDashboardModal = () => {
       setNotifications(notifRes.data?.notifications || []);
       setUnreadNotifsCount(notifRes.data?.unreadCount || 0);
       setSettings(settingsRes.data || {});
+      setStoresList(Array.isArray(storesRes.data) ? storesRes.data : []);
     } catch (err) {
       console.warn('Error loading admin portal data:', err.message);
+      if (Array.isArray(products) && products.length > 0) {
+        setProductsList(products);
+      }
     } finally {
       setIsLoadingData(false);
     }
@@ -208,9 +220,11 @@ export const AdminDashboardModal = () => {
 
   // --- 4-Angle File Handlers ---
   const handleAngleFileChange = (angleKey, e) => {
-    const file = e.target.files[0];
+    const file = e.target.files && e.target.files[0];
     setFileErrors(prev => ({ ...prev, [angleKey]: '' }));
     if (!file) return;
+
+    console.log(`[IMAGE UPLOAD] Angle: ${angleKey}`, "Selected File:", file);
 
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     const validExtensions = /\.(jpg|jpeg|png|webp)$/i;
@@ -229,9 +243,31 @@ export const AdminDashboardModal = () => {
       return;
     }
 
-    const previewUrl = URL.createObjectURL(file);
-    setImageFiles(prev => ({ ...prev, [angleKey]: file }));
-    setImagePreviews(prev => ({ ...prev, [angleKey]: previewUrl }));
+    // Generate instant preview via FileReader & object URL
+    try {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const previewUrl = event.target.result;
+        console.log(`[IMAGE PREVIEW] Angle: ${angleKey}`, "Preview URL:", previewUrl ? `${previewUrl.substring(0, 50)}...` : '');
+        setImageFiles(prev => ({ ...prev, [angleKey]: file }));
+        setImagePreviews(prev => ({ ...prev, [angleKey]: previewUrl }));
+        setImagesData(prev => ({ ...prev, [angleKey]: previewUrl }));
+      };
+      reader.onerror = () => {
+        const objUrl = URL.createObjectURL(file);
+        console.log(`[IMAGE PREVIEW FALLBACK] Angle: ${angleKey}`, "Preview URL:", objUrl);
+        setImageFiles(prev => ({ ...prev, [angleKey]: file }));
+        setImagePreviews(prev => ({ ...prev, [angleKey]: objUrl }));
+        setImagesData(prev => ({ ...prev, [angleKey]: objUrl }));
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      const objUrl = URL.createObjectURL(file);
+      console.log(`[IMAGE PREVIEW OBJECT URL] Angle: ${angleKey}`, "Preview URL:", objUrl);
+      setImageFiles(prev => ({ ...prev, [angleKey]: file }));
+      setImagePreviews(prev => ({ ...prev, [angleKey]: objUrl }));
+      setImagesData(prev => ({ ...prev, [angleKey]: objUrl }));
+    }
   };
 
   const handleRemoveAngle = (angleKey) => {
@@ -307,6 +343,7 @@ export const AdminDashboardModal = () => {
       // Upload newly selected files
       for (const angleKey of ['front', 'back', 'left', 'right']) {
         if (imageFiles[angleKey]) {
+          console.log(`[IMAGE UPLOAD START] Uploading ${angleKey} file:`, imageFiles[angleKey].name);
           const formData = new FormData();
           formData.append('image', imageFiles[angleKey]);
 
@@ -317,17 +354,17 @@ export const AdminDashboardModal = () => {
             }
           });
 
-          if (uploadRes.data && uploadRes.data.url) {
-            finalImages[angleKey] = uploadRes.data.url;
+          const uploadedUrl = uploadRes.data?.imageUrl || uploadRes.data?.url || uploadRes.data?.path;
+          console.log(`[IMAGE UPLOAD COMPLETE] Angle: ${angleKey}`, "Uploaded URL:", uploadedUrl);
+
+          if (uploadedUrl) {
+            finalImages[angleKey] = uploadedUrl;
           }
         }
       }
 
       if (!finalImages.front) {
-        setFileErrors(prev => ({ ...prev, front: 'Front View is required.' }));
-        showToast('Please upload at least the Front View image.', 'warning');
-        setIsSavingProduct(false);
-        return;
+        finalImages.front = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop';
       }
 
       const payload = {
@@ -346,12 +383,26 @@ export const AdminDashboardModal = () => {
         image: finalImages.front
       };
 
+      let savedProd = null;
       if (editingProduct) {
-        await axios.put(`${API_BASE_URL}/products/${editingProduct._id || editingProduct.id}`, payload, getAuthHeader());
+        const res = await axios.put(`${API_BASE_URL}/products/${editingProduct._id || editingProduct.id}`, payload, getAuthHeader());
+        savedProd = res.data;
         showToast(`Updated "${payload.name}" in database! ✨`);
       } else {
-        await axios.post(`${API_BASE_URL}/products`, payload, getAuthHeader());
+        const res = await axios.post(`${API_BASE_URL}/products`, payload, getAuthHeader());
+        savedProd = res.data;
         showToast(`Created product "${payload.name}" permanently in MongoDB! 🛍️`);
+      }
+
+      if (savedProd) {
+        setProductsList(prev => {
+          const list = Array.isArray(prev) ? prev : [];
+          const exists = list.some(p => (p._id || p.id) === (savedProd._id || savedProd.id));
+          if (exists) {
+            return list.map(p => (p._id || p.id) === (savedProd._id || savedProd.id) ? savedProd : p);
+          }
+          return [savedProd, ...list];
+        });
       }
 
       setIsProductModalOpen(false);
@@ -370,6 +421,7 @@ export const AdminDashboardModal = () => {
     try {
       await axios.delete(`${API_BASE_URL}/products/${id}`, getAuthHeader());
       showToast(`Deleted "${name}".`);
+      setProductsList(prev => (Array.isArray(prev) ? prev.filter(p => (p._id || p.id) !== id) : []));
       await fetchProducts();
       await loadAllAdminData();
     } catch (err) {
@@ -381,6 +433,7 @@ export const AdminDashboardModal = () => {
     try {
       await axios.put(`${API_BASE_URL}/products/${id}`, { inStock }, getAuthHeader());
       showToast(`Product status updated.`);
+      setProductsList(prev => (Array.isArray(prev) ? prev.map(p => (p._id || p.id) === id ? { ...p, inStock } : p) : []));
       await fetchProducts();
       await loadAllAdminData();
     } catch (err) {
@@ -546,6 +599,43 @@ export const AdminDashboardModal = () => {
     showToast('Admin password updated successfully!');
   };
 
+  // Store Handlers
+  const handleAddStore = async (storeData) => {
+    try {
+      await axios.post(`${API_BASE_URL}/admin/stores`, storeData, getAuthHeader());
+      showToast(`Store "${storeData.name}" created! 🏪`);
+      await loadAllAdminData();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to create store', 'error');
+      throw err;
+    }
+  };
+
+  const handleEditStore = async (id, storeData) => {
+    try {
+      await axios.put(`${API_BASE_URL}/admin/stores/${id}`, storeData, getAuthHeader());
+      showToast(`Store "${storeData.name}" updated!`);
+      await loadAllAdminData();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to update store', 'error');
+      throw err;
+    }
+  };
+
+  const handleDeleteStore = async (id, name) => {
+    try {
+      await axios.delete(`${API_BASE_URL}/admin/stores/${id}`, getAuthHeader());
+      showToast(`Store "${name}" deleted.`);
+      await loadAllAdminData();
+    } catch (err) {
+      showToast('Failed to delete store', 'error');
+    }
+  };
+
+  const currentProducts = (Array.isArray(productsList) && productsList.length > 0)
+    ? productsList
+    : (Array.isArray(products) ? products : []);
+
   return (
     <div className="fixed inset-0 z-50 bg-zinc-950 flex flex-col">
       
@@ -556,15 +646,17 @@ export const AdminDashboardModal = () => {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           onLogout={handleAdminLogout}
+          onClose={() => setIsAdminOpen(false)}
           onOpenAddProduct={handleOpenAddProduct}
           adminUser={user || { name: 'Admin', email: 'admin@quickfit.com' }}
           counts={{
             orders: ordersList.length,
-            products: productsList.length,
+            products: currentProducts.length,
             categories: categories.length,
             customers: customersList.length,
             delivery: deliveryPartners.length,
-            lowStock: analytics.lowStockCount || productsList.filter(p => p.stockQuantity <= 10).length
+            stores: storesList.length,
+            lowStock: analytics.lowStockCount || currentProducts.filter(p => p.stockQuantity <= 10).length
           }}
           notifications={notifications}
           unreadNotifsCount={unreadNotifsCount}
@@ -577,7 +669,7 @@ export const AdminDashboardModal = () => {
             <AdminDashboardTab
               analytics={analytics}
               ordersList={ordersList}
-              productsList={productsList}
+              productsList={currentProducts}
               onNavigateTab={(tab) => setActiveTab(tab)}
               onUpdateOrderStatus={handleUpdateOrderStatus}
             />
@@ -594,7 +686,7 @@ export const AdminDashboardModal = () => {
 
           {activeTab === 'products' && (
             <AdminProductsTab
-              productsList={productsList}
+              productsList={currentProducts}
               categories={categories}
               onOpenAddProduct={handleOpenAddProduct}
               onOpenEditProduct={handleOpenEditProduct}
@@ -632,7 +724,7 @@ export const AdminDashboardModal = () => {
           {activeTab === 'inventory' && (
             <AdminInventoryTab
               inventoryData={analytics}
-              productsList={productsList}
+              productsList={currentProducts}
               onUpdateStock={handleUpdateStock}
             />
           )}
@@ -649,7 +741,7 @@ export const AdminDashboardModal = () => {
             <AdminAnalyticsTab
               analytics={analytics}
               ordersList={ordersList}
-              productsList={productsList}
+              productsList={currentProducts}
             />
           )}
 
@@ -668,6 +760,15 @@ export const AdminDashboardModal = () => {
               settings={settings}
               onSaveSettings={handleSaveSettings}
               onChangePassword={handleChangePassword}
+            />
+          )}
+
+          {activeTab === 'stores' && (
+            <AdminStoresTab
+              storesList={storesList}
+              onAddStore={handleAddStore}
+              onEditStore={handleEditStore}
+              onDeleteStore={handleDeleteStore}
             />
           )}
         </AdminLayout>
@@ -740,25 +841,26 @@ export const AdminDashboardModal = () => {
                             <img
                               src={resolveImageUrl(preview)}
                               alt={angle.label}
-                              loading="lazy"
+                              loading="eager"
                               onError={(e) => {
+                                console.warn(`[IMAGE PREVIEW ERROR] Failed to load preview for ${angle.label}`);
                                 e.currentTarget.onerror = null;
-                                e.currentTarget.src = '/placeholder-product.jpg';
+                                e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
                               }}
                               className="w-full h-full object-cover"
                             />
-                            <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-2">
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-2">
                               <button
                                 type="button"
                                 onClick={() => fileInputRefs[angle.key]?.current?.click()}
-                                className="px-2.5 py-1 rounded-lg bg-white text-zinc-950 font-bold text-[10px] hover:bg-zinc-200"
+                                className="px-2.5 py-1 rounded-lg bg-white text-zinc-950 font-bold text-[10px] hover:bg-zinc-200 cursor-pointer shadow-md"
                               >
                                 Replace
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveAngle(angle.key)}
-                                className="px-2.5 py-1 rounded-lg bg-red-600 text-white font-bold text-[10px] hover:bg-red-700"
+                                className="px-2.5 py-1 rounded-lg bg-red-600 text-white font-bold text-[10px] hover:bg-red-700 cursor-pointer shadow-md"
                               >
                                 Clear
                               </button>

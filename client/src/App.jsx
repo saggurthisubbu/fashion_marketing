@@ -34,33 +34,52 @@ const ToastNotification = () => {
 };
 
 const MainApp = () => {
-  const { setIsAdminOpen } = useShop();
+  const { isAdminOpen, setIsAdminOpen } = useShop();
 
-  // Hidden /admin routing: Only opens when navigating to /admin, /#admin, or ?admin=true
+  // Bi-directional /admin URL Synchronization
   useEffect(() => {
-    const checkAdminRoute = () => {
+    const handleUrlChange = () => {
       const path = window.location.pathname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
       const search = window.location.search.toLowerCase();
-      if (
+      const shouldOpenAdmin = (
         path.startsWith('/admin') ||
         hash === '#admin' ||
         hash === '#/admin' ||
         search.includes('admin=true') ||
         search.includes('admin=1')
-      ) {
+      );
+
+      if (shouldOpenAdmin) {
         setIsAdminOpen(true);
+      } else {
+        setIsAdminOpen(false);
       }
     };
 
-    checkAdminRoute();
-    window.addEventListener('popstate', checkAdminRoute);
-    window.addEventListener('hashchange', checkAdminRoute);
+    handleUrlChange();
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('hashchange', handleUrlChange);
     return () => {
-      window.removeEventListener('popstate', checkAdminRoute);
-      window.removeEventListener('hashchange', checkAdminRoute);
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('hashchange', handleUrlChange);
     };
   }, [setIsAdminOpen]);
+
+  // Sync URL when modal is opened or closed programmatically
+  useEffect(() => {
+    const path = window.location.pathname.toLowerCase();
+    if (isAdminOpen) {
+      if (!path.startsWith('/admin')) {
+        window.history.pushState({ modal: 'admin' }, '', '/admin');
+      }
+    } else {
+      if (path.startsWith('/admin')) {
+        window.history.pushState({ modal: 'home' }, '', '/');
+      }
+    }
+  }, [isAdminOpen]);
+
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-slate-900 selection:text-white">

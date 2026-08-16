@@ -8,14 +8,19 @@ const router = express.Router();
 // Get all products (Public)
 router.get('/', async (req, res) => {
   try {
+    // Disable HTTP caching for live sync
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     const { category, subcategory, search } = req.query;
     let filter = {};
 
     if (category && category !== 'All') {
-      filter.category = category;
+      filter.category = { $regex: new RegExp(`^${category.trim()}$`, 'i') };
     }
     if (subcategory && subcategory !== 'All') {
-      filter.subcategory = subcategory;
+      filter.subcategory = { $regex: new RegExp(`^${subcategory.trim()}$`, 'i') };
     }
     if (search) {
       filter.$or = [

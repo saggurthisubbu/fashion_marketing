@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useShop } from '../context/ShopContext';
 import { formatQuickFitWhatsAppOrder } from '../utils/whatsapp';
-import { resolveImageUrl } from '../config/api';
+import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 
 export const ProductDetailModal = () => {
   const { selectedProduct, isDetailModalOpen, setIsDetailModalOpen, addToCart, showToast } = useShop();
@@ -148,14 +148,20 @@ export const ProductDetailModal = () => {
       customerPhone: customerPhone.trim(),
       productName: selectedProduct.name,
       size: selectedSize,
+      color: selectedColor,
       quantity: 1,
       price: selectedProduct.price,
+      imageUrl:
+        selectedProduct.images?.front ||
+        selectedProduct.image ||
+        selectedProduct.imageUrl ||
+        '',
       address: customerAddress.trim(),
       locationLink: gpsLocation || 'Not provided'
     });
     window.open(url, '_blank');
     setIsQuickOrderOpen(false);
-    showToast('Opening WhatsApp with your order details! 💬');
+    showToast('Opening WhatsApp with your order details + product photo! 💬');
   };
 
   const handleAddToCart = () => {
@@ -207,7 +213,7 @@ export const ProductDetailModal = () => {
               onError={(e) => {
                 console.warn('[IMAGE ERROR] Failed to load detail modal image for:', selectedProduct.name);
                 e.currentTarget.onerror = null;
-                e.currentTarget.src = '/placeholder-product.jpg';
+                e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
               }}
               className="w-full h-full object-cover transition-transform duration-200 ease-out pointer-events-none"
               style={
@@ -303,7 +309,7 @@ export const ProductDetailModal = () => {
                         loading="lazy"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
-                          e.currentTarget.src = '/placeholder-product.jpg';
+                          e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
                         }}
                         className="w-full h-full object-cover rounded-lg"
                       />

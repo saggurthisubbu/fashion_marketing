@@ -27,20 +27,29 @@ export const ProductCatalog = () => {
   // Filter products based on search and category
   let filtered = products.filter((item) => {
     // Search query filter
+    const query = searchQuery.trim().toLowerCase();
     const matchesSearch =
-      searchQuery.trim() === '' ||
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.category && item.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (item.subcategory && item.subcategory.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      query === '' ||
+      item.name?.toLowerCase().includes(query) ||
+      (item.category && item.category.toLowerCase().includes(query)) ||
+      (item.subcategory && item.subcategory.toLowerCase().includes(query)) ||
+      (item.description && item.description.toLowerCase().includes(query));
 
     // Category filter
     let matchesCategory = true;
     if (selectedCategory !== 'All') {
+      const normalize = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const selectedNorm = normalize(selectedCategory);
+      const subNorm = normalize(item.subcategory);
+      const catNorm = normalize(item.category);
+      const nameNorm = normalize(item.name);
+
       matchesCategory =
-        item.subcategory === selectedCategory ||
-        item.category === selectedCategory ||
-        item.name.toLowerCase().includes(selectedCategory.toLowerCase());
+        subNorm === selectedNorm ||
+        subNorm.includes(selectedNorm) ||
+        selectedNorm.includes(subNorm) ||
+        catNorm === selectedNorm ||
+        nameNorm.includes(selectedNorm);
     }
 
     return matchesSearch && matchesCategory;

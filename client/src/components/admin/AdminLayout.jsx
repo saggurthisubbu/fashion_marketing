@@ -19,13 +19,15 @@ import {
   ShieldCheck,
   CheckCircle2,
   X,
-  Menu
+  Menu,
+  Store
 } from 'lucide-react';
 
 export const AdminLayout = ({
   activeTab,
   setActiveTab,
   onLogout,
+  onClose,
   onOpenAddProduct,
   adminUser,
   counts = {},
@@ -49,6 +51,7 @@ export const AdminLayout = ({
     { id: 'categories', label: 'Categories', icon: Tags, badge: counts.categories || null },
     { id: 'customers', label: 'Customers', icon: Users, badge: counts.customers || null },
     { id: 'delivery', label: 'Delivery Partners', icon: Truck, badge: counts.delivery || null },
+    { id: 'stores', label: 'Store Management', icon: Store, badge: counts.stores || null },
     { id: 'inventory', label: 'Inventory', icon: Boxes, badge: counts.lowStock ? `${counts.lowStock} Low` : null, badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
     { id: 'payments', label: 'Payments', icon: CreditCard, badge: null },
     { id: 'analytics', label: 'Analytics', icon: TrendingUp, badge: null },
@@ -301,6 +304,18 @@ export const AdminLayout = ({
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               <span>LIVE SERVER</span>
             </div>
+
+            {/* View Storefront / Customer Website */}
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white font-bold text-xs flex items-center gap-1.5 border border-zinc-700/60 transition-colors cursor-pointer"
+                title="Return to Customer Storefront (/)"
+              >
+                <span>🌐</span>
+                <span className="hidden sm:inline">View Website</span>
+              </button>
+            )}
 
             {/* Quick Add Product Action */}
             <button

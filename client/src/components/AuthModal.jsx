@@ -3,7 +3,16 @@ import axios from 'axios';
 import { useShop } from '../context/ShopContext';
 
 export const AuthModal = () => {
-  const { isAuthModalOpen, setIsAuthModalOpen, loginUser, API_BASE_URL, showToast } = useShop();
+  const {
+    isAuthModalOpen,
+    setIsAuthModalOpen,
+    loginUser,
+    logoutUser,
+    user,
+    setIsAdminOpen,
+    API_BASE_URL,
+    showToast
+  } = useShop();
 
   const [mode, setMode] = useState('login'); // 'login' or 'register'
   const [formData, setFormData] = useState({
@@ -18,6 +27,75 @@ export const AuthModal = () => {
   const [errorMsg, setErrorMsg] = useState('');
 
   if (!isAuthModalOpen) return null;
+
+  // If already logged in, show Account Profile card
+  if (user) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/75 backdrop-blur-xs">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">👤</span>
+              <h3 className="text-lg font-black font-heading text-slate-900">
+                My Account Profile
+              </h3>
+            </div>
+            <button
+              onClick={() => setIsAuthModalOpen(false)}
+              className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center hover:bg-slate-200"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-heading font-black text-slate-900 text-base">{user.name}</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                user.role === 'admin' ? 'bg-amber-400 text-slate-950' : 'bg-slate-200 text-slate-700'
+              }`}>
+                {user.role}
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 font-medium">✉️ {user.email}</p>
+            {user.phone && <p className="text-xs text-slate-600 font-medium">📱 {user.phone}</p>}
+          </div>
+
+          {user.role === 'admin' && (
+            <button
+              onClick={() => {
+                setIsAuthModalOpen(false);
+                setIsAdminOpen(true);
+              }}
+              className="w-full py-3.5 px-4 rounded-xl bg-slate-900 hover:bg-black text-amber-300 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg border border-amber-400/40 cursor-pointer transition-all hover:scale-102"
+            >
+              <span>⚡</span>
+              <span>Open Admin Dashboard (/admin)</span>
+              <span>➔</span>
+            </button>
+          )}
+
+          <div className="pt-2 flex gap-3">
+            <button
+              onClick={() => setIsAuthModalOpen(false)}
+              className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs hover:bg-slate-200 transition-colors"
+            >
+              Close
+            </button>
+            <button
+              onClick={() => {
+                logoutUser();
+                setIsAuthModalOpen(false);
+              }}
+              className="flex-1 py-3 rounded-xl bg-rose-50 text-rose-700 font-bold text-xs hover:bg-rose-100 transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();

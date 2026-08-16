@@ -14,8 +14,11 @@ export const Navbar = () => {
     setIsAuthModalOpen,
     setIsContactModalOpen,
     setIsAboutModalOpen,
+    setIsAdminOpen,
     user
   } = useShop();
+
+  const isAdmin = Boolean(user && user.role === 'admin');
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -60,6 +63,16 @@ export const Navbar = () => {
           <span className="truncate">QUICKFIT LUXURY MENSWEAR • HEAVYWEIGHT COTTON STREETWEAR</span>
         </div>
         <div className="flex items-center gap-4 flex-shrink-0 text-[10px] font-bold">
+          {isAdmin && (
+            <button
+              onClick={() => setIsAdminOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] tracking-wider uppercase hover:bg-amber-300 transition-all cursor-pointer shadow-sm animate-pulse"
+              title="Open Admin Dashboard"
+            >
+              <span>⚡</span>
+              <span>Admin Portal</span>
+            </button>
+          )}
           <button
             onClick={() => setIsAboutModalOpen(true)}
             className="hidden sm:inline text-slate-300 hover:text-white transition-colors"
@@ -138,7 +151,18 @@ export const Navbar = () => {
 
           {/* ACTION BUTTONS */}
           <div className="flex items-center space-x-2 sm:space-x-3">
-            
+            {/* ADMIN DASHBOARD BUTTON (ADMINS ONLY) */}
+            {isAdmin && (
+              <button
+                onClick={() => setIsAdminOpen(true)}
+                className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-slate-900 text-amber-300 hover:bg-black font-black text-xs transition-all shadow-md !min-h-[40px] cursor-pointer border border-amber-400/40 hover:scale-105"
+                title="Open Admin Dashboard (/admin)"
+              >
+                <span className="text-sm">⚡</span>
+                <span className="tracking-wide">Go to Admin Dashboard</span>
+              </button>
+            )}
+
             {/* MOBILE SEARCH TOGGLE */}
             <button
               onClick={() => setIsSearchOpen(!isSearchOpen)}
@@ -219,6 +243,26 @@ export const Navbar = () => {
       {/* MOBILE EXPANDED MENU */}
       {isMobileMenuOpen && (
         <div className="lg:hidden bg-white border-t border-slate-200 px-4 py-4 space-y-4 animate-in slide-in-from-top-2">
+          
+          {/* MOBILE ADMIN DASHBOARD SHORTCUT (ADMINS ONLY) */}
+          {isAdmin && (
+            <div className="pb-2">
+              <button
+                onClick={() => {
+                  setIsAdminOpen(true);
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full py-3 px-4 rounded-2xl bg-slate-900 text-amber-300 font-black text-xs flex items-center justify-between shadow-lg border border-amber-400/50 active:scale-98 transition-all"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-base">⚡</span>
+                  <span className="tracking-wide uppercase">Go to Admin Dashboard</span>
+                </div>
+                <span className="text-amber-400 font-black text-sm">➔</span>
+              </button>
+            </div>
+          )}
+
           <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
             Men's Collections
           </div>

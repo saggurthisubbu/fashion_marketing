@@ -203,17 +203,20 @@ export const seedDatabase = async () => {
     }
     console.log('[MONGODB] Seeder connected to database.');
 
-    // 1. Seed/Update Default Admin User (Admin ID: admin, Password: admin123)
-    const defaultAdminEmail = 'admin@quickfit.com';
-    let admin = await User.findOne({ $or: [{ adminId: 'admin' }, { email: defaultAdminEmail }, { email: 'saggurthisubbu9@gmail.com' }] });
-    
-    if (!admin) {
-      admin = new User({
-        name: 'QuickFit Administrator',
-        email: defaultAdminEmail,
+    // 1. Seed/Update Master Admin User (Configured in .env + quick admin login)
+    const primaryAdminEmail = process.env.ADMIN_EMAIL || 'saggurthisubbu9@gmail.com';
+    const primaryAdminPassword = process.env.ADMIN_PASSWORD || 'QuickFitAdmin@2026!';
+    const adminPhone = process.env.ADMIN_PHONE || '+91 7396629821';
+
+    // Ensure Master Admin with Email
+    let masterAdmin = await User.findOne({ email: primaryAdminEmail });
+    if (!masterAdmin) {
+      masterAdmin = new User({
+        name: 'QuickFit Master Administrator',
+        email: primaryAdminEmail,
         adminId: 'admin',
-        password: 'admin123',
-        phone: '+91 7396629821',
+        password: primaryAdminPassword,
+        phone: adminPhone,
         role: 'admin',
         address: {
           street: 'Central Mall Boulevard',
@@ -221,15 +224,40 @@ export const seedDatabase = async () => {
           city: 'Vijayawada'
         }
       });
-      await admin.save();
-      console.log('🔑 [Seeder]: Default Admin Created -> Admin ID: admin | Password: admin123');
+      await masterAdmin.save();
+      console.log(`🔑 [Seeder]: Master Admin Created -> Email: ${primaryAdminEmail} | Admin ID: admin`);
     } else {
-      admin.adminId = 'admin';
-      admin.role = 'admin';
-      admin.password = 'admin123';
-      await admin.save();
-      console.log('🔑 [Seeder]: Admin Verified & Updated -> Admin ID: admin | Password: admin123');
+      masterAdmin.role = 'admin';
+      masterAdmin.adminId = 'admin';
+      masterAdmin.password = primaryAdminPassword;
+      await masterAdmin.save();
+      console.log(`🔑 [Seeder]: Master Admin Verified -> Email: ${primaryAdminEmail} | Admin ID: admin`);
     }
+
+    // Ensure fallback admin alias for quick testing (admin@quickfit.com / admin123)
+    let quickAdmin = await User.findOne({ email: 'admin@quickfit.com' });
+    if (!quickAdmin) {
+      quickAdmin = new User({
+        name: 'QuickFit Executive Admin',
+        email: 'admin@quickfit.com',
+        adminId: 'quickfit_admin',
+        password: 'admin123',
+        phone: adminPhone,
+        role: 'admin',
+        address: {
+          street: 'Central Mall Boulevard',
+          area: 'Benz Circle, Vijayawada',
+          city: 'Vijayawada'
+        }
+      });
+      await quickAdmin.save();
+      console.log('🔑 [Seeder]: Quick Admin Alias Created -> admin@quickfit.com / admin123');
+    } else {
+      quickAdmin.role = 'admin';
+      quickAdmin.password = 'admin123';
+      await quickAdmin.save();
+    }
+
 
     // 2. Safe product seeding: ONLY seed defaults if the database has ZERO products
     const productCount = await Product.countDocuments();

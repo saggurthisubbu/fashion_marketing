@@ -64,6 +64,12 @@ export const ProductCatalog = () => {
     return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); // Newest default
   });
 
+  // Diagnostic logs — visible in browser DevTools console
+  console.log(`[CATALOG] Total products in context: ${products.length}`);
+  console.log(`[CATALOG] After filter (category="${selectedCategory}", search="${searchQuery}"): ${filtered.length} products`);
+  console.log(`[CATALOG] Rendering ${filtered.length} product cards`);
+
+
   return (
     <section id="catalog-section" className="py-12 sm:py-16 bg-slate-100/60 min-h-screen">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">

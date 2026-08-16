@@ -157,8 +157,11 @@ export const ShopProvider = ({ children }) => {
         });
 
         setProducts(normalized);
-        console.log(`[PRODUCT FETCH] ✅ Loaded ${normalized.length} products from MongoDB Atlas (attempt ${attempt}).`);
-        return; // Success — exit retry loop
+        setIsLoadingProducts(false); // ← CRITICAL: must clear loading BEFORE return
+        console.log(`[PRODUCT FETCH] ✅ API response: ${rawData.length} raw products`);
+        console.log(`[PRODUCT FETCH] ✅ Parsed & normalized: ${normalized.length} products`);
+        console.log(`[PRODUCT FETCH] ✅ Loaded from MongoDB Atlas on attempt ${attempt}.`);
+        return; // Exit retry loop
 
       } catch (err) {
         const isLastAttempt = attempt === MAX_RETRIES;

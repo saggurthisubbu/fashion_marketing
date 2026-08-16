@@ -6,6 +6,7 @@ export const ProductCatalog = () => {
   const {
     products,
     isLoadingProducts,
+    isBackendWaking,
     productsError,
     fetchProducts,
     selectedCategory,
@@ -134,21 +135,42 @@ export const ProductCatalog = () => {
             ))}
           </div>
         ) : productsError ? (
-          /* 2. ERROR STATE */
+          /* 2. ERROR STATE — with context-aware messaging */
           <div className="bg-white rounded-3xl p-8 sm:p-12 text-center max-w-md mx-auto shadow-sm border border-slate-200 space-y-4 my-8">
-            <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
-              ⚠️
-            </div>
-            <h3 className="text-lg font-black text-slate-900 font-heading">Could Not Connect to Database API</h3>
-            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-              {productsError}
-            </p>
-            <button
-              onClick={() => fetchProducts()}
-              className="px-6 py-2.5 rounded-full bg-slate-900 text-white font-bold text-xs shadow-md hover:bg-black transition-colors"
-            >
-              🔄 Retry Connection
-            </button>
+            {isBackendWaking ? (
+              /* Cold-start waking state */
+              <>
+                <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto text-2xl animate-pulse">
+                  ☀️
+                </div>
+                <h3 className="text-lg font-black text-slate-900 font-heading">Server Starting Up…</h3>
+                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                  The backend server was idle and is now waking up. This takes up to 30–60 seconds on first visit. Products will load automatically.
+                </p>
+                {/* Animated progress bar */}
+                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                  <div className="bg-amber-400 h-1.5 rounded-full animate-[pulse_1.5s_ease-in-out_infinite] w-1/2"></div>
+                </div>
+                <p className="text-[11px] text-slate-400 font-medium">Retrying automatically… please wait</p>
+              </>
+            ) : (
+              /* Hard connection error */
+              <>
+                <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+                  ⚠️
+                </div>
+                <h3 className="text-lg font-black text-slate-900 font-heading">Could Not Load Products</h3>
+                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                  {productsError}
+                </p>
+                <button
+                  onClick={() => fetchProducts()}
+                  className="px-6 py-2.5 rounded-full bg-slate-900 text-white font-bold text-xs shadow-md hover:bg-black transition-colors"
+                >
+                  🔄 Retry
+                </button>
+              </>
+            )}
           </div>
         ) : filtered.length > 0 ? (
           /* 3. PRODUCT GRID - 2 COLUMNS ON MOBILE, 3-4 ON DESKTOP */

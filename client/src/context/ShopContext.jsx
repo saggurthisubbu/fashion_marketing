@@ -10,6 +10,7 @@ export const ShopProvider = ({ children }) => {
   const [products, setProducts] = useState([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [productsError, setProductsError] = useState(null);
+  const [isBackendWaking, setIsBackendWaking] = useState(false); // Render cold-start indicator
 
   const [cart, setCart] = useState(() => {
     try {
@@ -87,70 +88,117 @@ export const ShopProvider = ({ children }) => {
   const fetchProducts = useCallback(async () => {
     setIsLoadingProducts(true);
     setProductsError(null);
-    try {
-      console.log('[PRODUCT FETCH] Requesting products from MongoDB API endpoint:', `${API_BASE_URL}/products`);
-      const res = await axios.get(`${API_BASE_URL}/products`, {
-        params: { _t: Date.now() },
-        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-      });
-      const rawData = Array.isArray(res.data) ? res.data : [];
+    setIsBackendWaking(false);
 
-      // Normalize MongoDB documents and dynamically resolve multi-angle images
-      const normalized = rawData.map((p) => {
-        const front = resolveImageUrl(p.images?.front || p.image);
-        const back = p.images?.back ? resolveImageUrl(p.images.back) : '';
-        const left = p.images?.left ? resolveImageUrl(p.images.left) : '';
-        const right = p.images?.right ? resolveImageUrl(p.images.right) : '';
+    const MAX_RETRIES = 3;
+    const TIMEOUT_MS = 30000; // 30s — handles Render cold-start (can take up to 50s)
+    const RETRY_DELAYS = [3000, 7000, 15000]; // Exponential-ish backoff
 
-        const stockQty = p.stockQuantity !== undefined && !isNaN(Number(p.stockQuantity))
-          ? Number(p.stockQuantity)
-          : 25;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        // Show waking message from attempt 2 onwards (backend is cold-starting)
+        if (attempt === 2) setIsBackendWaking(true);
 
-        return {
-          ...p,
-          id: p._id || p.id,
-          _id: p._id || p.id,
-          name: p.name || 'QuickFit Apparel',
-          category: p.category || 'Men',
-          subcategory: p.subcategory || 'Oversized T-Shirts',
-          price: Number(p.price) || 0,
-          originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined,
-          discount: p.discount || '',
-          rating: p.rating !== undefined ? Number(p.rating) : 4.9,
-          reviewsCount: p.reviewsCount !== undefined ? Number(p.reviewsCount) : 24,
-          expressDelivery: p.expressDelivery || 'Express Delivery',
-          boutique: p.boutique || 'QuickFit Central, Vijayawada',
-          stockQuantity: stockQty,
-          inStock: p.inStock !== undefined ? p.inStock : stockQty > 0,
-          featured: p.featured !== undefined ? p.featured : true,
-          badge: p.badge || 'Bestseller',
-          description: p.description || 'Premium heavyweight cotton streetwear.',
-          sizes: Array.isArray(p.sizes) && p.sizes.length > 0
-            ? p.sizes
-            : (typeof p.sizes === 'string' ? p.sizes.split(',').map(s => s.trim()).filter(Boolean) : ['S', 'M', 'L', 'XL', 'XXL']),
-          colors: Array.isArray(p.colors) && p.colors.length > 0
-            ? p.colors
-            : [{ name: 'Standard', hex: '#000000' }],
-          image: front,
-          images: {
-            front,
-            back,
-            left,
-            right
-          }
-        };
-      });
+        console.log(`[PRODUCT FETCH] Attempt ${attempt}/${MAX_RETRIES} → ${API_BASE_URL}/products`);
 
-      setProducts(normalized);
-      console.log(`[PRODUCT FETCH] Successfully loaded ${normalized.length} products dynamically from MongoDB Atlas.`);
-    } catch (err) {
-      console.error('[PRODUCT FETCH ERROR] Failed to fetch products from backend API:', err.message);
-      setProductsError(err.response?.data?.message || err.message || 'Unable to connect to database API.');
-      setProducts([]);
-    } finally {
-      setIsLoadingProducts(false);
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+        const res = await axios.get(`${API_BASE_URL}/products`, {
+          params: { _t: Date.now() },
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+          signal: controller.signal,
+          timeout: TIMEOUT_MS
+        });
+        clearTimeout(timer);
+        setIsBackendWaking(false);
+
+        const rawData = Array.isArray(res.data) ? res.data : [];
+
+        // Normalize MongoDB documents and dynamically resolve multi-angle images
+        const normalized = rawData.map((p) => {
+          const front = resolveImageUrl(p.images?.front || p.image);
+          const back = p.images?.back ? resolveImageUrl(p.images.back) : '';
+          const left = p.images?.left ? resolveImageUrl(p.images.left) : '';
+          const right = p.images?.right ? resolveImageUrl(p.images.right) : '';
+
+          const stockQty = p.stockQuantity !== undefined && !isNaN(Number(p.stockQuantity))
+            ? Number(p.stockQuantity)
+            : 25;
+
+          return {
+            ...p,
+            id: p._id || p.id,
+            _id: p._id || p.id,
+            name: p.name || 'QuickFit Apparel',
+            category: p.category || 'Men',
+            subcategory: p.subcategory || 'Oversized T-Shirts',
+            price: Number(p.price) || 0,
+            originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined,
+            discount: p.discount || '',
+            rating: p.rating !== undefined ? Number(p.rating) : 4.9,
+            reviewsCount: p.reviewsCount !== undefined ? Number(p.reviewsCount) : 24,
+            expressDelivery: p.expressDelivery || 'Express Delivery',
+            boutique: p.boutique || 'QuickFit Central, Vijayawada',
+            stockQuantity: stockQty,
+            inStock: p.inStock !== undefined ? p.inStock : stockQty > 0,
+            featured: p.featured !== undefined ? p.featured : true,
+            badge: p.badge || 'Bestseller',
+            description: p.description || 'Premium heavyweight cotton streetwear.',
+            sizes: Array.isArray(p.sizes) && p.sizes.length > 0
+              ? p.sizes
+              : (typeof p.sizes === 'string' ? p.sizes.split(',').map(s => s.trim()).filter(Boolean) : ['S', 'M', 'L', 'XL', 'XXL']),
+            colors: Array.isArray(p.colors) && p.colors.length > 0
+              ? p.colors
+              : [{ name: 'Standard', hex: '#000000' }],
+            image: front,
+            images: { front, back, left, right }
+          };
+        });
+
+        setProducts(normalized);
+        console.log(`[PRODUCT FETCH] ✅ Loaded ${normalized.length} products from MongoDB Atlas (attempt ${attempt}).`);
+        return; // Success — exit retry loop
+
+      } catch (err) {
+        const isLastAttempt = attempt === MAX_RETRIES;
+        const isNetworkError = !err.response; // No response = network / timeout / CORS
+        const isTimeout = err.code === 'ECONNABORTED' || err.name === 'AbortError' || err.code === 'ERR_CANCELED';
+        const httpStatus = err.response?.status;
+
+        console.warn(`[PRODUCT FETCH] ❌ Attempt ${attempt} failed:`, err.message);
+
+        if (!isLastAttempt) {
+          const delay = RETRY_DELAYS[attempt - 1] || 5000;
+          console.log(`[PRODUCT FETCH] Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        // All retries exhausted — set a precise, actionable error message
+        setIsBackendWaking(false);
+        let errorMsg;
+        if (isTimeout) {
+          errorMsg = 'The server is taking too long to respond. This usually happens when the backend is starting up after being idle. Please wait 30 seconds and tap Retry.';
+        } else if (isNetworkError) {
+          errorMsg = 'Network error: Unable to reach the product server. Please check your internet connection and tap Retry.';
+        } else if (httpStatus === 500) {
+          errorMsg = 'The server encountered an internal error (500). Please tap Retry or contact support if this persists.';
+        } else if (httpStatus === 503) {
+          errorMsg = 'Service temporarily unavailable (503). The server may be restarting. Please tap Retry in a few seconds.';
+        } else {
+          errorMsg = err.response?.data?.message || err.message || 'Unable to load products. Please tap Retry.';
+        }
+
+        console.error('[PRODUCT FETCH ERROR] All retries failed:', errorMsg);
+        setProductsError(errorMsg);
+        setProducts([]);
+      }
     }
+    // Always clear loading state when all attempts are done
+    setIsLoadingProducts(false);
   }, []);
+
 
   useEffect(() => {
     fetchProducts();
@@ -164,8 +212,9 @@ export const ShopProvider = ({ children }) => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', fetchProducts);
 
-    // Periodic sync every 20 seconds
-    const interval = setInterval(fetchProducts, 20000);
+    // Periodic sync every 60 seconds (not 20s — each fetch can take up to 30s with retries)
+    const interval = setInterval(fetchProducts, 60000);
+
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -327,6 +376,7 @@ export const ShopProvider = ({ children }) => {
         products,
         setProducts,
         isLoadingProducts,
+        isBackendWaking,
         productsError,
         fetchProducts,
         cart,

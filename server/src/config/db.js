@@ -9,6 +9,11 @@ try {
 }
 
 export const connectDB = async () => {
+  // Guard: if already connected, skip reconnect attempt
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
+  }
+
   const mongoUri = process.env.MONGODB_URI;
 
   if (!mongoUri || mongoUri.includes('127.0.0.1') || mongoUri.includes('localhost')) {
@@ -16,7 +21,14 @@ export const connectDB = async () => {
   }
 
   try {
-    const conn = await mongoose.connect(mongoUri || 'mongodb://127.0.0.1:27017/quickfit');
+    const conn = await mongoose.connect(mongoUri || 'mongodb://127.0.0.1:27017/quickfit', {
+      serverSelectionTimeoutMS: 30000,  // 30s to select a server
+      socketTimeoutMS: 45000,           // 45s socket timeout
+      connectTimeoutMS: 30000,          // 30s connection timeout
+      maxPoolSize: 10,                  // Connection pool for concurrent requests
+      minPoolSize: 1,
+      retryWrites: true
+    });
     console.log(`[MONGODB] Connected successfully to host: ${conn.connection.host} | Database: ${conn.connection.name}`);
     return conn;
   } catch (error) {

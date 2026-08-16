@@ -20,12 +20,25 @@ dotenv.config();
 
 const app = express();
 
-// Permissive CORS for Desktop, Mobile Devices, and Deployed Domains
-app.use(cors({
+// CORS — allow all origins (Vercel, mobile, localhost) and all headers used by the frontend
+const corsOptions = {
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'Cache-Control',
+    'Pragma',
+    'X-Requested-With',
+    'Accept',
+    'Origin'
+  ],
+  optionsSuccessStatus: 200 // Some browsers (Safari) require 200 not 204 for preflight
+};
+app.use(cors(corsOptions));
+
+// Explicit OPTIONS preflight handler — must be before all routes
+app.options('*', cors(corsOptions));
 
 app.use(express.json());
 

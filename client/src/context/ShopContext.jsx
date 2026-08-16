@@ -106,7 +106,7 @@ export const ShopProvider = ({ children }) => {
 
         const res = await axios.get(`${API_BASE_URL}/products`, {
           params: { _t: Date.now() },
-          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+          // No custom headers — avoids CORS preflight. Cache busted by _t param above.
           signal: controller.signal,
           timeout: TIMEOUT_MS
         });

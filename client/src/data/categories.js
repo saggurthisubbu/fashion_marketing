@@ -31,7 +31,7 @@ export const categoriesData = [
     name: "Shirts",
     tagline: "100% Pure European Linen & Formals",
     itemCount: "Breathable Luxury",
-    image: "https://images.unsplash.com/photo-1598033129183-c4f50c736f10?q=80&w=800&auto=format&fit=crop",
+    image: "/uploads/quickfit-shirts-product-1-f-1787389109323-791186258.jpg",
     gradient: "from-slate-800 to-zinc-900",
     slug: "Shirts"
   }

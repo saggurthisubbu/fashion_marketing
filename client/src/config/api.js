@@ -67,15 +67,14 @@ export const resolveImageUrl = (imgUrl) => {
 
   // 3. Absolute URL (Cloudinary, Unsplash, external CDN)
   if (/^https?:\/\//i.test(trimmed)) {
-    // Upgrade http:// → https:// in production (prevents mixed-content blocks on mobile)
+    // If it points to an /uploads/ path, return relative /uploads/ path so frontend public assets serve it reliably
+    if (trimmed.includes('/uploads/')) {
+      return '/uploads/' + trimmed.split('/uploads/')[1];
+    }
+    // Upgrade http:// → https:// in production for external assets (prevents mixed-content blocks on mobile)
     let url = trimmed;
     if (isProd && url.startsWith('http://') && !url.includes('localhost') && !url.includes('127.0.0.1')) {
       url = 'https://' + url.slice(7);
-    }
-    // If it points to an old localhost:5000/uploads path on mobile/production, re-map to current API_ORIGIN
-    if (url.includes('/uploads/')) {
-      const relativePart = '/uploads/' + url.split('/uploads/')[1];
-      return `${API_ORIGIN}${relativePart}`;
     }
     return url;
   }
@@ -83,7 +82,7 @@ export const resolveImageUrl = (imgUrl) => {
   // 4. Relative backend upload path (e.g., /uploads/image.jpg or uploads/image.jpg)
   if (trimmed.startsWith('/uploads/') || trimmed.startsWith('uploads/')) {
     const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-    return `${API_ORIGIN}${cleanPath}`;
+    return cleanPath;
   }
 
   // 5. Root asset path (e.g. /placeholder-product.svg)

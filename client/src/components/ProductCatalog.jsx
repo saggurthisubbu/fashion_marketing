@@ -40,18 +40,44 @@ export const ProductCatalog = () => {
     // Category filter
     let matchesCategory = true;
     if (selectedCategory !== 'All') {
-      const normalize = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-      const selectedNorm = normalize(selectedCategory);
-      const subNorm = normalize(item.subcategory);
-      const catNorm = normalize(item.category);
-      const nameNorm = normalize(item.name);
+      const target = selectedCategory.trim().toLowerCase();
+      const sub = (item.subcategory || '').trim().toLowerCase();
+      const cat = (item.category || '').trim().toLowerCase();
+      const name = (item.name || '').trim().toLowerCase();
 
-      matchesCategory =
-        subNorm === selectedNorm ||
-        subNorm.includes(selectedNorm) ||
-        selectedNorm.includes(subNorm) ||
-        catNorm === selectedNorm ||
-        nameNorm.includes(selectedNorm);
+      if (target === 'shirts' || target === 'linen shirts' || target === 'linen-shirts') {
+        if (sub.includes('t-shirt') || sub.includes('tshirt') || cat.includes('t-shirt') || cat.includes('tshirt')) {
+          matchesCategory = false;
+        } else {
+          matchesCategory = (
+            sub === 'shirts' ||
+            sub === 'linen shirts' ||
+            sub === 'formal shirts' ||
+            sub === 'pure linen' ||
+            cat === 'shirts' ||
+            (name.includes('shirt') && !name.includes('t-shirt') && !name.includes('tshirt'))
+          );
+        }
+      } else if (target.includes('oversized')) {
+        matchesCategory = sub.includes('oversized') || name.includes('oversized');
+      } else if (target.includes('drop shoulder') || target.includes('dropshoulder')) {
+        matchesCategory = sub.includes('drop shoulder') || sub.includes('dropshoulder') || name.includes('drop shoulder') || name.includes('dropshoulder');
+      } else if (target.includes('polo')) {
+        matchesCategory = sub.includes('polo') || name.includes('polo');
+      } else {
+        const normalize = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const selectedNorm = normalize(selectedCategory);
+        const subNorm = normalize(item.subcategory);
+        const catNorm = normalize(item.category);
+        const nameNorm = normalize(item.name);
+
+        matchesCategory =
+          subNorm === selectedNorm ||
+          catNorm === selectedNorm ||
+          nameNorm === selectedNorm ||
+          subNorm.includes(selectedNorm) ||
+          nameNorm.includes(selectedNorm);
+      }
     }
 
     return matchesSearch && matchesCategory;

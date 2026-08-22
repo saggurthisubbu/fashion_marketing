@@ -36,19 +36,35 @@ export const CategoriesSection = () => {
         );
 
         // Live product count from already-loaded products state
-        const normalize = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        const catNorm = normalize(liveCat.name);
+        const target = liveCat.name.trim().toLowerCase();
         const liveCount = products.filter((p) => {
-          const subNorm = normalize(p.subcategory);
-          const mainNorm = normalize(p.category);
-          const nameNorm = normalize(p.name);
-          return (
-            subNorm === catNorm ||
-            subNorm.includes(catNorm) ||
-            catNorm.includes(subNorm) ||
-            mainNorm === catNorm ||
-            nameNorm.includes(catNorm)
-          );
+          const sub = (p.subcategory || '').trim().toLowerCase();
+          const cat = (p.category || '').trim().toLowerCase();
+          const name = (p.name || '').trim().toLowerCase();
+
+          if (target === 'shirts' || target === 'linen shirts' || target === 'linen-shirts') {
+            if (sub.includes('t-shirt') || sub.includes('tshirt') || cat.includes('t-shirt') || cat.includes('tshirt')) {
+              return false;
+            }
+            return (
+              sub === 'shirts' ||
+              sub === 'linen shirts' ||
+              sub === 'formal shirts' ||
+              sub === 'pure linen' ||
+              cat === 'shirts' ||
+              (name.includes('shirt') && !name.includes('t-shirt') && !name.includes('tshirt'))
+            );
+          }
+          if (target.includes('oversized')) {
+            return sub.includes('oversized') || name.includes('oversized');
+          }
+          if (target.includes('drop shoulder') || target.includes('dropshoulder')) {
+            return sub.includes('drop shoulder') || sub.includes('dropshoulder') || name.includes('drop shoulder') || name.includes('dropshoulder');
+          }
+          if (target.includes('polo')) {
+            return sub.includes('polo') || name.includes('polo');
+          }
+          return sub === target || cat === target || sub.includes(target);
         }).length;
 
         const displayCount =
@@ -74,20 +90,37 @@ export const CategoriesSection = () => {
       })
     : // Fallback: static data while API is loading (first paint)
       categoriesData.map((staticCat) => {
-        const normalize = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        const catNorm = normalize(staticCat.slug);
+        const target = staticCat.slug.trim().toLowerCase();
         const liveCount = products.filter((p) => {
-          const subNorm = normalize(p.subcategory);
-          const mainNorm = normalize(p.category);
-          const nameNorm = normalize(p.name);
-          return (
-            subNorm === catNorm ||
-            subNorm.includes(catNorm) ||
-            catNorm.includes(subNorm) ||
-            mainNorm === catNorm ||
-            nameNorm.includes(catNorm)
-          );
+          const sub = (p.subcategory || '').trim().toLowerCase();
+          const cat = (p.category || '').trim().toLowerCase();
+          const name = (p.name || '').trim().toLowerCase();
+
+          if (target === 'shirts' || target === 'linen shirts' || target === 'linen-shirts') {
+            if (sub.includes('t-shirt') || sub.includes('tshirt') || cat.includes('t-shirt') || cat.includes('tshirt')) {
+              return false;
+            }
+            return (
+              sub === 'shirts' ||
+              sub === 'linen shirts' ||
+              sub === 'formal shirts' ||
+              sub === 'pure linen' ||
+              cat === 'shirts' ||
+              (name.includes('shirt') && !name.includes('t-shirt') && !name.includes('tshirt'))
+            );
+          }
+          if (target.includes('oversized')) {
+            return sub.includes('oversized') || name.includes('oversized');
+          }
+          if (target.includes('drop shoulder') || target.includes('dropshoulder')) {
+            return sub.includes('drop shoulder') || sub.includes('dropshoulder') || name.includes('drop shoulder') || name.includes('dropshoulder');
+          }
+          if (target.includes('polo')) {
+            return sub.includes('polo') || name.includes('polo');
+          }
+          return sub === target || cat === target || sub.includes(target);
         }).length;
+
         return {
           ...staticCat,
           image: resolveImageUrl(staticCat.image),

@@ -89,9 +89,6 @@ const MainApp = () => {
       {/* HERO SECTION */}
       <Hero />
 
-      {/* 3-PILLAR QUALITY STANDARD */}
-      <FeaturesGrid />
-
       {/* MEN'S CURATED CATEGORY HUBS */}
       <CategoriesSection />
 
@@ -100,6 +97,9 @@ const MainApp = () => {
 
       {/* REVIEWS */}
       <Testimonials />
+
+      {/* WHY CHOOSE QUICKFIT — informational, placed just above footer */}
+      <FeaturesGrid />
 
       {/* FOOTER */}
       <Footer />

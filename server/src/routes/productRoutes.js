@@ -2,6 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import { Product } from '../models/Product.js';
 import { protect, adminOnly } from '../middleware/auth.js';
+import { Store } from '../models/Store.js';
 
 const router = express.Router();
 
@@ -13,8 +14,12 @@ router.get('/', async (req, res) => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
-    const { category, subcategory, search } = req.query;
+    const { category, subcategory, search, storeId } = req.query;
     let filter = {};
+
+    if (storeId) {
+      filter.storeId = storeId;
+    }
 
     if (category && category !== 'All') {
       filter.category = { $regex: new RegExp(`^${category.trim()}$`, 'i') };
@@ -30,7 +35,23 @@ router.get('/', async (req, res) => {
       ];
     }
 
-    const products = await Product.find(filter).sort({ createdAt: -1 });
+    // --- MIGRATION LOGIC: Assign legacy products to first active store ---
+    const legacyCount = await Product.countDocuments({ storeId: { $exists: false } });
+    if (legacyCount > 0) {
+      console.log(`[PRODUCT GET] Found ${legacyCount} legacy products without storeId. Migrating...`);
+      const firstActiveStore = await Store.findOne({ status: 'Active' });
+      if (firstActiveStore) {
+        await Product.updateMany(
+          { storeId: { $exists: false } },
+          { $set: { storeId: firstActiveStore._id, storeName: firstActiveStore.name } }
+        );
+        console.log(`[PRODUCT GET] Successfully migrated legacy products to store: ${firstActiveStore.name}`);
+      }
+    }
+    // ----------------------------------------------------------------------
+
+    let products = await Product.find(filter).sort({ createdAt: -1 });
+
     console.log(`[PRODUCT GET] Fetched ${products.length} products from MongoDB Atlas (filter: ${JSON.stringify(filter)})`);
     res.json(products);
   } catch (error) {
@@ -74,6 +95,9 @@ router.post('/', protect, adminOnly, async (req, res) => {
     // Required field validation
     if (!data.name || typeof data.name !== 'string' || !data.name.trim()) {
       return res.status(400).json({ message: 'Product name is required.' });
+    }
+    if (!data.storeId || !data.storeName) {
+      return res.status(400).json({ message: 'Store assignment is required.' });
     }
     if (data.price === undefined || data.price === null || isNaN(Number(data.price)) || Number(data.price) < 0) {
       return res.status(400).json({ message: 'A valid product price is required.' });
@@ -151,6 +175,8 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
     const data = { ...req.body };
 
     if (data.name) product.name = data.name.trim();
+    if (data.storeId) product.storeId = data.storeId;
+    if (data.storeName) product.storeName = data.storeName;
     if (data.category) product.category = data.category;
     if (data.subcategory) product.subcategory = data.subcategory;
 

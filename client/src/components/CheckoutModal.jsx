@@ -76,6 +76,7 @@ export const CheckoutModal = () => {
         const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
         setLocationLink(mapsUrl);
         setCustomerCoords({ lat: latitude, lng: longitude });
+        localStorage.setItem('quickfit_location', JSON.stringify({ lat: latitude, lng: longitude }));
 
         // Immediately validate against all active stores
         try {
@@ -95,6 +96,8 @@ export const CheckoutModal = () => {
           if (result.inZone) {
             setLocationStatus('allowed');
             showToast(`✅ ${result.message}`, 'success');
+            // Re-fetch products to ensure catalog updates to the new nearest store
+            fetchProducts();
           } else {
             setLocationStatus('blocked');
             showToast('❌ Outside delivery zone. Order blocked.', 'error');

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { API_BASE_URL, API_ORIGIN, resolveImageUrl } from '../config/api';
+import { checkDeliveryAvailability } from '../utils/deliveryRadius';
 
 const ShopContext = createContext();
 
@@ -11,6 +12,9 @@ export const ShopProvider = ({ children }) => {
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [productsError, setProductsError] = useState(null);
   const [isBackendWaking, setIsBackendWaking] = useState(false); // Render cold-start indicator
+
+  // Live categories from MongoDB (single source of truth for the whole app)
+  const [categories, setCategories] = useState([]);
 
   const [cart, setCart] = useState(() => {
     try {
@@ -104,8 +108,41 @@ export const ShopProvider = ({ children }) => {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
+        // 1. Determine which store's products to fetch
+        let storeIdToFetch = null;
+        const savedLoc = localStorage.getItem('quickfit_location');
+        
+        if (savedLoc) {
+          try {
+            const { lat, lng } = JSON.parse(savedLoc);
+            const availability = await checkDeliveryAvailability(lat, lng, API_BASE_URL);
+            
+            if (availability.inZone && availability.nearestStore) {
+              storeIdToFetch = availability.nearestStore._id || availability.nearestStore.id;
+            } else {
+              // Customer is outside delivery zone
+              clearTimeout(timer);
+              setIsBackendWaking(false);
+              setIsLoadingProducts(false);
+              setProducts([]);
+              setProductsError(availability.message || 'We do not deliver to your current location.');
+              return; // Stop fetching entirely
+            }
+          } catch (e) {
+            console.warn('[PRODUCT FETCH] Failed to parse saved location', e);
+          }
+        } else {
+          // No location saved: do not restrict by storeId so the user can browse the entire global catalog
+          storeIdToFetch = null;
+        }
+
+        const queryParams = { _t: Date.now() };
+        if (storeIdToFetch) {
+          queryParams.storeId = storeIdToFetch;
+        }
+
         const res = await axios.get(`${API_BASE_URL}/products`, {
-          params: { _t: Date.now() },
+          params: queryParams,
           // No custom headers — avoids CORS preflight. Cache busted by _t param above.
           signal: controller.signal,
           timeout: TIMEOUT_MS
@@ -202,6 +239,27 @@ export const ShopProvider = ({ children }) => {
     setIsLoadingProducts(false);
   }, []);
 
+  // --- FETCH CATEGORIES FROM MONGODB ---
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_BASE_URL}/admin/categories`, {
+        params: { _t: Date.now() } // Cache-bust so mobile always gets fresh data
+      });
+      const data = Array.isArray(res.data) ? res.data : [];
+      if (data.length > 0) {
+        setCategories(data);
+        console.log(`[CATEGORIES] Loaded ${data.length} categories from MongoDB.`);
+      }
+    } catch (err) {
+      // Silent — CategoriesSection falls back to static data
+      console.warn('[CATEGORIES] Failed to fetch from API:', err.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
 
   useEffect(() => {
     fetchProducts();
@@ -253,6 +311,12 @@ export const ShopProvider = ({ children }) => {
 
   // --- CART FUNCTIONS ---
   const addToCart = (product, size = 'M', color = 'Standard') => {
+    // Guard: reject null/undefined or incomplete products
+    if (!product || !product.name || (!product.id && !product._id)) {
+      console.error('[CART] Attempted to add invalid product to cart:', product);
+      showToast('Unable to add item — product data is missing.', 'error');
+      return;
+    }
     const stock = product.stockQuantity !== undefined ? product.stockQuantity : 25;
     if (stock <= 0 || product.inStock === false) {
       showToast(`"${product.name}" is Out of Stock.`, 'error');
@@ -272,16 +336,28 @@ export const ShopProvider = ({ children }) => {
         updated[existingIndex].quantity += 1;
         return updated;
       }
-      return [
-        ...prevCart,
-        {
-          ...product,
-          id: product.id || product._id,
-          selectedSize: size,
-          selectedColor: color,
-          quantity: 1
-        }
-      ];
+      // Build a clean, serializable cart item (no ObjectId/circular refs)
+      const cartItem = {
+        id: String(product.id || product._id),
+        _id: String(product._id || product.id),
+        name: product.name,
+        price: product.price,
+        originalPrice: product.originalPrice,
+        image: product.image || '',
+        images: product.images || {},
+        category: product.category || '',
+        subcategory: product.subcategory || '',
+        sizes: product.sizes || [],
+        colors: product.colors || [],
+        stockQuantity: product.stockQuantity,
+        inStock: product.inStock,
+        badge: product.badge || '',
+        boutique: product.boutique || '',
+        selectedSize: size,
+        selectedColor: color || 'Standard',
+        quantity: 1
+      };
+      return [...prevCart, cartItem];
     });
     showToast(`Added "${product.name}" to Bag! 🛍️`);
   };
@@ -379,6 +455,8 @@ export const ShopProvider = ({ children }) => {
         products,
         setProducts,
         isLoadingProducts,
+        categories,
+        fetchCategories,
         isBackendWaking,
         productsError,
         fetchProducts,

@@ -18,12 +18,14 @@ import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../../../config/api'
 export const AdminProductsTab = ({
   productsList = [],
   categories = [],
+  storesList = [],
   onOpenAddProduct,
   onOpenEditProduct,
   onDeleteProduct,
   onToggleProductStock
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStore, setSelectedStore] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedSubcategory, setSelectedSubcategory] = useState('All');
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
@@ -38,14 +40,16 @@ export const AdminProductsTab = ({
     const filterSub = selectedSubcategory.trim().toLowerCase();
     const matchesSub = selectedSubcategory === 'All' || prodSub === filterSub;
 
+    const matchesStore = selectedStore === 'All' || prod.storeId === selectedStore;
+
     const query = searchTerm.toLowerCase().trim();
-    if (!query) return matchesCategory && matchesSub;
+    if (!query) return matchesCategory && matchesSub && matchesStore;
 
     const matchesName = prod.name?.toLowerCase().includes(query);
     const matchesSubcat = prod.subcategory?.toLowerCase().includes(query);
     const matchesDesc = prod.description?.toLowerCase().includes(query);
 
-    return matchesCategory && matchesSub && (matchesName || matchesSubcat || matchesDesc);
+    return matchesCategory && matchesSub && matchesStore && (matchesName || matchesSubcat || matchesDesc);
   });
 
   return (
@@ -90,6 +94,17 @@ export const AdminProductsTab = ({
         {/* Categories & Subcategories Filter */}
         <div className="flex items-center gap-2 flex-wrap">
           <select
+            value={selectedStore}
+            onChange={(e) => setSelectedStore(e.target.value)}
+            className="px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-bold cursor-pointer"
+          >
+            <option value="All">All Stores</option>
+            {storesList.map(store => (
+              <option key={store._id} value={store._id}>{store.name}</option>
+            ))}
+          </select>
+
+          <select
             value={selectedSubcategory}
             onChange={(e) => setSelectedSubcategory(e.target.value)}
             className="px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-bold cursor-pointer"
@@ -132,6 +147,7 @@ export const AdminProductsTab = ({
                 <tr className="bg-zinc-950 border-b border-zinc-800 text-zinc-400 uppercase text-[10px] font-mono tracking-wider">
                   <th className="p-3.5">Front View</th>
                   <th className="p-3.5">Product Title</th>
+                  <th className="p-3.5">Store</th>
                   <th className="p-3.5">Category</th>
                   <th className="p-3.5">Price & MRP</th>
                   <th className="p-3.5">4-Angle Status</th>
@@ -144,7 +160,7 @@ export const AdminProductsTab = ({
               <tbody className="divide-y divide-zinc-800/60">
                 {filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="p-12 text-center text-zinc-500 space-y-2">
+                    <td colSpan="10" className="p-12 text-center text-zinc-500 space-y-2">
                       <ShoppingBag className="w-8 h-8 mx-auto text-zinc-600" />
                       <div>No products found matching your search.</div>
                     </td>
@@ -176,6 +192,13 @@ export const AdminProductsTab = ({
                         <td className="p-3.5 max-w-[200px]">
                           <div className="font-bold text-white text-xs truncate">{prod.name}</div>
                           <div className="text-[10px] text-zinc-400 font-mono mt-0.5">{prod.boutique || 'QuickFit Central'}</div>
+                        </td>
+
+                        {/* Store */}
+                        <td className="p-3.5">
+                          <span className="px-2.5 py-1 rounded-lg bg-zinc-800 text-zinc-300 font-semibold text-[10px] truncate max-w-[120px] block">
+                            {prod.storeName || 'Unknown Store'}
+                          </span>
                         </td>
 
                         {/* Category */}
@@ -308,9 +331,14 @@ export const AdminProductsTab = ({
 
                 <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
                   <div>
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
-                      {prod.subcategory || 'Streetwear'}
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
+                        {prod.subcategory || 'Streetwear'}
+                      </span>
+                      <span className="text-[9px] px-1.5 py-0.5 bg-zinc-800 rounded font-mono text-zinc-300 line-clamp-1 max-w-[50%] text-right">
+                        {prod.storeName || 'Unknown'}
+                      </span>
+                    </div>
                     <h4 className="font-heading font-black text-white text-sm line-clamp-1 mt-0.5">
                       {prod.name}
                     </h4>

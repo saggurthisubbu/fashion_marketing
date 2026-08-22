@@ -23,6 +23,11 @@ export const CartDrawer = () => {
 
   if (!isCartOpen) return null;
 
+  // Filter out any corrupted/null cart entries that could prevent rendering
+  const safeCart = cart.filter(
+    (item) => item && item.id && item.name && typeof item.price === 'number'
+  );
+
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
       
@@ -42,7 +47,7 @@ export const CartDrawer = () => {
             <div className="flex items-center gap-3">
               <span className="text-xl">🛍️</span>
               <h2 className="text-lg font-black text-slate-900 font-heading">
-                Shopping Bag ({cart.reduce((acc, item) => acc + item.quantity, 0)})
+                Shopping Bag ({safeCart.reduce((acc, item) => acc + item.quantity, 0)})
               </h2>
             </div>
 
@@ -56,8 +61,8 @@ export const CartDrawer = () => {
 
           {/* ITEM LIST OR EMPTY STATE */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {cart.length > 0 ? (
-              cart.map((item, idx) => (
+            {safeCart.length > 0 ? (
+              safeCart.map((item, idx) => (
                 <div
                   key={`${item.id}-${item.selectedSize}-${item.selectedColor}-${idx}`}
                   className="glass-card p-4 rounded-2xl border border-slate-200/80 flex items-center gap-4 relative group"
@@ -81,7 +86,7 @@ export const CartDrawer = () => {
                     </h4>
                     <div className="text-[11px] font-semibold text-slate-500 flex items-center gap-2">
                       <span>Size: <strong className="text-slate-800">{item.selectedSize || 'M'}</strong></span>
-                      {item.selectedColor && (
+                      {item.selectedColor && item.selectedColor !== 'Standard' && (
                         <span>• Color: <strong className="text-slate-800">{item.selectedColor}</strong></span>
                       )}
                     </div>
@@ -137,21 +142,21 @@ export const CartDrawer = () => {
           </div>
 
           {/* FOOTER: PROMO & CHECKOUT BREAKDOWN */}
-          {cart.length > 0 && (
+          {safeCart.length > 0 && (
             <div className="p-6 bg-slate-50 border-t border-slate-200 space-y-4">
               
               {/* PROMO COUPON SYSTEM */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
                   <span>Promo Code</span>
-                  <span className="text-[10px] text-blue-600 font-bold">Try: QUICK10 | VIJAYAWADA</span>
+                  <span className="text-[10px] text-blue-600 font-bold">Try: QUICK60 | FIRSTFIT</span>
                 </label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={promoCode}
                     onChange={(e) => setPromoCode(e.target.value)}
-                    placeholder="Enter code (e.g. QUICK10)"
+                    placeholder="Enter code (e.g. QUICK60)"
                     className="flex-1 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-800 uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <button
@@ -163,7 +168,7 @@ export const CartDrawer = () => {
                 </div>
                 {appliedPromo && (
                   <div className="text-xs text-emerald-600 font-bold flex items-center justify-between bg-emerald-50 p-2 rounded-lg">
-                    <span>✓ Applied {appliedPromo.code} ({appliedPromo.label})</span>
+                    <span>✓ Applied {appliedPromo.code}</span>
                     <span>-₹{discountAmount}</span>
                   </div>
                 )}
@@ -191,7 +196,7 @@ export const CartDrawer = () => {
                 <div className="flex justify-between text-slate-600">
                   <span>60-Min Express Delivery</span>
                   {deliveryFee === 0 ? (
-                    <span className="font-bold text-emerald-600">FREE (Above ₹1999)</span>
+                    <span className="font-bold text-emerald-600">FREE (Above ₹999)</span>
                   ) : (
                     <span className="font-semibold text-slate-900">₹{deliveryFee}</span>
                   )}

@@ -58,6 +58,8 @@ export const AdminDashboardModal = () => {
 
   const [productForm, setProductForm] = useState({
     name: '',
+    storeId: '',
+    storeName: '',
     category: 'Men',
     subcategory: 'Oversized T-Shirts',
     price: '',
@@ -294,6 +296,8 @@ export const AdminDashboardModal = () => {
     setFileErrors({});
     setProductForm({
       name: '',
+      storeId: storesList.length > 0 ? storesList[0]._id : '',
+      storeName: storesList.length > 0 ? storesList[0].name : '',
       category: 'Men',
       subcategory: 'Oversized T-Shirts',
       price: '',
@@ -320,6 +324,8 @@ export const AdminDashboardModal = () => {
     setFileErrors({});
     setProductForm({
       name: prod.name,
+      storeId: prod.storeId || (storesList.length > 0 ? storesList[0]._id : ''),
+      storeName: prod.storeName || (storesList.length > 0 ? storesList[0].name : ''),
       category: 'Men',
       subcategory: prod.subcategory || 'Oversized T-Shirts',
       price: prod.price,
@@ -369,6 +375,8 @@ export const AdminDashboardModal = () => {
 
       const payload = {
         name: productForm.name.trim(),
+        storeId: productForm.storeId,
+        storeName: productForm.storeName,
         category: 'Men',
         subcategory: productForm.subcategory || 'Oversized T-Shirts',
         price: Number(productForm.price),
@@ -688,6 +696,7 @@ export const AdminDashboardModal = () => {
             <AdminProductsTab
               productsList={currentProducts}
               categories={categories}
+              storesList={storesList}
               onOpenAddProduct={handleOpenAddProduct}
               onOpenEditProduct={handleOpenEditProduct}
               onDeleteProduct={handleDeleteProduct}
@@ -701,6 +710,8 @@ export const AdminDashboardModal = () => {
               onAddCategory={handleAddCategory}
               onEditCategory={handleEditCategory}
               onDeleteCategory={handleDeleteCategory}
+              apiBaseUrl={API_BASE_URL}
+              getAuthHeader={getAuthHeader}
             />
           )}
 
@@ -920,6 +931,31 @@ export const AdminDashboardModal = () => {
                   placeholder="e.g. Monochrome Heavyweight Oversized Tee"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-medium focus:outline-none focus:border-white"
                 />
+              </div>
+
+              {/* Store Selection */}
+              <div>
+                <label className="font-bold text-zinc-300 uppercase tracking-wider block mb-1">Store *</label>
+                <select
+                  required
+                  value={productForm.storeId}
+                  onChange={(e) => {
+                    const selectedStore = storesList.find(s => s._id === e.target.value);
+                    setProductForm({
+                      ...productForm,
+                      storeId: e.target.value,
+                      storeName: selectedStore ? selectedStore.name : ''
+                    });
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-bold cursor-pointer focus:outline-none focus:border-white"
+                >
+                  <option value="" disabled>Select a Store</option>
+                  {storesList.map(store => (
+                    <option key={store._id} value={store._id}>
+                      {store.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Subcategory & Stock */}

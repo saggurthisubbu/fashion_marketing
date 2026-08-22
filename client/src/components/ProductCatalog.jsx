@@ -14,7 +14,8 @@ export const ProductCatalog = () => {
     searchQuery,
     setSearchQuery,
     sortBy,
-    setSortBy
+    setSortBy,
+    user
   } = useShop();
 
   const categoriesList = [
@@ -204,6 +205,64 @@ export const ProductCatalog = () => {
             >
               Reset Filters
             </button>
+          </div>
+        )}
+
+        {/* 5. TEMPORARY ADMIN DEBUG SECTION */}
+        {user?.role === 'admin' && (
+          <div className="mt-16 bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-800 text-white shadow-2xl">
+            <h3 className="text-lg font-black font-heading mb-4 text-amber-400 flex items-center gap-2">
+              <span>🛠️</span> Admin Debug: Product Visibility Audit
+            </h3>
+            <div className="overflow-x-auto rounded-xl border border-slate-700">
+              <table className="w-full text-left text-xs whitespace-nowrap">
+                <thead className="bg-slate-800 text-slate-300 font-mono">
+                  <tr>
+                    <th className="px-4 py-3">Product Name</th>
+                    <th className="px-4 py-3">Product ID</th>
+                    <th className="px-4 py-3">Store ID</th>
+                    <th className="px-4 py-3">Stock</th>
+                    <th className="px-4 py-3">Active Status</th>
+                    <th className="px-4 py-3 text-center">Visible on Website?</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800 font-mono text-[11px] sm:text-xs">
+                  {products.map(p => {
+                    const isVisible = filtered.some(f => f._id === p._id || f.id === p.id);
+                    return (
+                      <tr key={p._id || p.id} className="hover:bg-slate-800/50">
+                        <td className="px-4 py-3 max-w-[150px] truncate">{p.name}</td>
+                        <td className="px-4 py-3 text-slate-400">{p._id || p.id}</td>
+                        <td className="px-4 py-3 text-slate-400">{p.storeId || p.storeName || 'Legacy / Global'}</td>
+                        <td className={`px-4 py-3 font-bold ${p.stockQuantity > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {p.stockQuantity}
+                        </td>
+                        <td className="px-4 py-3">
+                          {p.inStock ? <span className="text-emerald-400">In Stock</span> : <span className="text-rose-400">Out of Stock</span>}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {isVisible ? (
+                            <span className="inline-block px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded">YES</span>
+                          ) : (
+                            <span className="inline-block px-2 py-1 bg-rose-500/20 text-rose-400 rounded">NO (Filtered)</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {products.length === 0 && (
+                    <tr>
+                      <td colSpan="6" className="px-4 py-6 text-center text-slate-500">
+                        No products loaded in context.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-4 text-[11px] text-slate-400">
+              Note: This table shows ALL products fetched by the frontend. If a product is not in this list, it was either excluded by the backend (e.g. wrong storeId) or doesn't exist. "Visible on Website" means it passed all frontend filters (category/search).
+            </p>
           </div>
         )}
 

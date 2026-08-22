@@ -67,12 +67,17 @@ export const resolveImageUrl = (imgUrl) => {
 
   // 3. Absolute URL (Cloudinary, Unsplash, external CDN)
   if (/^https?:\/\//i.test(trimmed)) {
+    // Upgrade http:// → https:// in production (prevents mixed-content blocks on mobile)
+    let url = trimmed;
+    if (isProd && url.startsWith('http://') && !url.includes('localhost') && !url.includes('127.0.0.1')) {
+      url = 'https://' + url.slice(7);
+    }
     // If it points to an old localhost:5000/uploads path on mobile/production, re-map to current API_ORIGIN
-    if (trimmed.includes('/uploads/')) {
-      const relativePart = '/uploads/' + trimmed.split('/uploads/')[1];
+    if (url.includes('/uploads/')) {
+      const relativePart = '/uploads/' + url.split('/uploads/')[1];
       return `${API_ORIGIN}${relativePart}`;
     }
-    return trimmed;
+    return url;
   }
 
   // 4. Relative backend upload path (e.g., /uploads/image.jpg or uploads/image.jpg)

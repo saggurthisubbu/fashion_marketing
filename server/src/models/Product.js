@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store' }, // Now mandatory for new products
+  storeName: { type: String }, // Stored for easier frontend queries
   category: { type: String, default: 'Men' },
   subcategory: { type: String, default: 'Oversized T-Shirts' },
   price: { type: Number, required: true },

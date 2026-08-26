@@ -91,10 +91,15 @@ export const resolveImageUrl = (imgUrl) => {
     return url;
   }
 
-  // 4. Relative backend upload path (e.g., /uploads/image.jpg or uploads/image.jpg)
+  // 4. Relative backend upload path (e.g., /uploads/image.jpg stored in MongoDB)
+  //    In production: prefix with the full Render backend origin so images load on Vercel
+  //    In local dev:  keep as /uploads/ — Vite proxy maps it to http://localhost:5000
   if (trimmed.startsWith('/uploads/') || trimmed.startsWith('uploads/')) {
     const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-    return cleanPath;
+    if (isProd) {
+      return `https://quickfit-backend-m1yl.onrender.com${cleanPath}`;
+    }
+    return cleanPath; // local dev — Vite proxy handles it
   }
 
   // 5. Root asset path (e.g. /placeholder-product.svg)

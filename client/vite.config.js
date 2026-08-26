@@ -174,14 +174,16 @@ export default defineConfig({
             },
           },
         ],
-        // Pre-cache all build assets
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        // Skip waiting so updates apply immediately
+        // Pre-cache JS/CSS/fonts/images — but NOT index.html or sw.js
+        // index.html must always come from the network so new deploys take effect immediately.
+        // JS/CSS are safe to pre-cache because Vite content-hashes their filenames.
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff,woff2}'],
+        // Skip waiting so updates apply immediately (new SW claims all clients at once)
         skipWaiting: true,
         clientsClaim: true,
-        // Navigate to index.html for all SPA routes
-        navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api/, /^\/uploads/],
+        // Do NOT set navigateFallback — let the browser always fetch index.html from the network
+        // so Vercel always serves the latest HTML + new SW registration script.
+        cleanupOutdatedCaches: true, // Remove caches from old SW versions automatically
       },
       devOptions: {
         // Enable PWA in dev for easier debugging (optional)

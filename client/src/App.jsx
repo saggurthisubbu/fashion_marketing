@@ -16,6 +16,7 @@ import { AdminDashboardModal } from './components/AdminDashboardModal';
 import { AuthModal } from './components/AuthModal';
 import { ContactModal } from './components/ContactModal';
 import { AboutModal } from './components/AboutModal';
+import { InstallPWA } from './components/InstallPWA';
 
 const ToastNotification = () => {
   const { toast } = useShop();
@@ -116,6 +117,9 @@ const MainApp = () => {
 
       {/* HIDDEN ADMIN DASHBOARD (ACCESSIBLE STRICTLY VIA /admin ROUTE) */}
       <AdminDashboardModal />
+
+      {/* PWA INSTALL BANNER */}
+      <InstallPWA />
 
       {/* TOAST NOTIFICATION */}
       <ToastNotification />

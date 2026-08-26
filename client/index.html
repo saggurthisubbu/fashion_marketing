@@ -2,24 +2,86 @@
 <html lang="en" class="scroll-smooth">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
-  <!-- SEO & TITLE -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+  <!-- ══════════════════════════════════════════
+       SEO & TITLE
+  ══════════════════════════════════════════ -->
   <title>QuickFit - Fashion Delivered In 1 Hour | Vijayawada 60-Min Express</title>
   <meta name="description" content="Order luxury fashion from top Vijayawada boutiques in MG Road and Benz Circle. Express delivery to your doorstep within 60 minutes." />
-  
-  <!-- GOOGLE FONTS -->
+  <meta name="keywords" content="QuickFit, fashion delivery, Vijayawada, boutique, express delivery, 60 minutes, clothes, MG Road, Benz Circle" />
+  <meta name="author" content="QuickFit" />
+
+  <!-- ══════════════════════════════════════════
+       PWA — THEME & MANIFEST
+  ══════════════════════════════════════════ -->
+  <meta name="theme-color" content="#000000" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+
+  <!-- ══════════════════════════════════════════
+       PWA — APPLE / iOS
+  ══════════════════════════════════════════ -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="QuickFit" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
+  <!-- iOS Splash Screens (portrait) -->
+  <!-- iPhone 14 Pro Max -->
+  <link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/icons/icon-512x512.png" />
+  <!-- iPhone 14 / 13 / 12 -->
+  <link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/icons/icon-512x512.png" />
+  <!-- iPhone SE (3rd gen) -->
+  <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/icons/icon-512x512.png" />
+  <!-- iPad Pro 12.9" -->
+  <link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/icons/icon-512x512.png" />
+
+  <!-- ══════════════════════════════════════════
+       PWA — MICROSOFT TILES
+  ══════════════════════════════════════════ -->
+  <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
+  <meta name="msapplication-TileColor" content="#000000" />
+
+  <!-- ══════════════════════════════════════════
+       FAVICON
+  ══════════════════════════════════════════ -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512x512.png" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+
+  <!-- ══════════════════════════════════════════
+       OPEN GRAPH (Social sharing)
+  ══════════════════════════════════════════ -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="QuickFit - Fashion Delivered In 1 Hour" />
+  <meta property="og:description" content="Order luxury fashion from top Vijayawada boutiques. Express delivery within 60 minutes." />
+  <meta property="og:image" content="/icons/icon-512x512.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="QuickFit - Fashion in 1 Hour" />
+  <meta name="twitter:description" content="Express fashion delivery in Vijayawada. Order from top boutiques in MG Road &amp; Benz Circle." />
+
+  <!-- ══════════════════════════════════════════
+       GOOGLE FONTS
+  ══════════════════════════════════════════ -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 </head>
-<body class="bg-slate-50 text-slate-900 antialiased selection:bg-blue-600 selection:text-white">
-  
+<body class="bg-slate-50 text-slate-900 antialiased selection:bg-slate-900 selection:text-white">
+
   <!-- APP ROOT -->
   <div id="root"></div>
 
+  <!-- NO-JS FALLBACK -->
+  <noscript>
+    <div style="text-align:center;padding:40px;font-family:Inter,sans-serif;">
+      <strong>QuickFit</strong> requires JavaScript to run. Please enable it in your browser settings.
+    </div>
+  </noscript>
+
   <!-- VITE MODULE LOADER -->
   <script type="module" src="/src/main.jsx"></script>
-  
+
 </body>
-</html>
+</html>

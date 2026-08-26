@@ -65,13 +65,25 @@ export const resolveImageUrl = (imgUrl) => {
     return trimmed;
   }
 
-  // 3. Absolute URL (Cloudinary, Unsplash, external CDN)
+  // 3. Absolute URL (Cloudinary, Unsplash, Render backend, external CDN)
   if (/^https?:\/\//i.test(trimmed)) {
-    // If it points to an /uploads/ path, return relative /uploads/ path so frontend public assets serve it reliably
     if (trimmed.includes('/uploads/')) {
-      return '/uploads/' + trimmed.split('/uploads/')[1];
+      if (isProd) {
+        // In production (Vercel frontend), keep the full backend URL as-is.
+        // Relative /uploads/ paths 404 on Vercel — the backend (Render) serves them.
+        // Upgrade http → https to prevent mixed-content blocks on mobile.
+        let url = trimmed;
+        if (url.startsWith('http://') && !url.includes('localhost') && !url.includes('127.0.0.1')) {
+          url = 'https://' + url.slice(7);
+        }
+        return url;
+      } else {
+        // In local dev, Vite proxies /uploads/ → http://localhost:5000/uploads/
+        // so we can use a relative path and avoid CORS.
+        return '/uploads/' + trimmed.split('/uploads/')[1];
+      }
     }
-    // Upgrade http:// → https:// in production for external assets (prevents mixed-content blocks on mobile)
+    // Non-uploads absolute URL (Unsplash, Cloudinary, etc.)
     let url = trimmed;
     if (isProd && url.startsWith('http://') && !url.includes('localhost') && !url.includes('127.0.0.1')) {
       url = 'https://' + url.slice(7);

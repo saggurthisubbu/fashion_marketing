@@ -15,6 +15,7 @@ export const ShopProvider = ({ children }) => {
 
   // Live categories from MongoDB (single source of truth for the whole app)
   const [categories, setCategories] = useState([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
 
   const [cart, setCart] = useState(() => {
     try {
@@ -241,24 +242,64 @@ export const ShopProvider = ({ children }) => {
 
   // --- FETCH CATEGORIES FROM MONGODB ---
   const fetchCategories = useCallback(async () => {
-    try {
-      const res = await axios.get(`${API_BASE_URL}/admin/categories`, {
-        params: { _t: Date.now() } // Cache-bust so mobile always gets fresh data
-      });
-      const data = Array.isArray(res.data) ? res.data : [];
-      if (data.length > 0) {
-        setCategories(data);
-        console.log(`[CATEGORIES] Loaded ${data.length} categories from MongoDB.`);
+    const MAX_RETRIES = 3;
+    const RETRY_DELAYS = [2000, 5000, 10000];
+    setIsLoadingCategories(true);
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`[CATEGORIES] Attempt ${attempt}/${MAX_RETRIES} → ${API_BASE_URL}/admin/categories`);
+        const res = await axios.get(`${API_BASE_URL}/admin/categories`, {
+          params: { _t: Date.now() }, // Cache-bust — forces fresh data past CDN/SW cache
+          timeout: 20000
+        });
+        const data = Array.isArray(res.data) ? res.data : [];
+        if (data.length > 0) {
+          setCategories(data);
+          console.log(`[CATEGORIES] ✅ Loaded ${data.length} categories from MongoDB (attempt ${attempt}).`);
+          setIsLoadingCategories(false);
+          return; // Success — stop retrying
+        } else {
+          console.warn(`[CATEGORIES] ⚠️ API returned empty array (attempt ${attempt}).`);
+        }
+      } catch (err) {
+        const isLast = attempt === MAX_RETRIES;
+        console.warn(`[CATEGORIES] ❌ Attempt ${attempt} failed: ${err.message}`);
+        if (!isLast) {
+          await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt - 1]));
+        } else {
+          // All retries exhausted — keep whatever stale state we have (static fallback in CategoriesSection)
+          console.error('[CATEGORIES] All retries failed. Static fallback will be used.');
+        }
       }
-    } catch (err) {
-      // Silent — CategoriesSection falls back to static data
-      console.warn('[CATEGORIES] Failed to fetch from API:', err.message);
     }
+    setIsLoadingCategories(false); // Settled (success or all retries exhausted)
   }, []);
 
+  // Fetch categories on mount AND whenever the tab regains focus (same pattern as products)
   useEffect(() => {
     fetchCategories();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchCategories();
+      }
+    };
+    const handleFocus = () => fetchCategories();
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    // Periodic sync every 60 seconds so admin edits appear automatically
+    const interval = setInterval(fetchCategories, 60000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(interval);
+    };
   }, [fetchCategories]);
+
 
 
   useEffect(() => {
@@ -457,6 +498,7 @@ export const ShopProvider = ({ children }) => {
         isLoadingProducts,
         categories,
         fetchCategories,
+        isLoadingCategories,
         isBackendWaking,
         productsError,
         fetchProducts,

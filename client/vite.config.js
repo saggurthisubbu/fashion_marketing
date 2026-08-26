@@ -96,7 +96,23 @@ export default defineConfig({
       workbox: {
         // Cache strategies
         runtimeCaching: [
-          // API calls — Network First (fresh data preferred, fall back to cache)
+          // Categories API — NetworkFirst with very short cache TTL so admin edits show immediately
+          {
+            urlPattern: /\/api\/admin\/categories/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'quickfit-categories-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60, // 1 minute max — stale categories should NEVER persist
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+              networkTimeoutSeconds: 5, // Fall back to cache quickly if network is slow
+            },
+          },
+          // All other API calls — Network First (fresh data preferred, fall back to cache)
           {
             urlPattern: /^https?:\/\/.*\/api\/.*/i,
             handler: 'NetworkFirst',

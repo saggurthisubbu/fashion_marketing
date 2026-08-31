@@ -77,6 +77,27 @@ export const ProductCard = ({ product }) => {
           {product.name}
         </h3>
 
+        {/* ── Store / Distance / ETA pill row ── */}
+        {(product.storeName || product.distanceKm !== null) && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {product.storeName && (
+              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[9px] sm:text-[10px] font-bold text-slate-600 leading-none whitespace-nowrap">
+                🏪 {product.storeName}
+              </span>
+            )}
+            {product.distanceKm !== null && product.distanceKm !== undefined && (
+              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-blue-50 border border-blue-100 text-[9px] sm:text-[10px] font-bold text-blue-600 leading-none whitespace-nowrap">
+                📍 {product.distanceKm} km
+              </span>
+            )}
+            {product.estimatedMinutes !== null && product.estimatedMinutes !== undefined && (
+              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100 text-[9px] sm:text-[10px] font-bold text-emerald-600 leading-none whitespace-nowrap">
+                ⚡ ~{product.estimatedMinutes} min
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Price + Add to Bag */}
         <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
           <span className="text-base sm:text-lg font-black text-slate-900 font-heading">

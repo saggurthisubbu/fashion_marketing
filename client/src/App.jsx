@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { ShopProvider, useShop } from './context/ShopContext';
 import { Navbar } from './components/Navbar';
+import { LocationBanner } from './components/LocationBanner';
 import { Hero } from './components/Hero';
 import { FeaturesGrid } from './components/FeaturesGrid';
 import { CategoriesSection } from './components/CategoriesSection';
@@ -86,6 +87,9 @@ const MainApp = () => {
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-slate-900 selection:text-white">
       {/* PUBLIC STICKY NAVBAR */}
       <Navbar />
+
+      {/* LOCATION BANNER — shows detection status & nearby store info */}
+      <LocationBanner />
 
       {/* HERO SECTION */}
       <Hero />

@@ -7,7 +7,7 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const stores = await Store.find({ status: 'Active' }).select(
-      'name address location deliveryRadiusKm status'
+      'name address contactNumber location deliveryRadiusKm status'
     );
     res.json(stores);
   } catch (error) {

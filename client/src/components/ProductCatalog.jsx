@@ -15,7 +15,9 @@ export const ProductCatalog = () => {
     setSearchQuery,
     sortBy,
     setSortBy,
-    user
+    user,
+    nearbyStores,
+    locationStatus
   } = useShop();
 
   const categoriesList = [
@@ -91,10 +93,23 @@ export const ProductCatalog = () => {
     return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); // Newest default
   });
 
-  // Diagnostic logs — visible in browser DevTools console
+  // Diagnostic logs
   console.log(`[CATALOG] Total products in context: ${products.length}`);
   console.log(`[CATALOG] After filter (category="${selectedCategory}", search="${searchQuery}"): ${filtered.length} products`);
   console.log(`[CATALOG] Rendering ${filtered.length} product cards`);
+
+  // ── Build store-grouped view when location is active ──────────────────────
+  const isLocationActive = locationStatus === 'granted' && nearbyStores.length > 0;
+
+  // Groups: [{ store: {...}, products: [...] }, ...] sorted by distanceKm
+  const storeGroups = isLocationActive
+    ? nearbyStores.map((store) => ({
+        store,
+        products: filtered.filter(
+          (p) => (p.storeId?.toString() || '') === (store._id?.toString() || '')
+        )
+      })).filter((g) => g.products.length > 0)
+    : [];
 
 
   return (
@@ -206,12 +221,49 @@ export const ProductCatalog = () => {
             )}
           </div>
         ) : filtered.length > 0 ? (
-          /* 3. PRODUCT GRID - 2 COLUMNS ON MOBILE, 3-4 ON DESKTOP */
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
-            {filtered.map((product) => (
-              <ProductCard key={product.id || product._id} product={product} />
-            ))}
-          </div>
+          /* 3. PRODUCT GRID — grouped by store (when location active) or flat grid */
+          isLocationActive && storeGroups.length > 0 ? (
+            <div className="space-y-10">
+              {storeGroups.map(({ store, products: storeProducts }) => (
+                <div key={store._id?.toString()} className="space-y-4">
+                  {/* Store header banner */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3 sm:p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center text-sm flex-shrink-0">🏪</span>
+                      <div>
+                        <p className="text-sm font-black text-slate-900 leading-tight">{store.name}</p>
+                        <p className="text-[10px] text-slate-500 font-medium">{store.address}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-[10px] font-bold text-blue-700">
+                        📍 {store.distanceKm} km away
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-[10px] font-bold text-emerald-700">
+                        ⚡ ~{store.estimatedMinutes} min delivery
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-600">
+                        {storeProducts.length} item{storeProducts.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+                  {/* Product grid for this store */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+                    {storeProducts.map((product) => (
+                      <ProductCard key={product.id || product._id} product={product} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* Flat grid — no location or no grouping data */
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+              {filtered.map((product) => (
+                <ProductCard key={product.id || product._id} product={product} />
+              ))}
+            </div>
+          )
         ) : (
           /* 4. NO RESULTS EMPTY STATE */
           <div className="bg-white rounded-3xl p-8 sm:p-12 text-center max-w-md mx-auto shadow-sm border border-slate-200 space-y-4 my-8">

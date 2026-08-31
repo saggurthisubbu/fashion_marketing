@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { Product } from '../models/Product.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import { Store } from '../models/Store.js';
+import { findAllNearbyStores, findClosestStore } from '../utils/geoUtils.js';
 
 const router = express.Router();
 
@@ -56,6 +57,115 @@ router.get('/', async (req, res) => {
     res.json(products);
   } catch (error) {
     console.error('[PRODUCT GET ERROR]:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/products/nearby?lat=<lat>&lng=<lng>   (Public)
+// Returns products from ALL stores within their delivery radius of the customer.
+// Products are sorted: nearest store first, second nearest next, etc.
+// Each product is enriched with: distanceKm, estimatedMinutes, storeName.
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/nearby', async (req, res) => {
+  try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    const customerLat = parseFloat(req.query.lat);
+    const customerLng = parseFloat(req.query.lng);
+
+    if (isNaN(customerLat) || isNaN(customerLng)) {
+      return res.status(400).json({ message: 'Valid lat and lng query parameters are required.' });
+    }
+
+    // 1. Fetch all active stores
+    const allStores = await Store.find({ status: 'Active' });
+    if (allStores.length === 0) {
+      return res.json({
+        inZone: false,
+        products: [],
+        nearbyStores: [],
+        message: 'No active stores found.'
+      });
+    }
+
+    // 2. Find all stores within their delivery radius
+    const nearbyStoreResults = findAllNearbyStores(customerLat, customerLng, allStores);
+
+    if (nearbyStoreResults.length === 0) {
+      const closest = findClosestStore(customerLat, customerLng, allStores);
+      return res.json({
+        inZone: false,
+        products: [],
+        nearbyStores: [],
+        closestStore: closest
+          ? {
+              name: closest.store.name,
+              distanceKm: parseFloat(closest.distanceKm.toFixed(2)),
+              deliveryRadiusKm: closest.store.deliveryRadiusKm
+            }
+          : null,
+        message: 'Sorry, we are currently not available in your location.'
+      });
+    }
+
+    // 3. Collect store IDs and build a lookup map
+    const nearbyStoreIds = nearbyStoreResults.map(r => r.store._id);
+    const storeInfoMap = {};
+    for (const r of nearbyStoreResults) {
+      storeInfoMap[r.store._id.toString()] = {
+        distanceKm: parseFloat(r.distanceKm.toFixed(2)),
+        estimatedMinutes: r.estimatedMinutes,
+        storeName: r.store.name,
+        storeAddress: r.store.address
+      };
+    }
+
+    // 4. Fetch products belonging to any nearby store (one efficient query)
+    const rawProducts = await Product.find({ storeId: { $in: nearbyStoreIds } });
+
+    // 5. Enrich each product with geo data from its store, then sort nearest-first
+    const enriched = rawProducts.map(p => {
+      const storeKey = (p.storeId || '').toString();
+      const info = storeInfoMap[storeKey] || {};
+      return {
+        ...p.toObject(),
+        distanceKm: info.distanceKm ?? null,
+        estimatedMinutes: info.estimatedMinutes ?? null,
+        storeName: p.storeName || info.storeName || '',
+        storeAddress: info.storeAddress || ''
+      };
+    });
+
+    // Sort: nearest store products first (null distances go to end)
+    enriched.sort((a, b) => {
+      if (a.distanceKm === null) return 1;
+      if (b.distanceKm === null) return -1;
+      return a.distanceKm - b.distanceKm;
+    });
+
+    // 6. Build public store summary array for the frontend
+    const nearbyStoresSummary = nearbyStoreResults.map(r => ({
+      _id: r.store._id,
+      name: r.store.name,
+      address: r.store.address,
+      distanceKm: parseFloat(r.distanceKm.toFixed(2)),
+      estimatedMinutes: r.estimatedMinutes,
+      deliveryRadiusKm: r.store.deliveryRadiusKm
+    }));
+
+    console.log(`[NEARBY] lat=${customerLat}, lng=${customerLng} → ${nearbyStoreResults.length} stores, ${enriched.length} products`);
+
+    res.json({
+      inZone: true,
+      products: enriched,
+      nearbyStores: nearbyStoresSummary,
+      message: `Found ${enriched.length} products from ${nearbyStoreResults.length} nearby store(s).`
+    });
+  } catch (error) {
+    console.error('[NEARBY ERROR]:', error.message);
     res.status(500).json({ message: error.message });
   }
 });

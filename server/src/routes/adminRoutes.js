@@ -8,82 +8,163 @@ import { Category } from '../models/Category.js';
 import { Setting } from '../models/Setting.js';
 import { Notification } from '../models/Notification.js';
 import { Store } from '../models/Store.js';
-import { protect, adminOnly } from '../middleware/auth.js';
+import { protect, adminOnly, storeOwnerOrAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // ==========================================
 // 1. EXECUTIVE ANALYTICS & DASHBOARD METRICS
 // ==========================================
-router.get('/analytics', protect, adminOnly, async (req, res) => {
+router.get('/analytics', protect, storeOwnerOrAdmin, async (req, res) => {
   try {
-    const totalOrders = await Order.countDocuments();
-    const totalCustomers = await User.countDocuments({ role: 'customer' });
-    const totalProducts = await Product.countDocuments();
-    const pendingOrders = await Order.countDocuments({ deliveryStatus: { $in: ['Pending', 'Confirmed'] } });
-    const deliveredOrders = await Order.countDocuments({ deliveryStatus: 'Delivered' });
-    const cancelledOrders = await Order.countDocuments({ deliveryStatus: 'Cancelled' });
-    const outForDeliveryOrders = await Order.countDocuments({ deliveryStatus: 'Out For Delivery' });
+    let totalOrders, totalRevenue, totalCustomers, totalProducts, pendingOrders, deliveredOrders, cancelledOrders, outForDeliveryOrders, lowStockCount, outOfStockCount, activePartnersCount, lowStockProducts, salesByCategory, formattedTrends;
 
-    // Total Revenue calculation
-    const revenueResult = await Order.aggregate([
-      { $match: { deliveryStatus: { $ne: 'Cancelled' } } },
-      { $group: { _id: null, total: { $sum: '$totalAmount' } } }
-    ]);
-    const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
+    if (req.user.role === 'store_owner' && req.user.assignedStoreId) {
+      const storeId = req.user.assignedStoreId;
+      totalOrders = await Order.countDocuments({ 'items.storeId': storeId });
+      
+      const storeOrdersForCust = await Order.find({ 'items.storeId': storeId }).select('customer.email');
+      totalCustomers = [...new Set(storeOrdersForCust.map(o => o.customer?.email).filter(Boolean))].length;
 
-    // Low stock products (quantity <= 10)
-    const lowStockProducts = await Product.find({ stockQuantity: { $lte: 10 } })
-      .select('name stockQuantity inStock price boutique images image subcategory')
-      .sort({ stockQuantity: 1 });
+      totalProducts = await Product.countDocuments({ storeId });
+      pendingOrders = await Order.countDocuments({ 'items.storeId': storeId, deliveryStatus: { $in: ['Pending', 'Confirmed'] } });
+      deliveredOrders = await Order.countDocuments({ 'items.storeId': storeId, deliveryStatus: 'Delivered' });
+      cancelledOrders = await Order.countDocuments({ 'items.storeId': storeId, deliveryStatus: 'Cancelled' });
+      outForDeliveryOrders = await Order.countDocuments({ 'items.storeId': storeId, deliveryStatus: 'Out For Delivery' });
 
-    // Out of stock products
-    const outOfStockCount = await Product.countDocuments({ stockQuantity: { $lte: 0 } });
+      // Total Revenue for this store specifically (summing items subtotal for items matching storeId)
+      const revenueResult = await Order.aggregate([
+        { $match: { deliveryStatus: { $ne: 'Cancelled' }, 'items.storeId': storeId } },
+        { $unwind: '$items' },
+        { $match: { 'items.storeId': storeId } },
+        { $group: { _id: null, total: { $sum: { $multiply: ['$items.price', '$items.quantity'] } } } }
+      ]);
+      totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
 
-    // Sales by Category
-    const salesByCategory = await Product.aggregate([
-      { $group: { _id: '$subcategory', count: { $sum: 1 }, totalStock: { $sum: '$stockQuantity' } } }
-    ]);
+      lowStockProducts = await Product.find({ storeId, stockQuantity: { $lte: 10 } })
+        .select('name stockQuantity inStock price boutique images image subcategory')
+        .sort({ stockQuantity: 1 });
+      lowStockCount = lowStockProducts.length;
 
-    // Active delivery partners
-    const activePartnersCount = await DeliveryPartner.countDocuments({ status: { $in: ['Available', 'On Delivery'] } });
+      outOfStockCount = await Product.countDocuments({ storeId, stockQuantity: { $lte: 0 } });
 
-    // Recent 7 Days Revenue Trend (for Recharts)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
+      salesByCategory = await Product.aggregate([
+        { $match: { storeId } },
+        { $group: { _id: '$subcategory', count: { $sum: 1 }, totalStock: { $sum: '$stockQuantity' } } }
+      ]);
 
-    const dailyTrends = await Order.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: sevenDaysAgo },
-          deliveryStatus: { $ne: 'Cancelled' }
-        }
-      },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-          revenue: { $sum: '$totalAmount' },
-          orders: { $sum: 1 }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]);
+      activePartnersCount = await DeliveryPartner.countDocuments({ status: { $in: ['Available', 'On Delivery'] } });
 
-    // Format days array to guarantee 7 days
-    const formattedTrends = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
-      const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-      const found = dailyTrends.find(item => item._id === dateStr);
-      formattedTrends.push({
-        date: dateStr,
-        day: dayName,
-        revenue: found ? found.revenue : 0,
-        orders: found ? found.orders : 0
-      });
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+      sevenDaysAgo.setHours(0, 0, 0, 0);
+
+      const dailyTrends = await Order.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: sevenDaysAgo },
+            deliveryStatus: { $ne: 'Cancelled' },
+            'items.storeId': storeId
+          }
+        },
+        { $unwind: '$items' },
+        { $match: { 'items.storeId': storeId } },
+        {
+          $group: {
+            _id: {
+              date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+              orderId: '$orderId'
+            },
+            itemRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
+          }
+        },
+        {
+          $group: {
+            _id: '$_id.date',
+            revenue: { $sum: '$itemRevenue' },
+            orders: { $sum: 1 }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]);
+
+      formattedTrends = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+        const found = dailyTrends.find(item => item._id === dateStr);
+        formattedTrends.push({
+          date: dateStr,
+          day: dayName,
+          revenue: found ? found.revenue : 0,
+          orders: found ? found.orders : 0
+        });
+      }
+    } else {
+      totalOrders = await Order.countDocuments();
+      totalCustomers = await User.countDocuments({ role: 'customer' });
+      totalProducts = await Product.countDocuments();
+      pendingOrders = await Order.countDocuments({ deliveryStatus: { $in: ['Pending', 'Confirmed'] } });
+      deliveredOrders = await Order.countDocuments({ deliveryStatus: 'Delivered' });
+      cancelledOrders = await Order.countDocuments({ deliveryStatus: 'Cancelled' });
+      outForDeliveryOrders = await Order.countDocuments({ deliveryStatus: 'Out For Delivery' });
+
+      const revenueResult = await Order.aggregate([
+        { $match: { deliveryStatus: { $ne: 'Cancelled' } } },
+        { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+      ]);
+      totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
+
+      lowStockProducts = await Product.find({ stockQuantity: { $lte: 10 } })
+        .select('name stockQuantity inStock price boutique images image subcategory')
+        .sort({ stockQuantity: 1 });
+      lowStockCount = lowStockProducts.length;
+
+      outOfStockCount = await Product.countDocuments({ stockQuantity: { $lte: 0 } });
+
+      salesByCategory = await Product.aggregate([
+        { $group: { _id: '$subcategory', count: { $sum: 1 }, totalStock: { $sum: '$stockQuantity' } } }
+      ]);
+
+      activePartnersCount = await DeliveryPartner.countDocuments({ status: { $in: ['Available', 'On Delivery'] } });
+
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+      sevenDaysAgo.setHours(0, 0, 0, 0);
+
+      const dailyTrends = await Order.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: sevenDaysAgo },
+            deliveryStatus: { $ne: 'Cancelled' }
+          }
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+            revenue: { $sum: '$totalAmount' },
+            orders: { $sum: 1 }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]);
+
+      formattedTrends = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+        const found = dailyTrends.find(item => item._id === dateStr);
+        formattedTrends.push({
+          date: dateStr,
+          day: dayName,
+          revenue: found ? found.revenue : 0,
+          orders: found ? found.orders : 0
+        });
+      }
     }
 
     res.json({
@@ -95,7 +176,7 @@ router.get('/analytics', protect, adminOnly, async (req, res) => {
       deliveredOrders,
       cancelledOrders,
       outForDeliveryOrders,
-      lowStockCount: lowStockProducts.length,
+      lowStockCount,
       outOfStockCount,
       activePartnersCount,
       lowStockProducts,
@@ -273,9 +354,14 @@ router.put('/orders/:id/assign-partner', protect, adminOnly, async (req, res) =>
 // ==========================================
 // 4. INVENTORY MANAGEMENT & QUICK RESTOCK
 // ==========================================
-router.get('/inventory', protect, adminOnly, async (req, res) => {
+router.get('/inventory', protect, storeOwnerOrAdmin, async (req, res) => {
   try {
-    const products = await Product.find({}).sort({ stockQuantity: 1 });
+    let products;
+    if (req.user.role === 'store_owner' && req.user.assignedStoreId) {
+      products = await Product.find({ storeId: req.user.assignedStoreId }).sort({ stockQuantity: 1 });
+    } else {
+      products = await Product.find({}).sort({ stockQuantity: 1 });
+    }
     const totalInventoryCount = products.reduce((sum, p) => sum + (p.stockQuantity || 0), 0);
     const totalInventoryValue = products.reduce((sum, p) => sum + ((p.stockQuantity || 0) * (p.price || 0)), 0);
     const lowStockCount = products.filter(p => p.stockQuantity <= 10).length;
@@ -294,11 +380,17 @@ router.get('/inventory', protect, adminOnly, async (req, res) => {
   }
 });
 
-router.put('/inventory/:id/stock', protect, adminOnly, async (req, res) => {
+router.put('/inventory/:id/stock', protect, storeOwnerOrAdmin, async (req, res) => {
   try {
     const { stockQuantity, adjustment } = req.body;
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
+
+    if (req.user.role === 'store_owner' && req.user.assignedStoreId) {
+      if (product.storeId?.toString() !== req.user.assignedStoreId.toString()) {
+        return res.status(403).json({ message: 'Access denied: You can only adjust stock for your own store products.' });
+      }
+    }
 
     if (adjustment !== undefined) {
       product.stockQuantity = Math.max(0, (product.stockQuantity || 0) + Number(adjustment));
@@ -316,6 +408,7 @@ router.put('/inventory/:id/stock', protect, adminOnly, async (req, res) => {
         message: `Product "${product.name}" is low in stock (${product.stockQuantity} units left).`,
         type: 'inventory',
         productId: product._id,
+        storeId: product.storeId || null,
         priority: 'high'
       });
     }
@@ -478,20 +571,30 @@ router.put('/payments/:orderId/status', protect, adminOnly, async (req, res) => 
 // ==========================================
 // 7. NOTIFICATIONS CENTER
 // ==========================================
-router.get('/notifications', protect, adminOnly, async (req, res) => {
+router.get('/notifications', protect, storeOwnerOrAdmin, async (req, res) => {
   try {
-    const notifications = await Notification.find({}).sort({ createdAt: -1 }).limit(50);
-    const unreadCount = await Notification.countDocuments({ isRead: false });
+    let query = {};
+    if (req.user.role === 'store_owner' && req.user.assignedStoreId) {
+      query = { $or: [{ storeId: req.user.assignedStoreId }, { storeId: null }] };
+    }
+    const notifications = await Notification.find(query).sort({ createdAt: -1 }).limit(50);
+    const unreadCount = await Notification.countDocuments({ ...query, isRead: false });
     res.json({ unreadCount, notifications });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-router.put('/notifications/:id/read', protect, adminOnly, async (req, res) => {
+router.put('/notifications/:id/read', protect, storeOwnerOrAdmin, async (req, res) => {
   try {
     const notif = await Notification.findById(req.params.id);
     if (!notif) return res.status(404).json({ message: 'Notification not found' });
+
+    if (req.user.role === 'store_owner' && req.user.assignedStoreId) {
+      if (notif.storeId && notif.storeId.toString() !== req.user.assignedStoreId.toString()) {
+        return res.status(403).json({ message: 'Access denied: You cannot mark notifications from other stores as read.' });
+      }
+    }
 
     notif.isRead = true;
     await notif.save();
@@ -501,9 +604,13 @@ router.put('/notifications/:id/read', protect, adminOnly, async (req, res) => {
   }
 });
 
-router.put('/notifications/read-all', protect, adminOnly, async (req, res) => {
+router.put('/notifications/read-all', protect, storeOwnerOrAdmin, async (req, res) => {
   try {
-    await Notification.updateMany({ isRead: false }, { $set: { isRead: true } });
+    let query = { isRead: false };
+    if (req.user.role === 'store_owner' && req.user.assignedStoreId) {
+      query = { isRead: false, $or: [{ storeId: req.user.assignedStoreId }, { storeId: null }] };
+    }
+    await Notification.updateMany(query, { $set: { isRead: true } });
     res.json({ message: 'All notifications marked as read' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -551,7 +658,7 @@ router.put('/settings', protect, adminOnly, async (req, res) => {
   }
 });
 
-router.put('/change-password', protect, adminOnly, async (req, res) => {
+router.put('/change-password', protect, storeOwnerOrAdmin, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!newPassword || newPassword.length < 6) {
@@ -559,7 +666,7 @@ router.put('/change-password', protect, adminOnly, async (req, res) => {
     }
 
     const admin = await User.findById(req.user._id);
-    if (!admin) return res.status(404).json({ message: 'Admin user not found' });
+    if (!admin) return res.status(404).json({ message: 'User not found' });
 
     if (currentPassword) {
       const isMatch = await admin.matchPassword(currentPassword);
@@ -570,7 +677,7 @@ router.put('/change-password', protect, adminOnly, async (req, res) => {
 
     admin.password = newPassword;
     await admin.save();
-    res.json({ message: 'Admin password updated successfully!' });
+    res.json({ message: 'Password updated successfully!' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -580,8 +687,8 @@ router.put('/change-password', protect, adminOnly, async (req, res) => {
 // STORE MANAGEMENT (ADMIN CRUD)
 // ==========================================
 
-// GET all stores (admin)
-router.get('/stores', protect, adminOnly, async (req, res) => {
+// GET all stores (accessible by admins and store owners)
+router.get('/stores', protect, storeOwnerOrAdmin, async (req, res) => {
   try {
     const stores = await Store.find({}).sort({ createdAt: -1 });
     res.json(stores);

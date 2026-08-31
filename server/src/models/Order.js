@@ -7,7 +7,9 @@ const orderItemSchema = new mongoose.Schema({
   quantity: { type: Number, required: true },
   size: { type: String },
   color: { type: String },
-  image: { type: String }
+  image: { type: String },
+  storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null },
+  storeName: { type: String, default: '' }
 });
 
 const orderSchema = new mongoose.Schema({

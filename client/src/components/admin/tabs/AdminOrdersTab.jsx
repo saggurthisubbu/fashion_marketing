@@ -196,6 +196,11 @@ export const AdminOrdersTab = ({
                         {ord.items?.map((it, idx) => (
                           <div key={idx} className="text-[11px] text-zinc-300 truncate font-medium">
                             • {it.name} ({it.size || 'M'}) x{it.quantity || it.qty || 1}
+                            {it.storeName && (
+                              <span className="text-[9px] text-zinc-500 font-bold ml-1">
+                                [{it.storeName}]
+                              </span>
+                            )}
                           </div>
                         ))}
                       </div>

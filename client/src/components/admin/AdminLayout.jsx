@@ -44,7 +44,9 @@ export const AdminLayout = ({
   const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
-  const menuItems = [
+  const isStoreOwner = adminUser?.role === 'store_owner';
+
+  const allMenuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
     { id: 'orders', label: 'Orders', icon: Package, badge: counts.orders || null },
     { id: 'products', label: 'Products', icon: ShoppingBag, badge: counts.products || null },
@@ -58,6 +60,13 @@ export const AdminLayout = ({
     { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadNotifsCount || null, badgeColor: 'bg-red-500/20 text-red-300 border-red-500/30' },
     { id: 'settings', label: 'Settings', icon: Settings, badge: null }
   ];
+
+  const menuItems = allMenuItems.filter(item => {
+    if (isStoreOwner) {
+      return ['dashboard', 'orders', 'products', 'categories', 'inventory', 'analytics', 'notifications'].includes(item.id);
+    }
+    return true;
+  });
 
   const handleSelectTab = (tabId) => {
     setActiveTab(tabId);
@@ -86,10 +95,10 @@ export const AdminLayout = ({
               </div>
               <div className="truncate">
                 <span className="font-heading font-black text-base text-white tracking-tight block">
-                  QuickFit Admin
+                  {isStoreOwner ? 'Store Owner' : 'QuickFit Admin'}
                 </span>
                 <span className="text-[10px] text-zinc-400 font-mono uppercase tracking-wider block">
-                  Enterprise Suite
+                  {isStoreOwner ? 'Store Portal' : 'Enterprise Suite'}
                 </span>
               </div>
             </div>
@@ -100,7 +109,7 @@ export const AdminLayout = ({
               </div>
             </div>
           )}
-
+ 
           {/* Collapse Toggle */}
           <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -110,13 +119,13 @@ export const AdminLayout = ({
             {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
         </div>
-
+ 
         {/* Sidebar Nav Items */}
         <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1.5 scrollbar-thin scrollbar-thumb-zinc-800">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
-
+ 
             return (
               <button
                 key={item.id}
@@ -129,17 +138,17 @@ export const AdminLayout = ({
                 title={isSidebarCollapsed ? item.label : ''}
               >
                 <Icon className={`w-4 h-4 shrink-0 transition-transform ${isActive ? 'text-zinc-950' : 'text-zinc-400 group-hover:text-white group-hover:scale-110'}`} />
-
+ 
                 {!isSidebarCollapsed && (
                   <span className="truncate flex-1 text-left">{item.label}</span>
                 )}
-
+ 
                 {!isSidebarCollapsed && item.badge && (
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold border ${item.badgeColor || (isActive ? 'bg-zinc-950/10 text-zinc-950 border-zinc-950/20' : 'bg-zinc-800 text-zinc-300 border-zinc-700')}`}>
                     {item.badge}
                   </span>
                 )}
-
+ 
                 {/* Tooltip on Collapsed */}
                 {isSidebarCollapsed && (
                   <div className="absolute left-full ml-2 px-2.5 py-1 bg-zinc-900 text-white text-[11px] font-bold rounded-md whitespace-nowrap shadow-xl border border-zinc-800 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
@@ -151,7 +160,7 @@ export const AdminLayout = ({
             );
           })}
         </div>
-
+ 
         {/* Sidebar Footer / User & Logout */}
         <div className="p-3 border-t border-zinc-800 space-y-2">
           {!isSidebarCollapsed ? (
@@ -165,7 +174,7 @@ export const AdminLayout = ({
                     {adminUser?.name || 'Administrator'}
                   </div>
                   <div className="text-[10px] text-zinc-400 font-mono">
-                    Super Admin
+                    {isStoreOwner ? 'Store Manager' : 'Super Admin'}
                   </div>
                 </div>
               </div>

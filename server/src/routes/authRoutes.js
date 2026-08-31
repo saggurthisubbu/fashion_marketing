@@ -81,6 +81,7 @@ router.post('/login', async (req, res) => {
       adminId: user.adminId || (user.role === 'admin' ? 'admin' : undefined),
       phone: user.phone,
       role: user.role,
+      assignedStoreId: user.assignedStoreId || null,
       token: generateToken(user._id)
     });
   } catch (error) {

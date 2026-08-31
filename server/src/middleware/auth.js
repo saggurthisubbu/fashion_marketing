@@ -32,3 +32,11 @@ export const adminOnly = (req, res, next) => {
     res.status(403).json({ message: 'Access denied: Admin authorization required' });
   }
 };
+
+export const storeOwnerOrAdmin = (req, res, next) => {
+  if (req.user && (req.user.role === 'admin' || req.user.role === 'store_owner')) {
+    next();
+  } else {
+    res.status(403).json({ message: 'Access denied: Admin or Store Owner authorization required' });
+  }
+};

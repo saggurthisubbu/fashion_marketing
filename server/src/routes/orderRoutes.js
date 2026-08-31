@@ -4,7 +4,7 @@ import { Product } from '../models/Product.js';
 import { User } from '../models/User.js';
 import { Store } from '../models/Store.js';
 import { Notification } from '../models/Notification.js';
-import { protect, adminOnly } from '../middleware/auth.js';
+import { protect, adminOnly, storeOwnerOrAdmin } from '../middleware/auth.js';
 import { sendEmailNotification } from '../utils/notifications.js';
 
 const router = express.Router();
@@ -213,6 +213,17 @@ router.post('/', async (req, res) => {
       }
     }
 
+    // 1.5. Enrich each item with its product's storeId and storeName
+    for (const item of items) {
+      if (item.product) {
+        const dbProduct = await Product.findById(item.product).select('storeId storeName');
+        if (dbProduct) {
+          item.storeId = dbProduct.storeId || null;
+          item.storeName = dbProduct.storeName || '';
+        }
+      }
+    }
+
     // 2. Generate unique 6-digit Order ID
     const randomSuffix = Math.floor(100000 + Math.random() * 900000);
     const orderId = `QF-VJ-${randomSuffix}`;
@@ -255,14 +266,38 @@ router.post('/', async (req, res) => {
     // 4. Trigger Email notification to admin
     sendEmailNotification(createdOrder);
 
-    // 5. In-App Admin Notification
+    // 5. In-App Notifications — Dual: per-store + super admin global
     try {
-      const storeNote = finalAssignedStore?.name ? ` → ${finalAssignedStore.name}` : '';
+      // Collect unique store IDs from order items
+      const storeIdsInOrder = [...new Set(
+        createdOrder.items
+          .map(item => item.storeId?.toString())
+          .filter(Boolean)
+      )];
+
+      // Create one notification per unique store (visible to store_owner)
+      for (const sid of storeIdsInOrder) {
+        const sName = createdOrder.items.find(i => i.storeId?.toString() === sid)?.storeName || '';
+        await Notification.create({
+          title: `New Order #${createdOrder.orderId}`,
+          message: `${createdOrder.customer.name} ordered items from ${sName || 'your store'} (₹${createdOrder.totalAmount}) via ${createdOrder.paymentMethod}.`,
+          type: 'order',
+          orderId: createdOrder.orderId,
+          storeId: sid,
+          priority: 'high'
+        });
+      }
+
+      // Create one global notification (visible to Super Admin, storeId=null)
+      const storeNote = storeIdsInOrder.length > 0
+        ? ` → ${[...new Set(createdOrder.items.map(i => i.storeName).filter(Boolean))].join(', ')}`
+        : '';
       await Notification.create({
         title: `New Order #${createdOrder.orderId}`,
         message: `${createdOrder.customer.name} ordered ${createdOrder.items.length} items (₹${createdOrder.totalAmount}) via ${createdOrder.paymentMethod}${storeNote}.`,
         type: 'order',
         orderId: createdOrder.orderId,
+        storeId: null,
         priority: 'high'
       });
     } catch (notifErr) {
@@ -288,22 +323,43 @@ router.get('/track/:orderId', async (req, res) => {
   }
 });
 
-// Admin: Get all orders
-router.get('/', protect, adminOnly, async (req, res) => {
+// Admin/Store Owner: Get orders (scoped by role)
+router.get('/', protect, storeOwnerOrAdmin, async (req, res) => {
   try {
-    const orders = await Order.find({}).sort({ createdAt: -1 });
+    let orders;
+    if (req.user.role === 'admin') {
+      // Super Admin sees ALL orders
+      orders = await Order.find({}).sort({ createdAt: -1 });
+    } else if (req.user.role === 'store_owner' && req.user.assignedStoreId) {
+      // Store owner sees only orders containing items from their store
+      const storeId = req.user.assignedStoreId.toString();
+      orders = await Order.find({
+        'items.storeId': req.user.assignedStoreId
+      }).sort({ createdAt: -1 });
+    } else {
+      orders = [];
+    }
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Admin: Update order status
-router.put('/:id/status', protect, adminOnly, async (req, res) => {
+// Admin/Store Owner: Update order status (scoped)
+router.put('/:id/status', protect, storeOwnerOrAdmin, async (req, res) => {
   try {
     const { status } = req.body;
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    // Store owners can only update orders that contain items from their store
+    if (req.user.role === 'store_owner' && req.user.assignedStoreId) {
+      const storeId = req.user.assignedStoreId.toString();
+      const hasStoreItems = order.items.some(item => item.storeId?.toString() === storeId);
+      if (!hasStoreItems) {
+        return res.status(403).json({ message: 'You can only update orders from your store.' });
+      }
+    }
 
     order.deliveryStatus = status;
     const updatedOrder = await order.save();

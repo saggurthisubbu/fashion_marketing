@@ -184,9 +184,9 @@ export const AdminDashboardModal = () => {
         password
       });
 
-      if (res.data.role !== 'admin') {
-        showToast('Access denied: Admin privileges required.', 'error');
-        throw new Error('Not authorized as administrator.');
+      if (res.data.role !== 'admin' && res.data.role !== 'store_owner') {
+        showToast('Access denied: Unauthorized role.', 'error');
+        throw new Error('Not authorized as admin or store owner.');
       }
 
       if (typeof setUser === 'function') setUser(res.data);
@@ -194,7 +194,7 @@ export const AdminDashboardModal = () => {
       setAdminToken(res.data.token);
       localStorage.setItem('quickfit_user', JSON.stringify(res.data));
       localStorage.setItem('quickfit_token', res.data.token);
-      showToast(`Admin Authenticated! Welcome ${res.data.name} 🔓`);
+      showToast(res.data.role === 'store_owner' ? `Authenticated! Welcome Store Manager ${res.data.name} 🔓` : `Admin Authenticated! Welcome ${res.data.name} 🔓`);
       await loadAllAdminData();
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Login failed';
@@ -287,6 +287,9 @@ export const AdminDashboardModal = () => {
     showToast(`Swapped ${angleA.toUpperCase()} view with ${angleB.toUpperCase()}!`);
   };
 
+  const isStoreOwner = user?.role === 'store_owner';
+  const storeOwnerId = user?.assignedStoreId;
+
   // Open Add / Edit Product Modals
   const handleOpenAddProduct = () => {
     setEditingProduct(null);
@@ -294,16 +297,23 @@ export const AdminDashboardModal = () => {
     setImageFiles({ front: null, back: null, left: null, right: null });
     setImagePreviews({ front: '', back: '', left: '', right: '' });
     setFileErrors({});
+
+    const defaultStoreId = isStoreOwner && storeOwnerId
+      ? storeOwnerId
+      : (storesList.length > 0 ? storesList[0]._id : '');
+    const defaultStore = storesList.find(s => s._id === defaultStoreId);
+    const defaultStoreName = defaultStore ? defaultStore.name : '';
+
     setProductForm({
       name: '',
-      storeId: storesList.length > 0 ? storesList[0]._id : '',
-      storeName: storesList.length > 0 ? storesList[0].name : '',
+      storeId: defaultStoreId,
+      storeName: defaultStoreName,
       category: 'Men',
       subcategory: 'Oversized T-Shirts',
       price: '',
       originalPrice: '',
       stockQuantity: 30,
-      boutique: 'QuickFit Central, Vijayawada',
+      boutique: defaultStoreName || 'QuickFit Central, Vijayawada',
       description: 'Heavyweight 240+ GSM organic cotton tailored for clean modern streetwear drape.',
       sizes: 'S, M, L, XL, XXL'
     });
@@ -640,9 +650,13 @@ export const AdminDashboardModal = () => {
     }
   };
 
-  const currentProducts = (Array.isArray(productsList) && productsList.length > 0)
+  let currentProducts = (Array.isArray(productsList) && productsList.length > 0)
     ? productsList
     : (Array.isArray(products) ? products : []);
+
+  if (isStoreOwner && storeOwnerId) {
+    currentProducts = currentProducts.filter(p => p.storeId?.toString() === storeOwnerId.toString());
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-zinc-950 flex flex-col">
@@ -938,6 +952,7 @@ export const AdminDashboardModal = () => {
                 <label className="font-bold text-zinc-300 uppercase tracking-wider block mb-1">Store *</label>
                 <select
                   required
+                  disabled={isStoreOwner}
                   value={productForm.storeId}
                   onChange={(e) => {
                     const selectedStore = storesList.find(s => s._id === e.target.value);
@@ -947,7 +962,7 @@ export const AdminDashboardModal = () => {
                       storeName: selectedStore ? selectedStore.name : ''
                     });
                   }}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-bold cursor-pointer focus:outline-none focus:border-white"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-bold cursor-pointer focus:outline-none focus:border-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="" disabled>Select a Store</option>
                   {storesList.map(store => (

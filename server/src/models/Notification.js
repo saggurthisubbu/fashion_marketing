@@ -10,6 +10,7 @@ const notificationSchema = new mongoose.Schema({
   },
   orderId: { type: String },
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+  storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null },
   isRead: { type: Boolean, default: false },
   link: { type: String, default: '' },
   priority: { type: String, enum: ['low', 'medium', 'high', 'critical'], default: 'medium' }

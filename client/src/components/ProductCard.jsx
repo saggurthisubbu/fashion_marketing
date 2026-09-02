@@ -79,24 +79,11 @@ export const ProductCard = ({ product }) => {
       {/* ── CONTENT ───────────────────────────────────────────────────── */}
       <div className="p-3 sm:p-4 flex flex-col flex-1 justify-between gap-2.5">
 
-        <div className="space-y-2">
+        <div>
           {/* Product name */}
           <h3 className="text-xs sm:text-sm font-black text-slate-900 line-clamp-2 font-heading leading-snug">
             {product.name}
           </h3>
-
-          {/* Available sizes */}
-          <div className="flex items-center gap-1 flex-wrap">
-            <span className="text-[10px] font-bold text-slate-400 mr-0.5">Sizes:</span>
-            {sizesList.map((s) => (
-              <span
-                key={s}
-                className="px-1.5 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[9px] sm:text-[10px] font-bold text-slate-700 leading-none"
-              >
-                {s}
-              </span>
-            ))}
-          </div>
         </div>
 
         {/* Price + Add to Bag */}

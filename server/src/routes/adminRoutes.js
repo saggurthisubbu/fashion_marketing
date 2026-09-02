@@ -118,7 +118,7 @@ router.get('/analytics', protect, storeOwnerOrAdmin, async (req, res) => {
       totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
 
       lowStockProducts = await Product.find({ stockQuantity: { $lte: 10 } })
-        .select('name stockQuantity inStock price boutique images image subcategory')
+        .select('name stockQuantity inStock price boutique images image subcategory storeId storeName')
         .sort({ stockQuantity: 1 });
       lowStockCount = lowStockProducts.length;
 
@@ -183,6 +183,74 @@ router.get('/analytics', protect, storeOwnerOrAdmin, async (req, res) => {
       salesByCategory,
       revenueTrends: formattedTrends
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==========================================
+// 1b. STORE-WISE ANALYTICS (Super Admin only)
+// ==========================================
+router.get('/store-analytics', protect, adminOnly, async (req, res) => {
+  try {
+    const stores = await Store.find({}).sort({ name: 1 });
+
+    const storeStats = await Promise.all(stores.map(async (store) => {
+      const storeId = store._id;
+
+      const totalProducts = await Product.countDocuments({ storeId });
+      const lowStockProducts = await Product.countDocuments({ storeId, stockQuantity: { $gt: 0, $lte: 10 } });
+      const outOfStock = await Product.countDocuments({ storeId, stockQuantity: { $lte: 0 } });
+      const totalStock = await Product.aggregate([
+        { $match: { storeId } },
+        { $group: { _id: null, total: { $sum: '$stockQuantity' } } }
+      ]);
+
+      const totalOrders = await Order.countDocuments({ 'items.storeId': storeId });
+      const pendingOrders = await Order.countDocuments({
+        'items.storeId': storeId,
+        deliveryStatus: { $in: ['Pending', 'Confirmed'] }
+      });
+      const deliveredOrders = await Order.countDocuments({ 'items.storeId': storeId, deliveryStatus: 'Delivered' });
+
+      const revenueResult = await Order.aggregate([
+        { $match: { deliveryStatus: { $ne: 'Cancelled' }, 'items.storeId': storeId } },
+        { $unwind: '$items' },
+        { $match: { 'items.storeId': storeId } },
+        { $group: { _id: null, total: { $sum: { $multiply: ['$items.price', '$items.quantity'] } } } }
+      ]);
+      const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
+
+      // Find assigned store owner
+      const owner = await User.findOne({ role: 'store_owner', assignedStoreId: storeId }).select('name email adminId');
+
+      return {
+        _id: store._id,
+        name: store.name,
+        address: store.address,
+        contactNumber: store.contactNumber,
+        status: store.status,
+        owner: owner ? { name: owner.name, email: owner.email, adminId: owner.adminId } : null,
+        totalProducts,
+        lowStockProducts,
+        outOfStock,
+        totalStock: totalStock.length > 0 ? totalStock[0].total : 0,
+        totalOrders,
+        pendingOrders,
+        deliveredOrders,
+        totalRevenue
+      };
+    }));
+
+    const summary = {
+      totalStores: stores.length,
+      activeStores: stores.filter(s => s.status === 'Active').length,
+      totalRevenue: storeStats.reduce((sum, s) => sum + s.totalRevenue, 0),
+      totalOrders: storeStats.reduce((sum, s) => sum + s.totalOrders, 0),
+      totalProducts: storeStats.reduce((sum, s) => sum + s.totalProducts, 0)
+    };
+
+    res.json({ summary, stores: storeStats });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -687,17 +755,24 @@ router.put('/change-password', protect, storeOwnerOrAdmin, async (req, res) => {
 // STORE MANAGEMENT (ADMIN CRUD)
 // ==========================================
 
-// GET all stores (accessible by admins and store owners)
+// GET all stores — Super Admin sees all; Store Owner sees only their assigned store
 router.get('/stores', protect, storeOwnerOrAdmin, async (req, res) => {
   try {
-    const stores = await Store.find({}).sort({ createdAt: -1 });
+    let stores;
+    if (req.user.role === 'store_owner' && req.user.assignedStoreId) {
+      // Store owner can only see their own store
+      const store = await Store.findById(req.user.assignedStoreId);
+      stores = store ? [store] : [];
+    } else {
+      stores = await Store.find({}).sort({ createdAt: -1 });
+    }
     res.json(stores);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// POST create store (admin)
+// POST create store (Super Admin only)
 router.post('/stores', protect, adminOnly, async (req, res) => {
   try {
     const { name, address, contactNumber, location, deliveryRadiusKm, status } = req.body;
@@ -722,7 +797,7 @@ router.post('/stores', protect, adminOnly, async (req, res) => {
   }
 });
 
-// PUT update store (admin)
+// PUT update store (Super Admin only)
 router.put('/stores/:id', protect, adminOnly, async (req, res) => {
   try {
     const { name, address, contactNumber, location, deliveryRadiusKm, status } = req.body;
@@ -744,12 +819,147 @@ router.put('/stores/:id', protect, adminOnly, async (req, res) => {
   }
 });
 
-// DELETE store (admin)
+// DELETE store (Super Admin only)
 router.delete('/stores/:id', protect, adminOnly, async (req, res) => {
   try {
     const store = await Store.findByIdAndDelete(req.params.id);
     if (!store) return res.status(404).json({ message: 'Store not found.' });
     res.json({ message: `Store "${store.name}" deleted successfully.` });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==========================================
+// STORE OWNER MANAGEMENT (Super Admin only)
+// ==========================================
+
+// GET all store owner accounts
+router.get('/store-owners', protect, adminOnly, async (req, res) => {
+  try {
+    const owners = await User.find({ role: 'store_owner' })
+      .select('-password')
+      .sort({ createdAt: -1 });
+
+    // Enrich with store info
+    const enriched = await Promise.all(owners.map(async (owner) => {
+      const store = owner.assignedStoreId
+        ? await Store.findById(owner.assignedStoreId).select('name address status')
+        : null;
+      return {
+        ...owner.toObject(),
+        store: store || null
+      };
+    }));
+
+    res.json(enriched);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// POST create/update store owner account for a specific store
+router.post('/store-owners', protect, adminOnly, async (req, res) => {
+  try {
+    const { storeId, name, email, adminId, password, phone } = req.body;
+
+    if (!storeId || !name || !email || !password) {
+      return res.status(400).json({ message: 'Store ID, name, email, and password are required.' });
+    }
+
+    const store = await Store.findById(storeId);
+    if (!store) return res.status(404).json({ message: 'Store not found.' });
+
+    // Check if adminId is already taken by another user
+    if (adminId) {
+      const existingAdminId = await User.findOne({ adminId: { $regex: new RegExp(`^${adminId}$`, 'i') } });
+      if (existingAdminId) {
+        return res.status(400).json({ message: `Admin ID "${adminId}" is already taken.` });
+      }
+    }
+
+    // Check if email is already taken
+    const existingEmail = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
+    if (existingEmail) {
+      return res.status(400).json({ message: `Email "${email}" is already registered.` });
+    }
+
+    const owner = new User({
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      password,
+      phone: phone || store.contactNumber,
+      role: 'store_owner',
+      assignedStoreId: storeId,
+      adminId: adminId ? adminId.trim() : undefined,
+      address: {
+        street: store.address,
+        area: 'Vijayawada',
+        city: 'Vijayawada'
+      }
+    });
+
+    const saved = await owner.save();
+    res.status(201).json({
+      _id: saved._id,
+      name: saved.name,
+      email: saved.email,
+      adminId: saved.adminId,
+      phone: saved.phone,
+      role: saved.role,
+      assignedStoreId: saved.assignedStoreId,
+      store: { _id: store._id, name: store.name }
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// PUT update store owner credentials
+router.put('/store-owners/:id', protect, adminOnly, async (req, res) => {
+  try {
+    const owner = await User.findById(req.params.id);
+    if (!owner || owner.role !== 'store_owner') {
+      return res.status(404).json({ message: 'Store owner not found.' });
+    }
+
+    const { name, email, adminId, password, phone, storeId, isBlocked } = req.body;
+
+    if (name) owner.name = name.trim();
+    if (email) owner.email = email.trim().toLowerCase();
+    if (adminId !== undefined) owner.adminId = adminId ? adminId.trim() : undefined;
+    if (phone) owner.phone = phone;
+    if (storeId) owner.assignedStoreId = storeId;
+    if (isBlocked !== undefined) owner.isBlocked = isBlocked;
+    if (password && password.length >= 6) {
+      owner.password = password; // pre-save hook will hash it
+    }
+
+    const updated = await owner.save();
+    res.json({
+      _id: updated._id,
+      name: updated.name,
+      email: updated.email,
+      adminId: updated.adminId,
+      phone: updated.phone,
+      role: updated.role,
+      assignedStoreId: updated.assignedStoreId,
+      isBlocked: updated.isBlocked
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// DELETE store owner account
+router.delete('/store-owners/:id', protect, adminOnly, async (req, res) => {
+  try {
+    const owner = await User.findById(req.params.id);
+    if (!owner || owner.role !== 'store_owner') {
+      return res.status(404).json({ message: 'Store owner not found.' });
+    }
+    await owner.deleteOne();
+    res.json({ message: `Store owner account for "${owner.name}" deleted successfully.` });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

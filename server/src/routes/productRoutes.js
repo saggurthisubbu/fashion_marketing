@@ -1,7 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import { Product } from '../models/Product.js';
-import { protect, adminOnly } from '../middleware/auth.js';
+import { protect, adminOnly, storeOwnerOrAdmin } from '../middleware/auth.js';
 import { Store } from '../models/Store.js';
 import { findAllNearbyStores, findClosestStore } from '../utils/geoUtils.js';
 
@@ -197,10 +197,26 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create product (Admin)
-router.post('/', protect, adminOnly, async (req, res) => {
+// ─────────────────────────────────────────────────────────────────────────────
+// Create product — Admin OR Store Owner (store owners auto-assign their storeId)
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/', protect, storeOwnerOrAdmin, async (req, res) => {
   try {
     const data = { ...req.body };
+
+    // If the requester is a store_owner, force storeId to be their own store
+    if (req.user.role === 'store_owner') {
+      if (!req.user.assignedStoreId) {
+        return res.status(403).json({ message: 'You are not assigned to any store. Contact Super Admin.' });
+      }
+      // Always override with their own storeId
+      data.storeId = req.user.assignedStoreId.toString();
+      // Also auto-fill storeName if not provided
+      if (!data.storeName) {
+        const store = await Store.findById(req.user.assignedStoreId);
+        data.storeName = store ? store.name : '';
+      }
+    }
 
     // Required field validation
     if (!data.name || typeof data.name !== 'string' || !data.name.trim()) {
@@ -263,7 +279,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
 
     const product = new Product(data);
     const savedProduct = await product.save();
-    console.log(`[PRODUCT CREATE] Successfully inserted into MongoDB Atlas -> "${savedProduct.name}" | _id: ${savedProduct._id}`);
+    console.log(`[PRODUCT CREATE] Successfully inserted into MongoDB Atlas -> "${savedProduct.name}" | _id: ${savedProduct._id} | store: ${savedProduct.storeName}`);
     res.status(201).json(savedProduct);
   } catch (error) {
     console.error('[PRODUCT CREATE ERROR]:', error.message);
@@ -271,8 +287,10 @@ router.post('/', protect, adminOnly, async (req, res) => {
   }
 });
 
-// Update product (Admin)
-router.put('/:id', protect, adminOnly, async (req, res) => {
+// ─────────────────────────────────────────────────────────────────────────────
+// Update product — Admin OR Store Owner (store owners can only edit their own)
+// ─────────────────────────────────────────────────────────────────────────────
+router.put('/:id', protect, storeOwnerOrAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -282,11 +300,26 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
     const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
+    // RBAC: store owners can only edit products belonging to their store
+    if (req.user.role === 'store_owner') {
+      if (!req.user.assignedStoreId) {
+        return res.status(403).json({ message: 'You are not assigned to any store.' });
+      }
+      if (product.storeId?.toString() !== req.user.assignedStoreId.toString()) {
+        return res.status(403).json({ message: 'Access denied: You can only edit products from your own store.' });
+      }
+    }
+
     const data = { ...req.body };
 
     if (data.name) product.name = data.name.trim();
-    if (data.storeId) product.storeId = data.storeId;
-    if (data.storeName) product.storeName = data.storeName;
+
+    // Store owners cannot reassign their products to a different store
+    if (req.user.role !== 'store_owner') {
+      if (data.storeId) product.storeId = data.storeId;
+      if (data.storeName) product.storeName = data.storeName;
+    }
+
     if (data.category) product.category = data.category;
     if (data.subcategory) product.subcategory = data.subcategory;
 
@@ -342,8 +375,10 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
   }
 });
 
-// Delete product (Admin)
-router.delete('/:id', protect, adminOnly, async (req, res) => {
+// ─────────────────────────────────────────────────────────────────────────────
+// Delete product — Admin OR Store Owner (store owners can only delete their own)
+// ─────────────────────────────────────────────────────────────────────────────
+router.delete('/:id', protect, storeOwnerOrAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -352,6 +387,16 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
 
     const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
+
+    // RBAC: store owners can only delete products belonging to their store
+    if (req.user.role === 'store_owner') {
+      if (!req.user.assignedStoreId) {
+        return res.status(403).json({ message: 'You are not assigned to any store.' });
+      }
+      if (product.storeId?.toString() !== req.user.assignedStoreId.toString()) {
+        return res.status(403).json({ message: 'Access denied: You can only delete products from your own store.' });
+      }
+    }
 
     await product.deleteOne();
     console.log(`[PRODUCT DELETE] Deleted from MongoDB Atlas -> "${product.name}" | _id: ${product._id}`);

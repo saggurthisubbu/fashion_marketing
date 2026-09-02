@@ -51,6 +51,11 @@ export const AdminLogin = ({ onLogin, isLoading }) => {
               <p className="text-xs text-zinc-400 mt-1">
                 Enter your administrative credentials to manage store operations.
               </p>
+              {/* Store Owner hint */}
+              <div className="mt-3 px-3 py-2 rounded-xl bg-violet-950/50 border border-violet-800/40 text-left">
+                <p className="text-[11px] text-violet-300 font-bold mb-0.5">🏪 Store Admin Login</p>
+                <p className="text-[10px] text-zinc-400">If you're a Store Admin, use your <strong className="text-zinc-200">Store ID</strong> (e.g. <span className="font-mono text-violet-300">store1</span>) or registered <strong className="text-zinc-200">Email</strong> to login.</p>
+              </div>
             </div>
           </div>
 

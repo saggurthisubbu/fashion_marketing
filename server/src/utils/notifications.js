@@ -243,3 +243,84 @@ export const getWhatsAppOrderUrl = (order) => {
 
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 };
+
+// ---------------------------------------------------------------------------
+// WhatsApp Store Owner Order Alert URL
+// ---------------------------------------------------------------------------
+
+/**
+ * Generates a WhatsApp URL for a specific Store Owner containing only the
+ * items from their store in the order.
+ *
+ * @param {Object} order   - The full order object from MongoDB
+ * @param {string} storeId - The specific store's ObjectId string
+ * @param {string} ownerPhone - The store owner's phone number (e.g. '919876543210')
+ */
+export const getStoreOwnerWhatsAppUrl = (order, storeId, ownerPhone) => {
+  if (!ownerPhone) return null;
+
+  // Normalize phone: remove +, spaces, dashes; ensure it starts with country code
+  const phone = ownerPhone.replace(/[\s\-+]/g, '').replace(/^0+/, '');
+
+  // Filter items that belong to this store
+  const storeItems = (order.items || []).filter(
+    item => item.storeId?.toString() === storeId?.toString()
+  );
+
+  if (storeItems.length === 0) return null;
+
+  const itemBlocks = storeItems.map((item, idx) => {
+    const imgUrl = resolvePublicImageUrl(item.images?.front || item.image || item.imageUrl || '');
+    const colorLine = item.color ? `\nColor: ${item.color}` : '';
+    const qty = item.quantity || 1;
+    const lineTotal = (item.price || 0) * qty;
+
+    return (
+      `─────────────────────\n` +
+      `*${idx + 1}. ${item.name}*\n\n` +
+      `🖼️ *Product Image:*\n` +
+      `${imgUrl}\n\n` +
+      `*Product:* ${item.name}\n` +
+      `*Size:* ${item.size || 'M'}${colorLine}\n` +
+      `*Quantity:* ${qty}\n` +
+      `*Price:* ₹${item.price} × ${qty} = ₹${lineTotal}`
+    );
+  }).join('\n\n');
+
+  const storeItemsTotal = storeItems.reduce(
+    (sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0
+  );
+
+  const storeName = storeItems[0]?.storeName || 'Your Store';
+
+  const deliveryAddress = [
+    order.customer?.address || '',
+    order.customer?.landmark ? `Near ${order.customer.landmark}` : '',
+    order.customer?.area || '',
+    order.customer?.pincode ? `- ${order.customer.pincode}` : ''
+  ].filter(Boolean).join(', ') || 'To be confirmed';
+
+  const message =
+    `🏪 *New Order for ${storeName}*\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n\n` +
+
+    `🆔 *Order ID:* ${order.orderId}\n` +
+    `💳 *Payment:* ${order.paymentMethod || 'COD'}\n\n` +
+
+    `🛍️ *Your Store Items (${storeItems.length} item${storeItems.length !== 1 ? 's' : ''})*\n` +
+    `${itemBlocks}\n\n` +
+
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `💰 *Your Store Total:* ₹${storeItemsTotal}\n\n` +
+
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `*Customer:* ${order.customer?.name || 'N/A'}\n` +
+    `*Phone:* ${order.customer?.phone || 'N/A'}\n` +
+    `*Address:* ${deliveryAddress}\n` +
+    `📍 *Maps:* ${order.locationLink || 'Not provided'}\n\n` +
+
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `⚡ QuickFit Vijayawada Express`;
+
+  return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+};

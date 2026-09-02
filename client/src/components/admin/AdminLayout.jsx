@@ -20,7 +20,8 @@ import {
   CheckCircle2,
   X,
   Menu,
-  Store
+  Store,
+  UserCog
 } from 'lucide-react';
 
 export const AdminLayout = ({
@@ -54,6 +55,7 @@ export const AdminLayout = ({
     { id: 'customers', label: 'Customers', icon: Users, badge: counts.customers || null },
     { id: 'delivery', label: 'Delivery Partners', icon: Truck, badge: counts.delivery || null },
     { id: 'stores', label: 'Store Management', icon: Store, badge: counts.stores || null },
+    { id: 'store-owners', label: 'Store Admins', icon: UserCog, badge: counts.storeOwners || null },
     { id: 'inventory', label: 'Inventory', icon: Boxes, badge: counts.lowStock ? `${counts.lowStock} Low` : null, badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
     { id: 'payments', label: 'Payments', icon: CreditCard, badge: null },
     { id: 'analytics', label: 'Analytics', icon: TrendingUp, badge: null },

@@ -15,6 +15,7 @@ import { AdminAnalyticsTab } from './admin/tabs/AdminAnalyticsTab';
 import { AdminNotificationsTab } from './admin/tabs/AdminNotificationsTab';
 import { AdminSettingsTab } from './admin/tabs/AdminSettingsTab';
 import { AdminStoresTab } from './admin/tabs/AdminStoresTab';
+import { AdminStoreOwnersTab } from './admin/tabs/AdminStoreOwnersTab';
 import { Camera, X, Upload } from 'lucide-react';
 import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 
@@ -49,6 +50,8 @@ export const AdminDashboardModal = () => {
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
   const [settings, setSettings] = useState({});
   const [storesList, setStoresList] = useState([]);
+  const [storeOwnersList, setStoreOwnersList] = useState([]);
+  const [storeAnalytics, setStoreAnalytics] = useState({});
   const [isLoadingData, setIsLoadingData] = useState(false);
 
   // Add / Edit Product Modal State
@@ -122,6 +125,22 @@ export const AdminDashboardModal = () => {
     setIsLoadingData(true);
     try {
       const auth = getAuthHeader();
+      const currentUser = user || JSON.parse(localStorage.getItem('quickfit_user') || '{}');
+      const isAdmin = currentUser?.role === 'admin';
+      const isStoreOwnerRole = currentUser?.role === 'store_owner';
+
+      const baseRequests = [
+        axios.get(`${API_BASE_URL}/admin/analytics`, auth).catch(() => ({ data: {} })),
+        axios.get(`${API_BASE_URL}/products`).catch(() => ({ data: [] })),
+        axios.get(`${API_BASE_URL}/orders`, auth).catch(() => ({ data: [] })),
+        isAdmin ? axios.get(`${API_BASE_URL}/admin/customers`, auth).catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+        isAdmin ? axios.get(`${API_BASE_URL}/admin/delivery-partners`, auth).catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+        axios.get(`${API_BASE_URL}/admin/categories`, auth).catch(() => ({ data: [] })),
+        axios.get(`${API_BASE_URL}/admin/notifications`, auth).catch(() => ({ data: { notifications: [], unreadCount: 0 } })),
+        isAdmin ? axios.get(`${API_BASE_URL}/admin/settings`, auth).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
+        axios.get(`${API_BASE_URL}/admin/stores`, auth).catch(() => ({ data: [] }))
+      ];
+
       const [
         analyticsRes,
         prodRes,
@@ -132,17 +151,7 @@ export const AdminDashboardModal = () => {
         notifRes,
         settingsRes,
         storesRes
-      ] = await Promise.all([
-        axios.get(`${API_BASE_URL}/admin/analytics`, auth).catch(() => ({ data: {} })),
-        axios.get(`${API_BASE_URL}/products`).catch(() => ({ data: [] })),
-        axios.get(`${API_BASE_URL}/orders`, auth).catch(() => ({ data: [] })),
-        axios.get(`${API_BASE_URL}/admin/customers`, auth).catch(() => ({ data: [] })),
-        axios.get(`${API_BASE_URL}/admin/delivery-partners`, auth).catch(() => ({ data: [] })),
-        axios.get(`${API_BASE_URL}/admin/categories`, auth).catch(() => ({ data: [] })),
-        axios.get(`${API_BASE_URL}/admin/notifications`, auth).catch(() => ({ data: { notifications: [], unreadCount: 0 } })),
-        axios.get(`${API_BASE_URL}/admin/settings`, auth).catch(() => ({ data: {} })),
-        axios.get(`${API_BASE_URL}/admin/stores`, auth).catch(() => ({ data: [] }))
-      ]);
+      ] = await Promise.all(baseRequests);
 
       setAnalytics(analyticsRes.data || {});
       const loadedProducts = Array.isArray(prodRes.data) && prodRes.data.length > 0
@@ -157,6 +166,16 @@ export const AdminDashboardModal = () => {
       setUnreadNotifsCount(notifRes.data?.unreadCount || 0);
       setSettings(settingsRes.data || {});
       setStoresList(Array.isArray(storesRes.data) ? storesRes.data : []);
+
+      // Load Super Admin-only data
+      if (isAdmin) {
+        const [ownersRes, storeAnalyticsRes] = await Promise.all([
+          axios.get(`${API_BASE_URL}/admin/store-owners`, auth).catch(() => ({ data: [] })),
+          axios.get(`${API_BASE_URL}/admin/store-analytics`, auth).catch(() => ({ data: {} }))
+        ]);
+        setStoreOwnersList(Array.isArray(ownersRes.data) ? ownersRes.data : []);
+        setStoreAnalytics(storeAnalyticsRes.data || {});
+      }
     } catch (err) {
       console.warn('Error loading admin portal data:', err.message);
       if (Array.isArray(products) && products.length > 0) {
@@ -678,6 +697,7 @@ export const AdminDashboardModal = () => {
             customers: customersList.length,
             delivery: deliveryPartners.length,
             stores: storesList.length,
+            storeOwners: storeOwnersList.length,
             lowStock: analytics.lowStockCount || currentProducts.filter(p => p.stockQuantity <= 10).length
           }}
           notifications={notifications}
@@ -694,6 +714,8 @@ export const AdminDashboardModal = () => {
               productsList={currentProducts}
               onNavigateTab={(tab) => setActiveTab(tab)}
               onUpdateOrderStatus={handleUpdateOrderStatus}
+              adminUser={user}
+              storeAnalytics={storeAnalytics}
             />
           )}
 
@@ -794,6 +816,17 @@ export const AdminDashboardModal = () => {
               onAddStore={handleAddStore}
               onEditStore={handleEditStore}
               onDeleteStore={handleDeleteStore}
+            />
+          )}
+
+          {activeTab === 'store-owners' && (
+            <AdminStoreOwnersTab
+              storeOwnersList={storeOwnersList}
+              storesList={storesList}
+              onRefresh={loadAllAdminData}
+              API_BASE_URL={API_BASE_URL}
+              token={user?.token || adminToken || localStorage.getItem('quickfit_token')}
+              showToast={showToast}
             />
           )}
         </AdminLayout>

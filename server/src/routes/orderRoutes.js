@@ -5,7 +5,7 @@ import { User } from '../models/User.js';
 import { Store } from '../models/Store.js';
 import { Notification } from '../models/Notification.js';
 import { protect, adminOnly, storeOwnerOrAdmin } from '../middleware/auth.js';
-import { sendEmailNotification } from '../utils/notifications.js';
+import { sendEmailNotification, getStoreOwnerWhatsAppUrl } from '../utils/notifications.js';
 
 const router = express.Router();
 
@@ -265,6 +265,24 @@ router.post('/', async (req, res) => {
 
     // 4. Trigger Email notification to admin
     sendEmailNotification(createdOrder);
+
+    // 4b. Generate WhatsApp alert URLs for each unique store owner
+    try {
+      const uniqueStoreIds = [...new Set(
+        createdOrder.items.map(i => i.storeId?.toString()).filter(Boolean)
+      )];
+      for (const sid of uniqueStoreIds) {
+        const storeOwner = await User.findOne({ role: 'store_owner', assignedStoreId: sid }).select('phone name');
+        if (storeOwner && storeOwner.phone) {
+          const waUrl = getStoreOwnerWhatsAppUrl(createdOrder, sid, storeOwner.phone);
+          if (waUrl) {
+            console.log(`[WhatsApp → Store Owner (${storeOwner.name})]: ${waUrl.substring(0, 80)}...`);
+          }
+        }
+      }
+    } catch (waErr) {
+      console.warn('[WhatsApp Store Owner Error]:', waErr.message);
+    }
 
     // 5. In-App Notifications — Dual: per-store + super admin global
     try {

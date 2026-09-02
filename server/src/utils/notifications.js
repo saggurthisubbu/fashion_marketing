@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { Order } from '../models/Order.js';
 
 // Production backend public URL for resolving image paths in external messages
 const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN || 'https://quickfit-backend-m1yl.onrender.com';
@@ -179,6 +180,171 @@ QuickFit Menswear Vijayawada
     }
   } catch (error) {
     console.error(`[Email Error]: ${error.message}`);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Automatic Customer Order Confirmation Email (Nodemailer)
+// ---------------------------------------------------------------------------
+
+/**
+ * Sends an automatic order confirmation email to the customer using Nodemailer.
+ * - Skipped if customer does not provide an email address.
+ * - Saves email delivery status in the order record ('Sent', 'Failed', 'Skipped').
+ * - Handles failures gracefully without breaking the order flow.
+ *
+ * @param {Object} order - The created order document from MongoDB
+ */
+export const sendCustomerOrderConfirmationEmail = async (order) => {
+  const customerEmail = order.customer?.email?.trim();
+
+  // If customer did not provide an email, skip email sending
+  if (!customerEmail || !customerEmail.includes('@')) {
+    console.log(`[Customer Email Skipped]: Order #${order.orderId} — No email address provided`);
+    if (order._id) {
+      try {
+        await Order.findByIdAndUpdate(order._id, { emailDeliveryStatus: 'Skipped' });
+      } catch (err) {
+        console.error('[Email Status Update Error]:', err.message);
+      }
+    }
+    return { success: false, status: 'Skipped', reason: 'No email address provided' };
+  }
+
+  const senderUser = process.env.EMAIL_USER || process.env.ADMIN_EMAIL || 'admin@quickfitmenswear.com';
+  const customerName = order.customer?.name || 'Customer';
+  const productNames = (order.items || [])
+    .map((item) => `${item.name}${item.quantity > 1 ? ` (x${item.quantity})` : ''}`)
+    .join(', ') || 'Item(s)';
+  const totalAmount = order.totalAmount;
+  const orderId = order.orderId;
+
+  // Plain Text Version (Exact template required)
+  const plainText = `Hello ${customerName},
+
+Thank you for choosing QuickFit.
+
+Your order has been successfully confirmed and is being processed.
+
+Order Details:
+- Order ID: ${orderId}
+- Product(s): ${productNames}
+- Total Amount: ₹${totalAmount}
+
+We will notify you once your order is dispatched.
+
+Thank you for shopping with QuickFit.
+
+Team QuickFit`;
+
+  // Rich HTML Version
+  const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f4f4f5;padding:30px 15px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width:560px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.06);border:1px solid #e4e4e7;">
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#09090b;padding:24px 30px;text-align:left;">
+              <div style="font-size:20px;font-weight:900;color:#ffffff;letter-spacing:1px;text-transform:uppercase;">QUICKFIT</div>
+              <div style="font-size:11px;color:#a1a1aa;margin-top:2px;">Hyperlocal Express Fashion Delivery</div>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding:30px;color:#18181b;font-size:15px;line-height:1.6;">
+              <p style="margin:0 0 16px 0;font-size:16px;font-weight:700;color:#09090b;">Hello ${customerName},</p>
+              
+              <p style="margin:0 0 16px 0;">Thank you for choosing <strong>QuickFit</strong>.</p>
+              
+              <p style="margin:0 0 24px 0;">Your order has been successfully confirmed and is being processed.</p>
+              
+              <!-- Order Details Box -->
+              <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;">
+                <div style="font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;color:#475569;margin-bottom:12px;border-bottom:1px solid #e2e8f0;padding-bottom:8px;">Order Details</div>
+                <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                  <tr>
+                    <td style="padding:6px 0;color:#64748b;width:35%;">Order ID:</td>
+                    <td style="padding:6px 0;font-weight:700;color:#0f172a;font-family:monospace;">${orderId}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 0;color:#64748b;vertical-align:top;">Product(s):</td>
+                    <td style="padding:6px 0;font-weight:600;color:#0f172a;">${productNames}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 0;color:#64748b;">Total Amount:</td>
+                    <td style="padding:6px 0;font-weight:800;color:#0f172a;font-size:16px;">₹${totalAmount}</td>
+                  </tr>
+                </table>
+              </div>
+              
+              <p style="margin:0 0 24px 0;color:#334155;">We will notify you once your order is dispatched.</p>
+              
+              <p style="margin:0 0 8px 0;color:#334155;">Thank you for shopping with QuickFit.</p>
+              
+              <p style="margin:0;font-weight:700;color:#09090b;">Team QuickFit</p>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#fafafa;padding:16px 30px;text-align:center;border-top:1px solid #f4f4f5;font-size:11px;color:#71717a;">
+              QuickFit Menswear — Express Fashion Delivered to Your Doorstep
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const mailOptions = {
+    from: `"QuickFit" <${senderUser}>`,
+    to: customerEmail,
+    subject: "QuickFit Order Confirmation",
+    text: plainText,
+    html: htmlBody
+  };
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER || senderUser,
+      pass: process.env.EMAIL_PASS || ''
+    }
+  });
+
+  try {
+    if (process.env.EMAIL_PASS && process.env.EMAIL_PASS !== 'mock_email_pass') {
+      await transporter.sendMail(mailOptions);
+      console.log(`[Customer Email Sent]: Order #${orderId} confirmation sent to ${customerEmail}`);
+    } else {
+      console.log(`[Customer Email Mocked]: Order #${orderId} confirmation prepared for ${customerEmail} (Set EMAIL_PASS in .env to send live emails)`);
+    }
+
+    if (order._id) {
+      await Order.findByIdAndUpdate(order._id, { emailDeliveryStatus: 'Sent' });
+    }
+    return { success: true, status: 'Sent' };
+  } catch (error) {
+    console.error(`[Customer Email Failed]: Order #${orderId} to ${customerEmail} — ${error.message}`);
+    if (order._id) {
+      try {
+        await Order.findByIdAndUpdate(order._id, { emailDeliveryStatus: 'Failed' });
+      } catch (dbErr) {
+        console.error('[Email Status Update Error]:', dbErr.message);
+      }
+    }
+    return { success: false, status: 'Failed', error: error.message };
   }
 };
 

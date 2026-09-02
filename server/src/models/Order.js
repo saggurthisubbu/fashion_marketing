@@ -17,7 +17,7 @@ const orderSchema = new mongoose.Schema({
   customer: {
     name: { type: String, required: true },
     phone: { type: String, required: true },
-    email: { type: String, required: true },
+    email: { type: String, default: '' },
     address: { type: String, required: true },
     landmark: String,
     pincode: { type: String, default: '520010' },
@@ -31,6 +31,11 @@ const orderSchema = new mongoose.Schema({
     type: String,
     enum: ['Pending', 'Confirmed', 'Packed', 'Out For Delivery', 'Delivered', 'Cancelled'],
     default: 'Confirmed'
+  },
+  emailDeliveryStatus: {
+    type: String,
+    enum: ['Pending', 'Sent', 'Failed', 'Skipped'],
+    default: 'Pending'
   },
   assignedPartner: {
     id: { type: mongoose.Schema.Types.ObjectId, ref: 'DeliveryPartner' },

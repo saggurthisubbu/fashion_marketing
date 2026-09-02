@@ -5,7 +5,7 @@ import { User } from '../models/User.js';
 import { Store } from '../models/Store.js';
 import { Notification } from '../models/Notification.js';
 import { protect, adminOnly, storeOwnerOrAdmin } from '../middleware/auth.js';
-import { sendEmailNotification, getStoreOwnerWhatsAppUrl } from '../utils/notifications.js';
+import { sendEmailNotification, sendCustomerOrderConfirmationEmail, getStoreOwnerWhatsAppUrl } from '../utils/notifications.js';
 
 const router = express.Router();
 
@@ -238,6 +238,7 @@ router.post('/', async (req, res) => {
       paymentMethod,
       locationLink: locationLink || '',
       deliveryStatus: 'Confirmed',
+      emailDeliveryStatus: (!customer?.email || !customer.email.trim()) ? 'Skipped' : 'Pending',
       customerLocation: hasCustomerLocation
         ? { lat: customerLat, lng: customerLng }
         : { lat: null, lng: null },
@@ -265,6 +266,11 @@ router.post('/', async (req, res) => {
 
     // 4. Trigger Email notification to admin
     sendEmailNotification(createdOrder);
+
+    // 4a. Trigger Automatic Order Confirmation Email to customer (Nodemailer)
+    sendCustomerOrderConfirmationEmail(createdOrder).catch((err) => {
+      console.error('[Customer Email Trigger Error]:', err.message);
+    });
 
     // 4b. Generate WhatsApp alert URLs for each unique store owner
     try {

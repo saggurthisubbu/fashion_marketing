@@ -174,6 +174,21 @@ export const AdminOrdersTab = ({
                         <Phone className="w-2.5 h-2.5" />
                         <span>{ord.customer?.phone}</span>
                       </div>
+                      {ord.customer?.email && (
+                        <div className="text-[10px] text-zinc-400 font-mono flex items-center gap-1 mt-0.5">
+                          <Mail className="w-2.5 h-2.5" />
+                          <span className="truncate max-w-[130px]">{ord.customer.email}</span>
+                          {ord.emailDeliveryStatus && (
+                            <span className={`text-[8px] px-1 py-0.5 rounded font-bold uppercase ${
+                              ord.emailDeliveryStatus === 'Sent' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/60' :
+                              ord.emailDeliveryStatus === 'Failed' ? 'bg-rose-950 text-rose-400 border border-rose-800/60' :
+                              'bg-zinc-800 text-zinc-400'
+                            }`}>
+                              {ord.emailDeliveryStatus}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <div className="text-[10px] text-zinc-400 truncate max-w-[160px]">
                         {ord.customer?.address}, {ord.customer?.area}
                       </div>
@@ -417,6 +432,20 @@ export const AdminOrdersTab = ({
               <div className="text-zinc-300">{selectedOrder.customer?.address}</div>
               <div className="text-zinc-400">{selectedOrder.customer?.landmark || 'Landmark not specified'}, {selectedOrder.customer?.area} - {selectedOrder.customer?.pincode}</div>
               <div className="font-mono text-zinc-300">Phone: {selectedOrder.customer?.phone}</div>
+              {selectedOrder.customer?.email && (
+                <div className="font-mono text-zinc-300 flex items-center gap-2">
+                  <span>Email: {selectedOrder.customer.email}</span>
+                  {selectedOrder.emailDeliveryStatus && (
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                      selectedOrder.emailDeliveryStatus === 'Sent' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/60' :
+                      selectedOrder.emailDeliveryStatus === 'Failed' ? 'bg-rose-950 text-rose-400 border border-rose-800/60' :
+                      'bg-zinc-800 text-zinc-400'
+                    }`}>
+                      Email: {selectedOrder.emailDeliveryStatus}
+                    </span>
+                  )}
+                </div>
+              )}
               {selectedOrder.locationLink && (
                 <a
                   href={selectedOrder.locationLink}

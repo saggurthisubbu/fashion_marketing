@@ -15,10 +15,17 @@ export const ProductCard = ({ product }) => {
   const backImage  = rawBack ? resolveImageUrl(rawBack) : frontImage;
   const hasBackImage = Boolean(rawBack && rawBack !== rawFront);
 
+  // Available Sizes
+  const sizesList = Array.isArray(product.sizes) && product.sizes.length > 0
+    ? product.sizes
+    : typeof product.sizes === 'string' && product.sizes.trim()
+    ? product.sizes.split(',').map(s => s.trim()).filter(Boolean)
+    : ['S', 'M', 'L', 'XL', 'XXL'];
+
   return (
     <div
       onClick={() => openProductDetail(product)}
-      className="group bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200 hover:border-slate-400 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col cursor-pointer relative"
+      className="group bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200 hover:border-slate-400 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between cursor-pointer relative"
     >
       {/* ── IMAGE ─────────────────────────────────────────────────────── */}
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-100">
@@ -59,7 +66,7 @@ export const ProductCard = ({ product }) => {
             e.stopPropagation();
             toggleWishlist(product);
           }}
-          className="absolute top-2.5 right-2.5 p-1.5 sm:p-2 rounded-full bg-white/90 backdrop-blur-xs border border-slate-200 shadow-xs hover:bg-white transition-transform active:scale-90 !min-h-[36px] !min-w-[36px] flex items-center justify-center z-10"
+          className="absolute top-2.5 right-2.5 p-1.5 sm:p-2 rounded-full bg-white/90 backdrop-blur-xs border border-slate-200 shadow-xs hover:bg-white transition-transform active:scale-90 !min-h-[34px] !min-w-[34px] flex items-center justify-center z-10 cursor-pointer"
           title="Save to Wishlist"
         >
           <span className={`text-sm ${isSaved ? 'text-rose-500 font-bold' : 'text-slate-600'}`}>
@@ -70,36 +77,30 @@ export const ProductCard = ({ product }) => {
       </div>
 
       {/* ── CONTENT ───────────────────────────────────────────────────── */}
-      <div className="p-3 sm:p-4 flex flex-col gap-2">
+      <div className="p-3 sm:p-4 flex flex-col flex-1 justify-between gap-2.5">
 
-        {/* Product name */}
-        <h3 className="text-xs sm:text-sm font-black text-slate-900 line-clamp-2 font-heading leading-snug">
-          {product.name}
-        </h3>
+        <div className="space-y-2">
+          {/* Product name */}
+          <h3 className="text-xs sm:text-sm font-black text-slate-900 line-clamp-2 font-heading leading-snug">
+            {product.name}
+          </h3>
 
-        {/* ── Store / Distance / ETA pill row ── */}
-        {(product.storeName || product.distanceKm !== null) && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {product.storeName && (
-              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[9px] sm:text-[10px] font-bold text-slate-600 leading-none whitespace-nowrap">
-                🏪 {product.storeName}
+          {/* Available sizes */}
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-[10px] font-bold text-slate-400 mr-0.5">Sizes:</span>
+            {sizesList.map((s) => (
+              <span
+                key={s}
+                className="px-1.5 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[9px] sm:text-[10px] font-bold text-slate-700 leading-none"
+              >
+                {s}
               </span>
-            )}
-            {product.distanceKm !== null && product.distanceKm !== undefined && (
-              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-blue-50 border border-blue-100 text-[9px] sm:text-[10px] font-bold text-blue-600 leading-none whitespace-nowrap">
-                📍 {product.distanceKm} km
-              </span>
-            )}
-            {product.estimatedMinutes !== null && product.estimatedMinutes !== undefined && (
-              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100 text-[9px] sm:text-[10px] font-bold text-emerald-600 leading-none whitespace-nowrap">
-                ⚡ ~{product.estimatedMinutes} min
-              </span>
-            )}
+            ))}
           </div>
-        )}
+        </div>
 
         {/* Price + Add to Bag */}
-        <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
           <span className="text-base sm:text-lg font-black text-slate-900 font-heading">
             ₹{product.price}
           </span>
@@ -108,13 +109,13 @@ export const ProductCard = ({ product }) => {
             disabled={isOutOfStock}
             onClick={(e) => {
               e.stopPropagation();
-              const defaultSize = product.sizes?.length > 0 ? product.sizes[0] : 'M';
+              const defaultSize = sizesList[0] || 'M';
               addToCart(product, defaultSize);
             }}
-            className={`py-1.5 px-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-colors flex-shrink-0 !min-h-[34px] ${
+            className={`py-1.5 px-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-colors flex-shrink-0 !min-h-[34px] cursor-pointer ${
               isOutOfStock
                 ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                : 'bg-slate-900 hover:bg-black text-white'
+                : 'bg-slate-900 hover:bg-black text-white active:scale-95'
             }`}
           >
             {isOutOfStock ? 'Sold Out' : 'Add to Bag'}

@@ -79,6 +79,21 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// 404 Handler for Unmatched API Endpoints — Always return JSON, never HTML
+app.all('/api/*', (req, res) => {
+  res.status(404).json({
+    message: `API endpoint not found: ${req.method} ${req.originalUrl}`
+  });
+});
+
+// Global Express Error Handler for API Routes — Always return JSON
+app.use((err, req, res, next) => {
+  console.error('❌ [API Unhandled Error]:', err.stack || err.message);
+  res.status(err.status || 500).json({
+    message: err.message || 'Internal Server Error'
+  });
+});
+
 // Serve built frontend assets if available (Unified Full-Stack Deployment)
 const clientDistPath = path.join(__dirname, '../../client/dist');
 if (fs.existsSync(clientDistPath)) {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useShop } from '../context/ShopContext';
 import { formatFullOrderWhatsApp } from '../utils/whatsapp';
@@ -34,8 +34,8 @@ export const CheckoutModal = () => {
     email: '',
     address: '',
     landmark: '',
-    pincode: '520010',
-    area: 'MG Road'
+    pincode: '',
+    area: ''
   });
 
   // GPS + Delivery Zone State
@@ -49,6 +49,38 @@ export const CheckoutModal = () => {
   const [paymentMethod, setPaymentMethod] = useState('UPI (GPay/PhonePe)');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Reset form to completely blank state on modal open
+  useEffect(() => {
+    if (isCheckoutOpen) {
+      setFormData({
+        fullName: '',
+        phone: '',
+        email: '',
+        address: '',
+        landmark: '',
+        pincode: '',
+        area: ''
+      });
+      setLocationStatus('idle');
+      setCustomerCoords(null);
+      setLocationLink('');
+      setLocationError('');
+      setDeliveryInfo(null);
+      setErrorMsg('');
+      setIsSubmitting(false);
+
+      // Clear any legacy storage items used by previous orders
+      try {
+        localStorage.removeItem('quickfit_customer');
+        localStorage.removeItem('quickfit_checkout');
+        localStorage.removeItem('quickfit_formData');
+        sessionStorage.removeItem('quickfit_customer');
+        sessionStorage.removeItem('quickfit_checkout');
+        sessionStorage.removeItem('quickfit_formData');
+      } catch (e) {}
+    }
+  }, [isCheckoutOpen]);
 
   if (!isCheckoutOpen) return null;
 
@@ -334,7 +366,7 @@ export const CheckoutModal = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmitOrder} className="space-y-4 text-xs">
+        <form onSubmit={handleSubmitOrder} className="space-y-4 text-xs" autoComplete="off">
 
           {/* CUSTOMER DETAILS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -346,8 +378,10 @@ export const CheckoutModal = () => {
                 name="fullName"
                 value={formData.fullName}
                 onChange={handleChange}
-                placeholder="e.g. Subrahmanyam"
+                placeholder="Enter your full name"
                 className="input-field"
+                autoComplete="off"
+                data-form-type="other"
               />
             </div>
             <div>
@@ -358,8 +392,10 @@ export const CheckoutModal = () => {
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                placeholder="e.g. 7396629821"
+                placeholder="Enter WhatsApp mobile number"
                 className="input-field"
+                autoComplete="off"
+                data-form-type="other"
               />
             </div>
           </div>
@@ -371,8 +407,10 @@ export const CheckoutModal = () => {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="name@domain.com"
+              placeholder="Enter email address (optional)"
               className="input-field"
+              autoComplete="off"
+              data-form-type="other"
             />
           </div>
 
@@ -384,20 +422,23 @@ export const CheckoutModal = () => {
               name="address"
               value={formData.address}
               onChange={handleChange}
-              placeholder="Flat / House No., Building Name, Street..."
+              placeholder="Flat / House No., Building Name, Street address..."
               className="input-field"
+              autoComplete="off"
+              data-form-type="other"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="font-bold text-slate-800 block mb-1">Area *</label>
-              <select name="area" value={formData.area} onChange={handleChange} className="input-field cursor-pointer">
+              <select name="area" value={formData.area} onChange={handleChange} className="input-field cursor-pointer" autoComplete="off">
+                <option value="">Select Area in Vijayawada...</option>
                 {vijayawadaAreas.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">Landmark</label>
+              <label className="font-bold text-slate-800 block mb-1">Landmark (Optional)</label>
               <input
                 type="text"
                 name="landmark"
@@ -405,6 +446,8 @@ export const CheckoutModal = () => {
                 onChange={handleChange}
                 placeholder="e.g. Near PVP Mall"
                 className="input-field"
+                autoComplete="off"
+                data-form-type="other"
               />
             </div>
           </div>

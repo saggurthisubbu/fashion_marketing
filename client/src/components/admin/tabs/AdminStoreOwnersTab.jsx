@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import {
   UserCog,
   Plus,
@@ -247,42 +248,47 @@ export const AdminStoreOwnersTab = ({
   const handleSave = async (payload, ownerId) => {
     setIsSaving(true);
     try {
-      const url = ownerId
-        ? `${API_BASE_URL}/api/admin/store-owners/${ownerId}`
-        : `${API_BASE_URL}/api/admin/store-owners`;
-      const method = ownerId ? 'PUT' : 'POST';
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to save');
-      showToast(ownerId ? 'Store owner updated!' : 'Store owner created!', 'success');
+      const endpoint = ownerId
+        ? `${API_BASE_URL}/admin/store-owners/${ownerId}`
+        : `${API_BASE_URL}/admin/store-owners`;
+      
+      const config = {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      };
+
+      if (ownerId) {
+        await axios.put(endpoint, payload, config);
+      } else {
+        await axios.post(endpoint, payload, config);
+      }
+
+      showToast(ownerId ? 'Store admin updated successfully!' : 'Store admin created successfully!', 'success');
       setIsModalOpen(false);
       setEditingOwner(null);
       onRefresh();
     } catch (err) {
-      showToast(err.message, 'error');
+      const msg = err.response?.data?.message || err.message || 'Failed to save store admin account';
+      showToast(msg, 'error');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (owner) => {
-    if (!confirm(`Delete store owner account for "${owner.name}"? This cannot be undone.`)) return;
+    if (!confirm(`Delete store admin account for "${owner.name}"? This cannot be undone.`)) return;
     setDeletingId(owner._id);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/store-owners/${owner._id}`, {
-        method: 'DELETE',
+      await axios.delete(`${API_BASE_URL}/admin/store-owners/${owner._id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Delete failed');
-      showToast('Store owner deleted.', 'success');
+      showToast('Store admin account deleted.', 'success');
       onRefresh();
     } catch (err) {
-      showToast(err.message, 'error');
+      const msg = err.response?.data?.message || err.message || 'Failed to delete store admin account';
+      showToast(msg, 'error');
     } finally {
       setDeletingId(null);
     }

@@ -61,7 +61,7 @@ export const AuthModal = () => {
             {user.phone && <p className="text-xs text-slate-600 font-medium">📱 {user.phone}</p>}
           </div>
 
-          {user.role === 'admin' && (
+          {(user.role === 'admin' || user.role === 'store_owner') && (
             <button
               onClick={() => {
                 setIsAuthModalOpen(false);
@@ -70,7 +70,7 @@ export const AuthModal = () => {
               className="w-full py-3.5 px-4 rounded-xl bg-slate-900 hover:bg-black text-amber-300 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg border border-amber-400/40 cursor-pointer transition-all hover:scale-102"
             >
               <span>⚡</span>
-              <span>Open Admin Dashboard (/admin)</span>
+              <span>Open {user.role === 'store_owner' ? 'Store Dashboard' : 'Admin Dashboard'} (/admin)</span>
               <span>➔</span>
             </button>
           )}

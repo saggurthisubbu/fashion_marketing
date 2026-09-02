@@ -237,7 +237,9 @@ export const AdminDashboardModal = () => {
     }
   };
 
-  const isAdminAuthenticated = Boolean((user && user.role === 'admin') || adminToken);
+  const isAdminAuthenticated = Boolean(
+    user && (user.role === 'admin' || user.role === 'store_owner') && (token || adminToken)
+  );
 
   // --- 4-Angle File Handlers ---
   const handleAngleFileChange = (angleKey, e) => {

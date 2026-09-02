@@ -920,19 +920,46 @@ router.put('/store-owners/:id', protect, adminOnly, async (req, res) => {
   try {
     const owner = await User.findById(req.params.id);
     if (!owner || owner.role !== 'store_owner') {
-      return res.status(404).json({ message: 'Store owner not found.' });
+      return res.status(404).json({ message: 'Store owner account not found.' });
     }
 
     const { name, email, adminId, password, phone, storeId, isBlocked } = req.body;
 
-    if (name) owner.name = name.trim();
-    if (email) owner.email = email.trim().toLowerCase();
-    if (adminId !== undefined) owner.adminId = adminId ? adminId.trim() : undefined;
-    if (phone) owner.phone = phone;
+    if (name && name.trim()) owner.name = name.trim();
+
+    if (email && email.trim().toLowerCase() !== (owner.email || '').toLowerCase()) {
+      const existingEmail = await User.findOne({
+        _id: { $ne: owner._id },
+        email: { $regex: new RegExp(`^${email.trim()}$`, 'i') }
+      });
+      if (existingEmail) {
+        return res.status(400).json({ message: `Email "${email}" is already registered.` });
+      }
+      owner.email = email.trim().toLowerCase();
+    }
+
+    if (adminId !== undefined) {
+      const trimmedId = adminId ? adminId.trim() : '';
+      if (trimmedId && trimmedId !== (owner.adminId || '')) {
+        const existingAdminId = await User.findOne({
+          _id: { $ne: owner._id },
+          adminId: { $regex: new RegExp(`^${trimmedId}$`, 'i') }
+        });
+        if (existingAdminId) {
+          return res.status(400).json({ message: `Admin ID "${trimmedId}" is already taken.` });
+        }
+        owner.adminId = trimmedId;
+      } else if (!trimmedId) {
+        owner.adminId = undefined;
+      }
+    }
+
+    if (phone !== undefined) owner.phone = phone.trim();
     if (storeId) owner.assignedStoreId = storeId;
-    if (isBlocked !== undefined) owner.isBlocked = isBlocked;
-    if (password && password.length >= 6) {
-      owner.password = password; // pre-save hook will hash it
+    if (isBlocked !== undefined) owner.isBlocked = Boolean(isBlocked);
+
+    if (password && password.trim().length >= 6) {
+      owner.password = password.trim(); // User pre-save hook will hash it
     }
 
     const updated = await owner.save();
@@ -947,7 +974,8 @@ router.put('/store-owners/:id', protect, adminOnly, async (req, res) => {
       isBlocked: updated.isBlocked
     });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error('❌ [Store Owner Update Error]:', error.message);
+    res.status(400).json({ message: error.message || 'Failed to update store owner account.' });
   }
 });
 

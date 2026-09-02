@@ -18,7 +18,7 @@ export const Navbar = () => {
     user
   } = useShop();
 
-  const isAdmin = Boolean(user && user.role === 'admin');
+  const isAdmin = Boolean(user && (user.role === 'admin' || user.role === 'store_owner'));
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -63,13 +63,22 @@ export const Navbar = () => {
           <span className="truncate">QUICKFIT LUXURY MENSWEAR • HEAVYWEIGHT COTTON STREETWEAR</span>
         </div>
         <div className="flex items-center gap-4 flex-shrink-0 text-[10px] font-bold">
-          {isAdmin && (
+          {isAdmin ? (
             <button
               onClick={() => setIsAdminOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] tracking-wider uppercase hover:bg-amber-300 transition-all cursor-pointer shadow-sm animate-pulse"
               title="Open Admin Dashboard"
             >
               <span>⚡</span>
+              <span>{user?.role === 'store_owner' ? 'Store Portal' : 'Admin Portal'}</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsAdminOpen(true)}
+              className="flex items-center gap-1 text-slate-300 hover:text-amber-300 transition-colors cursor-pointer"
+              title="Admin & Store Login"
+            >
+              <span>🔒</span>
               <span>Admin Portal</span>
             </button>
           )}
@@ -151,7 +160,7 @@ export const Navbar = () => {
 
           {/* ACTION BUTTONS */}
           <div className="flex items-center space-x-2 sm:space-x-3">
-            {/* ADMIN DASHBOARD BUTTON (ADMINS ONLY) */}
+            {/* ADMIN DASHBOARD BUTTON (ADMINS & STORE OWNERS) */}
             {isAdmin && (
               <button
                 onClick={() => setIsAdminOpen(true)}
@@ -159,7 +168,7 @@ export const Navbar = () => {
                 title="Open Admin Dashboard (/admin)"
               >
                 <span className="text-sm">⚡</span>
-                <span className="tracking-wide">Go to Admin Dashboard</span>
+                <span className="tracking-wide">{user?.role === 'store_owner' ? 'Store Dashboard' : 'Admin Dashboard'}</span>
               </button>
             )}
 
@@ -244,24 +253,24 @@ export const Navbar = () => {
       {isMobileMenuOpen && (
         <div className="lg:hidden bg-white border-t border-slate-200 px-4 py-4 space-y-4 animate-in slide-in-from-top-2">
           
-          {/* MOBILE ADMIN DASHBOARD SHORTCUT (ADMINS ONLY) */}
-          {isAdmin && (
-            <div className="pb-2">
-              <button
-                onClick={() => {
-                  setIsAdminOpen(true);
-                  setIsMobileMenuOpen(false);
-                }}
-                className="w-full py-3 px-4 rounded-2xl bg-slate-900 text-amber-300 font-black text-xs flex items-center justify-between shadow-lg border border-amber-400/50 active:scale-98 transition-all"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-base">⚡</span>
-                  <span className="tracking-wide uppercase">Go to Admin Dashboard</span>
-                </div>
-                <span className="text-amber-400 font-black text-sm">➔</span>
-              </button>
-            </div>
-          )}
+          {/* MOBILE ADMIN DASHBOARD SHORTCUT */}
+          <div className="pb-2">
+            <button
+              onClick={() => {
+                setIsAdminOpen(true);
+                setIsMobileMenuOpen(false);
+              }}
+              className="w-full py-3 px-4 rounded-2xl bg-slate-900 text-amber-300 font-black text-xs flex items-center justify-between shadow-lg border border-amber-400/50 active:scale-98 transition-all"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-base">{isAdmin ? '⚡' : '🔒'}</span>
+                <span className="tracking-wide uppercase">
+                  {isAdmin ? (user?.role === 'store_owner' ? 'Go to Store Dashboard' : 'Go to Admin Dashboard') : 'Admin & Store Portal'}
+                </span>
+              </div>
+              <span className="text-amber-400 font-black text-sm">➔</span>
+            </button>
+          </div>
 
           <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
             Men's Collections

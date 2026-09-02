@@ -3,7 +3,7 @@ import { useShop } from '../context/ShopContext';
 import { WHATSAPP_BUSINESS_PHONE, BUSINESS_SUPPORT_EMAIL } from '../utils/whatsapp';
 
 export const Footer = () => {
-  const { setSelectedCategory, setIsContactModalOpen, setIsAboutModalOpen, showToast } = useShop();
+  const { setSelectedCategory, setIsContactModalOpen, setIsAboutModalOpen, setIsAdminOpen, showToast } = useShop();
   const [emailSub, setEmailSub] = useState('');
 
   const handleSubscribe = (e) => {
@@ -90,6 +90,15 @@ export const Footer = () => {
                   Contact & Support
                 </button>
               </li>
+              <li>
+                <button
+                  onClick={() => setIsAdminOpen(true)}
+                  className="hover:text-amber-300 transition-colors flex items-center gap-1.5 font-bold text-slate-300"
+                >
+                  <span>🔒</span>
+                  <span>Admin & Store Portal</span>
+                </button>
+              </li>
               <li className="flex items-center gap-2 pt-1 text-slate-300">
                 <span>💬</span>
                 <span>WhatsApp: <strong>+91 73966 29821</strong></span>
@@ -136,6 +145,13 @@ export const Footer = () => {
             © {new Date().getFullYear()} QuickFit Menswear Inc. All rights reserved.
           </div>
           <div className="flex items-center gap-6">
+            <button
+              onClick={() => setIsAdminOpen(true)}
+              className="hover:text-amber-300 transition-colors text-slate-500 flex items-center gap-1 cursor-pointer"
+            >
+              <span>🔒</span>
+              <span>Admin Portal (/admin)</span>
+            </button>
             <span className="hover:text-slate-400 cursor-pointer">Privacy Policy</span>
             <span className="hover:text-slate-400 cursor-pointer">Terms of Service</span>
             <span className="hover:text-slate-400 cursor-pointer">Shipping & Returns</span>

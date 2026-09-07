@@ -4,7 +4,7 @@ import { formatQuickFitWhatsAppOrder } from '../utils/whatsapp';
 import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 
 export const ProductDetailModal = () => {
-  const { selectedProduct, isDetailModalOpen, setIsDetailModalOpen, addToCart, showToast } = useShop();
+  const { selectedProduct, isDetailModalOpen, setIsDetailModalOpen, addToCart, buyNow, showToast } = useShop();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedSize, setSelectedSize] = useState('M');
@@ -167,6 +167,10 @@ export const ProductDetailModal = () => {
 
   const handleAddToCart = () => {
     addToCart(selectedProduct, selectedSize, selectedColor);
+  };
+
+  const handleBuyNow = () => {
+    buyNow(selectedProduct, selectedSize, selectedColor);
   };
 
   const stock = selectedProduct.stockQuantity !== undefined ? selectedProduct.stockQuantity : 25;
@@ -417,22 +421,39 @@ export const ProductDetailModal = () => {
 
           {/* ACTION BUTTONS */}
           <div className="space-y-2.5 pt-4 border-t border-slate-100">
-            <button
-              disabled={isOutOfStock}
-              onClick={handleAddToCart}
-              className={`w-full py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 !min-h-[48px] ${
-                isOutOfStock
-                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                  : 'bg-slate-900 hover:bg-black text-white active:scale-98'
-              }`}
-            >
-              <span>🛍️</span>
-              <span>{isOutOfStock ? 'Out of Stock' : 'Add to Bag'}</span>
-            </button>
+            <div className="grid grid-cols-2 gap-2.5">
+              {/* ADD TO BAG */}
+              <button
+                disabled={isOutOfStock}
+                onClick={handleAddToCart}
+                className={`py-3.5 px-3 rounded-2xl text-xs font-black uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-1.5 !min-h-[48px] cursor-pointer ${
+                  isOutOfStock
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'bg-slate-900 hover:bg-black text-white active:scale-98'
+                }`}
+              >
+                <span>🛍️</span>
+                <span>{isOutOfStock ? 'Out of Stock' : 'Add to Bag'}</span>
+              </button>
+
+              {/* BUY NOW (QUICKFIT BRANDED EXPRESS CHECKOUT) */}
+              <button
+                disabled={isOutOfStock}
+                onClick={handleBuyNow}
+                className={`py-3.5 px-3 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg transition-all flex items-center justify-center gap-1.5 !min-h-[48px] cursor-pointer ${
+                  isOutOfStock
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-slate-950 font-black active:scale-98 shadow-amber-500/25 ring-2 ring-amber-400/50 hover:ring-amber-400'
+                }`}
+              >
+                <span>⚡</span>
+                <span>{isOutOfStock ? 'Sold Out' : 'Buy Now'}</span>
+              </button>
+            </div>
 
             <button
               onClick={() => setIsQuickOrderOpen(true)}
-              className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider shadow-xs transition-all flex items-center justify-center gap-2 !min-h-[44px] active:scale-98"
+              className="w-full py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black uppercase tracking-wider shadow-xs transition-all flex items-center justify-center gap-2 !min-h-[40px] active:scale-98 cursor-pointer"
             >
               <span>💬</span>
               <span>Direct WhatsApp Order (with Location)</span>

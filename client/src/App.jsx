@@ -36,9 +36,13 @@ const ToastNotification = () => {
 };
 
 const MainApp = () => {
-  const { isAdminOpen, setIsAdminOpen } = useShop();
+  const { isAdminOpen, setIsAdminOpen, user, token } = useShop();
 
-  // Bi-directional /admin URL Synchronization
+  const isAdminAuthenticated = Boolean(
+    user && (user.role === 'admin' || user.role === 'store_owner') && (token || localStorage.getItem('quickfit_token'))
+  );
+
+  // Bi-directional /admin & /admin/login URL Synchronization
   useEffect(() => {
     const handleUrlChange = () => {
       const path = window.location.pathname.toLowerCase();
@@ -54,6 +58,12 @@ const MainApp = () => {
 
       if (shouldOpenAdmin) {
         setIsAdminOpen(true);
+        // Requirement 3: If admin authentication is required, redirect to /admin/login
+        if (!isAdminAuthenticated && (path === '/admin' || path === '/admin/')) {
+          window.history.replaceState({ modal: 'admin_login' }, '', '/admin/login');
+        } else if (isAdminAuthenticated && (path === '/admin/login' || path === '/admin/login/')) {
+          window.history.replaceState({ modal: 'admin' }, '', '/admin');
+        }
       } else {
         setIsAdminOpen(false);
       }
@@ -66,21 +76,29 @@ const MainApp = () => {
       window.removeEventListener('popstate', handleUrlChange);
       window.removeEventListener('hashchange', handleUrlChange);
     };
-  }, [setIsAdminOpen]);
+  }, [setIsAdminOpen, isAdminAuthenticated]);
 
-  // Sync URL when modal is opened or closed programmatically
+  // Sync URL when modal is opened or closed or auth state changes
   useEffect(() => {
     const path = window.location.pathname.toLowerCase();
     if (isAdminOpen) {
-      if (!path.startsWith('/admin')) {
-        window.history.pushState({ modal: 'admin' }, '', '/admin');
+      if (isAdminAuthenticated) {
+        // Authenticated admin should be on /admin
+        if (path === '/admin/login' || path === '/admin/login/' || !path.startsWith('/admin')) {
+          window.history.replaceState({ modal: 'admin' }, '', '/admin');
+        }
+      } else {
+        // Unauthenticated user must be on /admin/login (Requirement 3)
+        if (path === '/admin' || path === '/admin/' || !path.startsWith('/admin')) {
+          window.history.replaceState({ modal: 'admin_login' }, '', '/admin/login');
+        }
       }
     } else {
       if (path.startsWith('/admin')) {
         window.history.pushState({ modal: 'home' }, '', '/');
       }
     }
-  }, [isAdminOpen]);
+  }, [isAdminOpen, isAdminAuthenticated]);
 
 
   return (

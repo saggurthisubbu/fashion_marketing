@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Lock, Shield, ArrowRight, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { Lock, Shield, ArrowRight, Eye, EyeOff, Sparkles, X, ArrowLeft } from 'lucide-react';
 
-export const AdminLogin = ({ onLogin, isLoading }) => {
+export const AdminLogin = ({ onLogin, isLoading, onClose }) => {
   const [adminId, setAdminId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -21,14 +21,30 @@ export const AdminLogin = ({ onLogin, isLoading }) => {
     }
   };
 
-  const handleFillDefaults = () => {
-    setAdminId('admin');
+  const handleFillMaster = () => {
+    setAdminId('saggurthisubbu9@gmail.com');
+    setPassword('QuickFitAdmin@2026!');
+    setErrorMsg('');
+  };
+
+  const handleFillDemo = () => {
+    setAdminId('admin@quickfit.com');
     setPassword('admin123');
     setErrorMsg('');
   };
 
   return (
-    <div className="min-h-full flex items-center justify-center p-4 sm:p-6 bg-zinc-950 text-zinc-100">
+    <div className="min-h-full flex items-center justify-center p-4 sm:p-6 bg-zinc-950 text-zinc-100 relative">
+      {onClose && (
+        <button
+          onClick={onClose}
+          className="absolute top-6 right-6 z-50 p-2.5 rounded-full bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+          aria-label="Close Admin Login"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      )}
+
       <div className="w-full max-w-md relative">
         {/* Subtle Background Glow */}
         <div className="absolute -inset-1 bg-gradient-to-r from-zinc-700 via-zinc-800 to-zinc-700 rounded-3xl blur-md opacity-30"></div>
@@ -129,16 +145,38 @@ export const AdminLogin = ({ onLogin, isLoading }) => {
             </button>
           </form>
 
-          {/* Quick Demo Helper */}
-          <div className="pt-3 border-t border-zinc-800/80 text-center">
-            <button
-              type="button"
-              onClick={handleFillDefaults}
-              className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400 hover:text-white transition-colors py-1 px-2.5 rounded-lg hover:bg-zinc-800 cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-zinc-300" />
-              <span>Use Default: <strong className="text-white">admin</strong> / <strong className="text-white">admin123</strong></span>
-            </button>
+          {/* Quick Credential Helpers */}
+          <div className="pt-3 border-t border-zinc-800/80 space-y-2 text-center">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={handleFillMaster}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-[11px] text-amber-400 hover:text-amber-300 transition-colors py-1.5 px-3 rounded-lg bg-zinc-800/80 hover:bg-zinc-800 border border-amber-400/30 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>Fill Master Admin (Subbu)</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleFillDemo}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-[11px] text-zinc-300 hover:text-white transition-colors py-1.5 px-3 rounded-lg bg-zinc-800/60 hover:bg-zinc-800 border border-zinc-700 cursor-pointer"
+              >
+                <span>Fill Demo (admin@quickfit.com)</span>
+              </button>
+            </div>
+
+            {onClose && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Return to QuickFit Store</span>
+                </button>
+              </div>
+            )}
           </div>
 
         </div>

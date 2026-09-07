@@ -32,9 +32,14 @@ const orderSchema = new mongoose.Schema({
     enum: ['Pending', 'Confirmed', 'Packed', 'Out For Delivery', 'Delivered', 'Cancelled'],
     default: 'Confirmed'
   },
+  emailStatus: {
+    type: String,
+    enum: ['pending', 'sent', 'failed', 'skipped', 'Pending', 'Sent', 'Failed', 'Skipped'],
+    default: 'pending'
+  },
   emailDeliveryStatus: {
     type: String,
-    enum: ['Pending', 'Sent', 'Failed', 'Skipped'],
+    enum: ['Pending', 'Sent', 'Failed', 'Skipped', 'pending', 'sent', 'failed', 'skipped'],
     default: 'Pending'
   },
   assignedPartner: {
@@ -55,6 +60,10 @@ const orderSchema = new mongoose.Schema({
     name: { type: String, default: '' },
     distanceKm: { type: Number, default: null }
   }
-}, { timestamps: true });
+}, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
+
+orderSchema.virtual('customerEmail').get(function() {
+  return this.customer?.email || '';
+});
 
 export const Order = mongoose.model('Order', orderSchema);

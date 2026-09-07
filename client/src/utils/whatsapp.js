@@ -103,16 +103,12 @@ export const formatQuickFitWhatsAppOrder = ({
   address = '',
   locationLink = 'Not provided'
 }) => {
-  const publicImg = getPublicProductImageUrl(imageUrl);
   const colorLine = color ? `\n*Color:* ${color}` : '';
   const totalPrice = price * quantity;
 
   const message =
-    `📦 *New Order Received — QuickFit Menswear*\n` +
+    `📦 *Order Confirmed — QuickFit Menswear*\n` +
     `━━━━━━━━━━━━━━━━━━━━\n\n` +
-
-    `🖼️ *Product Image:*\n` +
-    `${publicImg}\n\n` +
 
     `*Product:* ${productName}\n` +
     `*Size:* ${size}${colorLine}\n` +
@@ -158,23 +154,6 @@ export const formatSingleProductWhatsApp = (product, selectedSize = 'M') => {
 // Multi-item Full Order — Customer Confirmation (Checkout & Order Confirmation)
 // ---------------------------------------------------------------------------
 
-/**
- * Formats a full multi-item order WhatsApp confirmation message.
- *
- * Each product block includes:
- *   🖼️ Product Image: [URL — tap to see photo]
- *   Product: [Name]
- *   Size: [Size]
- *   Color: [Color]   ← omitted when not selected
- *   Quantity: [Qty]
- *   Price: ₹[Price] × [Qty] = ₹[LineTotal]
- *
- * IMAGE STRATEGY:
- *  - Each product's public image URL is included as a tappable link.
- *  - When the recipient taps it in WhatsApp, the full product photo opens.
- *  - If the image is missing, the QuickFit placeholder is used automatically.
- *  - Multiple products each get their own dedicated image block.
- */
 export const formatFullOrderWhatsApp = (orderData) => {
   const {
     orderId,
@@ -190,10 +169,6 @@ export const formatFullOrderWhatsApp = (orderData) => {
 
   const itemBlocks = (items || [])
     .map((item, idx) => {
-      // Resolve product image — always falls back to placeholder if missing
-      const imageUrl = getPublicProductImageUrl(
-        item.images?.front || item.image || item.imageUrl || ''
-      );
       const colorLine =
         item.selectedColor || item.color
           ? `\n*Color:* ${item.selectedColor || item.color}`
@@ -204,9 +179,7 @@ export const formatFullOrderWhatsApp = (orderData) => {
 
       return (
         `─────────────────────\n` +
-        `*${idx + 1}. ${item.name}*\n\n` +
-        `🖼️ *Product Image:*\n` +
-        `${imageUrl}\n\n` +
+        `*${idx + 1}. ${item.name}*\n` +
         `*Product:* ${item.name}\n` +
         `*Size:* ${sizePart}${colorLine}\n` +
         `*Quantity:* ${qty}\n` +
@@ -223,7 +196,7 @@ export const formatFullOrderWhatsApp = (orderData) => {
     deliveryFee !== undefined ? `\n*Delivery:* ₹${deliveryFee}` : '';
 
   const message =
-    `📦 *New Order Received — QuickFit Menswear*\n` +
+    `📦 *Order Confirmed — QuickFit Menswear*\n` +
     `━━━━━━━━━━━━━━━━━━━━\n\n` +
     `🆔 *Order ID:* ${orderId || 'QF-PENDING'}\n\n` +
 
@@ -252,25 +225,6 @@ export const formatFullOrderWhatsApp = (orderData) => {
 // Admin-facing WhatsApp Order Alert (for use in AdminOrdersTab)
 // ---------------------------------------------------------------------------
 
-/**
- * Generates an admin-facing WhatsApp message with per-product image URLs for
- * instant visual identification of the exact item ordered.
- *
- * Professional format per product:
- *   📦 New Order Received
- *
- *   🖼️ Product Image: [URL — tap to see photo]
- *   Product: [Name]
- *   Size: [Size]
- *   Quantity: [Qty]
- *   Price: ₹[Price]
- *
- *   Total: ₹[Total]
- *
- *   Customer: [Name]
- *   Phone: [Number]
- *   Address: [Address]
- */
 export const formatAdminWhatsAppOrder = (order) => {
   const {
     orderId,
@@ -286,10 +240,6 @@ export const formatAdminWhatsAppOrder = (order) => {
 
   const itemBlocks = (items || [])
     .map((item, idx) => {
-      // Resolve product image — falls back to placeholder if missing
-      const imageUrl = getPublicProductImageUrl(
-        item.images?.front || item.image || item.imageUrl || ''
-      );
       const colorLine = item.color || item.selectedColor
         ? `\n*Color:* ${item.color || item.selectedColor}`
         : '';
@@ -299,9 +249,7 @@ export const formatAdminWhatsAppOrder = (order) => {
 
       return (
         `─────────────────────\n` +
-        `*${idx + 1}. ${item.name}*\n\n` +
-        `🖼️ *Product Image:*\n` +
-        `${imageUrl}\n\n` +
+        `*${idx + 1}. ${item.name}*\n` +
         `*Product:* ${item.name}\n` +
         `*Size:* ${sizePart}${colorLine}\n` +
         `*Quantity:* ${qty}\n` +

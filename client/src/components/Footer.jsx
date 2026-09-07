@@ -3,7 +3,7 @@ import { useShop } from '../context/ShopContext';
 import { WHATSAPP_BUSINESS_PHONE, BUSINESS_SUPPORT_EMAIL } from '../utils/whatsapp';
 
 export const Footer = () => {
-  const { setSelectedCategory, setIsContactModalOpen, setIsAboutModalOpen, showToast } = useShop();
+  const { setSelectedCategory, setIsContactModalOpen, setIsAboutModalOpen, setIsAdminOpen, showToast } = useShop();
   const [emailSub, setEmailSub] = useState('');
 
   const handleSubscribe = (e) => {
@@ -135,10 +135,17 @@ export const Footer = () => {
           <div>
             © {new Date().getFullYear()} QuickFit Menswear Inc. All rights reserved.
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
             <span className="hover:text-slate-400 cursor-pointer">Privacy Policy</span>
             <span className="hover:text-slate-400 cursor-pointer">Terms of Service</span>
             <span className="hover:text-slate-400 cursor-pointer">Shipping & Returns</span>
+            <button
+              onClick={() => setIsAdminOpen(true)}
+              className="hover:text-amber-400 text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1 cursor-pointer text-xs font-semibold"
+              title="Open QuickFit Admin Dashboard"
+            >
+              <span>⚡</span> Admin Portal
+            </button>
           </div>
         </div>
 

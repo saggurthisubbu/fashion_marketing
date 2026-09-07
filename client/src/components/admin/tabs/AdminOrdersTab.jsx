@@ -129,12 +129,12 @@ export const AdminOrdersTab = ({
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-zinc-950 border-b border-zinc-800 text-zinc-400 uppercase text-[10px] font-mono tracking-wider">
-                <th className="p-3.5">Order ID & Date</th>
-                <th className="p-3.5">Customer Details</th>
-                <th className="p-3.5">Items Ordered</th>
-                <th className="p-3.5">Payment</th>
-                <th className="p-3.5">Assigned Store</th>
-                <th className="p-3.5">Delivery Status</th>
+                <th className="p-3.5">Order ID & Time</th>
+                <th className="p-3.5">Customer & Address</th>
+                <th className="p-3.5">Ordered Products & Qty</th>
+                <th className="p-3.5">Total Amount</th>
+                <th className="p-3.5">Email Status</th>
+                <th className="p-3.5">Order Status</th>
                 <th className="p-3.5">Assigned Rider</th>
                 <th className="p-3.5 text-right">Actions</th>
               </tr>
@@ -142,145 +142,118 @@ export const AdminOrdersTab = ({
             <tbody className="divide-y divide-zinc-800/60">
               {filteredOrders.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="p-12 text-center text-zinc-500 space-y-2">
+                  <td colSpan="8" className="p-12 text-center text-zinc-500 space-y-2">
                     <Package className="w-8 h-8 mx-auto text-zinc-600" />
                     <div>No orders match your filter.</div>
                   </td>
                 </tr>
               ) : (
-                filteredOrders.map((ord) => (
-                  <tr key={ord._id || ord.orderId} className="hover:bg-zinc-800/40 transition-colors">
-                    
-                    {/* Order ID & Date */}
-                    <td className="p-3.5 font-mono">
-                      <div className="font-black text-white text-xs">{ord.orderId}</div>
-                      <div className="text-[10px] text-zinc-400">
-                        {new Date(ord.orderDate || ord.createdAt).toLocaleString('en-IN', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </div>
-                    </td>
+                filteredOrders.map((ord) => {
+                  const emailStatus = ord.emailStatus || ord.emailDeliveryStatus || 'pending';
+                  const isSent = emailStatus.toLowerCase() === 'sent';
+                  const isFailed = emailStatus.toLowerCase() === 'failed';
+                  const isSkipped = emailStatus.toLowerCase() === 'skipped';
 
-                    {/* Customer */}
-                    <td className="p-3.5">
-                      <div className="font-bold text-white flex items-center gap-1.5">
-                        <User className="w-3 h-3 text-zinc-400" />
-                        <span>{ord.customer?.name || 'Customer'}</span>
-                      </div>
-                      <div className="text-[11px] text-zinc-400 font-mono flex items-center gap-1 mt-0.5">
-                        <Phone className="w-2.5 h-2.5" />
-                        <span>{ord.customer?.phone}</span>
-                      </div>
-                      {ord.customer?.email && (
-                        <div className="text-[10px] text-zinc-400 font-mono flex items-center gap-1 mt-0.5">
-                          <Mail className="w-2.5 h-2.5" />
-                          <span className="truncate max-w-[130px]">{ord.customer.email}</span>
-                          {ord.emailDeliveryStatus && (
-                            <span className={`text-[8px] px-1 py-0.5 rounded font-bold uppercase ${
-                              ord.emailDeliveryStatus === 'Sent' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/60' :
-                              ord.emailDeliveryStatus === 'Failed' ? 'bg-rose-950 text-rose-400 border border-rose-800/60' :
-                              'bg-zinc-800 text-zinc-400'
-                            }`}>
-                              {ord.emailDeliveryStatus}
-                            </span>
-                          )}
+                  return (
+                    <tr key={ord._id || ord.orderId} className="hover:bg-zinc-800/40 transition-colors">
+                      
+                      {/* Order ID & Time */}
+                      <td className="p-3.5 font-mono">
+                        <div className="font-black text-white text-xs">{ord.orderId}</div>
+                        <div className="text-[10px] text-zinc-400">
+                          {new Date(ord.orderDate || ord.createdAt).toLocaleString('en-IN', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
                         </div>
-                      )}
-                      <div className="text-[10px] text-zinc-400 truncate max-w-[160px]">
-                        {ord.customer?.address}, {ord.customer?.area}
-                      </div>
-                      {ord.customerLocation?.lat && (
-                        <a
-                          href={`https://www.google.com/maps?q=${ord.customerLocation.lat},${ord.customerLocation.lng}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[9px] text-blue-400 hover:underline mt-0.5 flex items-center gap-0.5"
-                        >
-                          <MapPin className="w-2.5 h-2.5" />
-                          GPS Location
-                        </a>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* Items */}
-                    <td className="p-3.5 max-w-[200px]">
-                      <div className="space-y-1">
-                        {ord.items?.map((it, idx) => (
-                          <div key={idx} className="text-[11px] text-zinc-300 truncate font-medium">
-                            • {it.name} ({it.size || 'M'}) x{it.quantity || it.qty || 1}
-                            {it.storeName && (
-                              <span className="text-[9px] text-zinc-500 font-bold ml-1">
-                                [{it.storeName}]
-                              </span>
-                            )}
+                      {/* Customer & Address */}
+                      <td className="p-3.5">
+                        <div className="font-bold text-white flex items-center gap-1.5">
+                          <User className="w-3 h-3 text-zinc-400" />
+                          <span>{ord.customer?.name || 'Customer'}</span>
+                        </div>
+                        <div className="text-[11px] text-zinc-400 font-mono flex items-center gap-1 mt-0.5">
+                          <Phone className="w-2.5 h-2.5" />
+                          <span>{ord.customer?.phone}</span>
+                        </div>
+                        {ord.customer?.email ? (
+                          <div className="text-[10px] text-zinc-400 font-mono flex items-center gap-1 mt-0.5">
+                            <Mail className="w-2.5 h-2.5" />
+                            <span className="truncate max-w-[150px]">{ord.customer.email}</span>
                           </div>
-                        ))}
-                      </div>
-                      <div className="text-[10px] text-zinc-400 font-mono mt-1">
-                        Total items: {ord.items?.reduce((sum, i) => sum + (i.quantity || i.qty || 1), 0)}
-                      </div>
-                    </td>
+                        ) : (
+                          <div className="text-[10px] text-zinc-500 italic">No email entered</div>
+                        )}
+                        <div className="text-[10px] text-zinc-400 truncate max-w-[180px] mt-0.5">
+                          📍 {ord.customer?.address}, {ord.customer?.area}
+                        </div>
+                      </td>
 
-                    {/* Payment */}
-                    <td className="p-3.5">
-                      <div className="font-black text-white text-xs font-mono">
-                        ₹{ord.totalAmount}
-                      </div>
-                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-800 text-[10px] font-bold text-zinc-300 font-mono mt-1">
-                        <CreditCard className="w-2.5 h-2.5" />
-                        <span>{ord.paymentMethod || 'COD'}</span>
-                      </div>
-                      <div className="text-[10px] text-zinc-400 mt-0.5">
-                        Status: <span className={ord.paymentStatus === 'Paid' ? 'text-emerald-400 font-bold' : 'text-amber-400'}>{ord.paymentStatus || 'Pending'}</span>
-                      </div>
-                    </td>
-
-                    {/* Assigned Store */}
-                    <td className="p-3.5">
-                      {ord.assignedStore?.name ? (
-                        <div>
-                          <div className="text-xs font-bold text-blue-400 flex items-center gap-1">
-                            <Store className="w-3 h-3" />
-                            <span className="truncate max-w-[120px]">{ord.assignedStore.name}</span>
-                          </div>
-                          {ord.assignedStore.distanceKm !== null && ord.assignedStore.distanceKm !== undefined && (
-                            <div className="text-[10px] text-zinc-400 mt-0.5 flex items-center gap-1">
-                              <MapPin className="w-2.5 h-2.5" />
-                              {Number(ord.assignedStore.distanceKm).toFixed(1)} km away
+                      {/* Ordered Products & Qty */}
+                      <td className="p-3.5 max-w-[220px]">
+                        <div className="space-y-1">
+                          {ord.items?.map((it, idx) => (
+                            <div key={idx} className="text-[11px] text-zinc-300 truncate font-medium">
+                              • {it.name} <span className="text-zinc-400 font-mono">({it.size || 'M'}) ×{it.quantity || it.qty || 1}</span>
                             </div>
-                          )}
+                          ))}
                         </div>
-                      ) : (
-                        <span className="text-[10px] text-zinc-600">—</span>
-                      )}
-                    </td>
+                        <div className="text-[10px] text-zinc-400 font-mono mt-1 font-bold">
+                          Qty Total: {ord.items?.reduce((sum, i) => sum + (i.quantity || i.qty || 1), 0)}
+                        </div>
+                      </td>
 
-                    {/* Delivery Status */}
-                    <td className="p-3.5">
-                      <select
-                        value={ord.deliveryStatus}
-                        onChange={(e) => onUpdateOrderStatus(ord._id, e.target.value)}
-                        className={`px-2.5 py-1.5 rounded-xl border text-xs font-black uppercase font-mono cursor-pointer transition-colors ${
-                          ord.deliveryStatus === 'Delivered'
-                            ? 'bg-emerald-950/60 border-emerald-800 text-emerald-300'
-                            : ord.deliveryStatus === 'Out For Delivery'
-                            ? 'bg-blue-950/60 border-blue-800 text-blue-300'
-                            : ord.deliveryStatus === 'Cancelled'
-                            ? 'bg-red-950/60 border-red-800 text-red-300'
-                            : 'bg-amber-950/60 border-amber-800 text-amber-300'
-                        }`}
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Confirmed">Confirmed</option>
-                        <option value="Packed">Packed</option>
-                        <option value="Out For Delivery">Out For Delivery</option>
-                        <option value="Delivered">Delivered</option>
-                        <option value="Cancelled">Cancelled</option>
-                      </select>
-                    </td>
+                      {/* Total Amount */}
+                      <td className="p-3.5">
+                        <div className="font-black text-white text-sm font-mono text-emerald-400">
+                          ₹{ord.totalAmount}
+                        </div>
+                        <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-800 text-[9px] font-bold text-zinc-300 font-mono mt-1">
+                          <CreditCard className="w-2.5 h-2.5" />
+                          <span>{ord.paymentMethod || 'COD'}</span>
+                        </div>
+                      </td>
+
+                      {/* Email Status */}
+                      <td className="p-3.5">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase font-mono ${
+                          isSent ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/80' :
+                          isFailed ? 'bg-rose-950 text-rose-400 border border-rose-800/80' :
+                          isSkipped ? 'bg-zinc-800 text-zinc-400 border border-zinc-700' :
+                          'bg-amber-950 text-amber-400 border border-amber-800/80'
+                        }`}>
+                          <span>{isSent ? '✓' : isFailed ? '✕' : '•'}</span>
+                          <span>{emailStatus}</span>
+                        </span>
+                      </td>
+
+                      {/* Order Status */}
+                      <td className="p-3.5">
+                        <select
+                          value={ord.deliveryStatus}
+                          onChange={(e) => onUpdateOrderStatus(ord._id, e.target.value)}
+                          className={`px-2.5 py-1.5 rounded-xl border text-xs font-black uppercase font-mono cursor-pointer transition-colors ${
+                            ord.deliveryStatus === 'Delivered'
+                              ? 'bg-emerald-950/60 border-emerald-800 text-emerald-300'
+                              : ord.deliveryStatus === 'Out For Delivery'
+                              ? 'bg-blue-950/60 border-blue-800 text-blue-300'
+                              : ord.deliveryStatus === 'Cancelled'
+                              ? 'bg-red-950/60 border-red-800 text-red-300'
+                              : 'bg-amber-950/60 border-amber-800 text-amber-300'
+                          }`}
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="Confirmed">Confirmed</option>
+                          <option value="Packed">Packed</option>
+                          <option value="Out For Delivery">Out For Delivery</option>
+                          <option value="Delivered">Delivered</option>
+                          <option value="Cancelled">Cancelled</option>
+                        </select>
+                      </td>
 
                     {/* Assigned Rider */}
                     <td className="p-3.5">
@@ -325,9 +298,9 @@ export const AdminOrdersTab = ({
                         Details
                       </button>
                     </td>
-
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -432,19 +405,19 @@ export const AdminOrdersTab = ({
               <div className="text-zinc-300">{selectedOrder.customer?.address}</div>
               <div className="text-zinc-400">{selectedOrder.customer?.landmark || 'Landmark not specified'}, {selectedOrder.customer?.area} - {selectedOrder.customer?.pincode}</div>
               <div className="font-mono text-zinc-300">Phone: {selectedOrder.customer?.phone}</div>
-              {selectedOrder.customer?.email && (
+              {selectedOrder.customer?.email ? (
                 <div className="font-mono text-zinc-300 flex items-center gap-2">
                   <span>Email: {selectedOrder.customer.email}</span>
-                  {selectedOrder.emailDeliveryStatus && (
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
-                      selectedOrder.emailDeliveryStatus === 'Sent' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/60' :
-                      selectedOrder.emailDeliveryStatus === 'Failed' ? 'bg-rose-950 text-rose-400 border border-rose-800/60' :
-                      'bg-zinc-800 text-zinc-400'
-                    }`}>
-                      Email: {selectedOrder.emailDeliveryStatus}
-                    </span>
-                  )}
+                  <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${
+                    (selectedOrder.emailStatus || selectedOrder.emailDeliveryStatus || '').toLowerCase() === 'sent' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/80' :
+                    (selectedOrder.emailStatus || selectedOrder.emailDeliveryStatus || '').toLowerCase() === 'failed' ? 'bg-rose-950 text-rose-400 border border-rose-800/80' :
+                    'bg-zinc-800 text-zinc-400'
+                  }`}>
+                    Email: {selectedOrder.emailStatus || selectedOrder.emailDeliveryStatus || 'pending'}
+                  </span>
                 </div>
+              ) : (
+                <div className="text-zinc-500 italic text-[11px]">Email: Not provided by customer</div>
               )}
               {selectedOrder.locationLink && (
                 <a

@@ -5,7 +5,7 @@ import { User } from '../models/User.js';
 import { Store } from '../models/Store.js';
 import { Notification } from '../models/Notification.js';
 import { protect, adminOnly, storeOwnerOrAdmin } from '../middleware/auth.js';
-import { sendEmailNotification, sendCustomerOrderConfirmationEmail, getStoreOwnerWhatsAppUrl } from '../utils/notifications.js';
+import { sendOrderConfirmationEmail, sendAdminOrderNotificationEmail } from '../services/emailService.js';
 
 const router = express.Router();
 
@@ -67,19 +67,34 @@ async function validateDeliveryZone(customerLat, customerLng) {
 // Create new order (Public or Customer)
 router.post('/', async (req, res) => {
   try {
-    const { customer, items, totalAmount, paymentMethod, locationLink, customerLocation, assignedStore, customerLatitude, customerLongitude, storeLatitude, storeLongitude } = req.body;
+    const {
+      customer,
+      customerEmail: directCustomerEmail,
+      items,
+      totalAmount,
+      paymentMethod,
+      locationLink,
+      customerLocation,
+      assignedStore,
+      customerLatitude,
+      customerLongitude
+    } = req.body;
 
     if (!items || items.length === 0) {
       return res.status(400).json({ message: 'Cart is empty' });
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // STRICT BACKEND DELIVERY ZONE ENFORCEMENT & LOGGING AUDIT
-    // ══════════════════════════════════════════════════════════════════════════
-    
-    // 1. Capture customer coordinates (nested or top-level)
-    const customerLat = customerLatitude !== undefined ? Number(customerLatitude) : (customerLocation?.lat !== undefined ? Number(customerLocation.lat) : null);
-    const customerLng = customerLongitude !== undefined ? Number(customerLongitude) : (customerLocation?.lng !== undefined ? Number(customerLocation.lng) : null);
+    if (!customer || !customer.name || !customer.phone || !customer.address) {
+      return res.status(400).json({ message: 'Customer name, phone, and address are required' });
+    }
+
+    // 1. Capture customer coordinates (if provided)
+    const customerLat = customerLatitude !== undefined
+      ? Number(customerLatitude)
+      : (customerLocation?.lat !== undefined ? Number(customerLocation.lat) : null);
+    const customerLng = customerLongitude !== undefined
+      ? Number(customerLongitude)
+      : (customerLocation?.lng !== undefined ? Number(customerLocation.lng) : null);
 
     const hasCustomerLocation =
       customerLat !== null &&
@@ -87,250 +102,163 @@ router.post('/', async (req, res) => {
       !isNaN(customerLat) &&
       !isNaN(customerLng);
 
-    // If customer coordinates are missing, reject order (Requirement 6)
-    if (!hasCustomerLocation) {
-      console.log('--- DELIVERY VALIDATION AUDIT ---');
-      console.log('Store Coordinates: N/A');
-      console.log('Customer Coordinates: Missing or Invalid');
-      console.log('Calculated Distance: N/A');
-      console.log('Store Radius: N/A');
-      console.log('Validation Result: Rejected (Customer location is missing)');
-      console.log('---------------------------------');
-
-      return res.status(403).json({
-        message: 'Delivery location is required. Please share your GPS location before placing an order.',
-        code: 'LOCATION_REQUIRED'
-      });
-    }
-
-    // 2. Retrieve active stores
+    // 2. Retrieve active stores for fulfillment assignment
     const activeStores = await Store.find({ status: 'Active' });
 
-    // If no store coordinates exist, reject order (Requirement 5)
-    if (!activeStores || activeStores.length === 0) {
-      console.log('--- DELIVERY VALIDATION AUDIT ---');
-      console.log('Store Coordinates: Missing (No active stores in DB)');
-      console.log(`Customer Coordinates: lat: ${customerLat}, lng: ${customerLng}`);
-      console.log('Calculated Distance: N/A');
-      console.log('Store Radius: N/A');
-      console.log('Validation Result: Rejected (No active stores configured)');
-      console.log('---------------------------------');
-
-      return res.status(403).json({
-        message: 'Delivery is currently not available in your location. No active stores configured.',
-        code: 'NO_STORES_CONFIGURED'
-      });
-    }
-
-    // Check if any active store has valid coordinates
     let nearestStore = null;
-    let minDistance = Infinity;
+    let minDistance = null;
 
-    for (const store of activeStores) {
-      if (typeof store.location?.lat !== 'number' || typeof store.location?.lng !== 'number') continue;
-      const dist = haversineDistance(customerLat, customerLng, store.location.lat, store.location.lng);
-      if (dist < minDistance) {
-        minDistance = dist;
-        nearestStore = store;
+    if (activeStores && activeStores.length > 0) {
+      if (hasCustomerLocation) {
+        let lowestDist = Infinity;
+        for (const store of activeStores) {
+          if (typeof store.location?.lat === 'number' && typeof store.location?.lng === 'number') {
+            const dist = haversineDistance(customerLat, customerLng, store.location.lat, store.location.lng);
+            if (dist < lowestDist) {
+              lowestDist = dist;
+              nearestStore = store;
+            }
+          }
+        }
+        if (nearestStore) {
+          minDistance = lowestDist;
+        }
+      }
+      // If no GPS coordinates provided or store couldn't be matched by distance, assign the first active store
+      if (!nearestStore) {
+        nearestStore = activeStores[0];
       }
     }
 
-    // If no store coordinates exist, reject order (Requirement 5)
-    if (!nearestStore) {
-      console.log('--- DELIVERY VALIDATION AUDIT ---');
-      console.log('Store Coordinates: Missing (Stores exist but none have coordinates)');
-      console.log(`Customer Coordinates: lat: ${customerLat}, lng: ${customerLng}`);
-      console.log('Calculated Distance: N/A');
-      console.log('Store Radius: N/A');
-      console.log('Validation Result: Rejected (No store coordinates exist)');
-      console.log('---------------------------------');
-
-      return res.status(403).json({
-        message: 'Delivery is currently not available. Store coordinates are not configured.',
-        code: 'NO_STORE_COORDINATES'
-      });
-    }
-
-    const storeRadius = nearestStore.deliveryRadiusKm;
-    const distanceKm = minDistance;
-    const isWithinRadius = distanceKm <= storeRadius;
-
-    // Requirement 8: Add exact console logs format requested
-    console.log('--- DELIVERY VALIDATION AUDIT ---');
-    console.log(`Store Coordinates: lat: ${nearestStore.location.lat}, lng: ${nearestStore.location.lng}`);
-    console.log(`Customer Coordinates: lat: ${customerLat}, lng: ${customerLng}`);
-    console.log(`Calculated Distance: ${distanceKm.toFixed(4)} KM`);
-    console.log(`Store Radius: ${storeRadius} KM`);
-    console.log(`Validation Result: ${isWithinRadius ? 'Allowed' : 'Rejected'}`);
-    console.log('---------------------------------');
-
-    // Requirement 9: If distance > radius, reject order (HTTP 403)
-    if (!isWithinRadius) {
-      return res.status(403).json({
-        message: `Sorry, we are currently not available in your location. Nearest store is ${distanceKm.toFixed(1)} KM away.`,
-        code: 'OUTSIDE_DELIVERY_ZONE',
-        distanceKm: distanceKm,
-        nearestStoreName: nearestStore.name
-      });
-    }
-
-    // Override client store assignment with server-calculated nearest store info
-    const verifiedStore = {
+    const finalAssignedStore = nearestStore ? {
       id: nearestStore._id,
       name: nearestStore.name,
-      distanceKm: parseFloat(distanceKm.toFixed(2))
-    };
-    req.body.assignedStore = verifiedStore;
-    // ══════════════════════════════════════════════════════════════════════════
+      distanceKm: minDistance !== null ? parseFloat(minDistance.toFixed(2)) : null
+    } : (assignedStore || { id: null, name: 'QuickFit Central Store', distanceKm: null });
 
-
-    // 1. Verify stock availability
+    // 3. Deduct stock for ordered items
     for (const item of items) {
       if (item.product) {
-        const dbProduct = await Product.findById(item.product);
-        if (dbProduct) {
-          if (dbProduct.stockQuantity < item.quantity) {
-            return res.status(400).json({
-              message: `Insufficient stock for "${dbProduct.name}". Only ${dbProduct.stockQuantity} remaining.`
-            });
+        try {
+          const dbProduct = await Product.findById(item.product);
+          if (dbProduct) {
+            item.storeId = dbProduct.storeId || nearestStore?._id || null;
+            item.storeName = dbProduct.storeName || nearestStore?.name || '';
+            dbProduct.stockQuantity = Math.max(0, (dbProduct.stockQuantity || 0) - (item.quantity || 1));
+            if (dbProduct.stockQuantity <= 0) {
+              dbProduct.inStock = false;
+            }
+            await dbProduct.save();
           }
+        } catch (stockErr) {
+          console.warn('[Stock Deduction Warning]:', stockErr.message);
         }
       }
     }
 
-    // Deduct stock
-    for (const item of items) {
-      if (item.product) {
-        const dbProduct = await Product.findById(item.product);
-        if (dbProduct) {
-          dbProduct.stockQuantity -= item.quantity;
-          if (dbProduct.stockQuantity <= 0) {
-            dbProduct.stockQuantity = 0;
-            dbProduct.inStock = false;
-          }
-          await dbProduct.save();
-        }
-      }
-    }
-
-    // 1.5. Enrich each item with its product's storeId and storeName
-    for (const item of items) {
-      if (item.product) {
-        const dbProduct = await Product.findById(item.product).select('storeId storeName');
-        if (dbProduct) {
-          item.storeId = dbProduct.storeId || null;
-          item.storeName = dbProduct.storeName || '';
-        }
-      }
-    }
-
-    // 2. Generate unique 6-digit Order ID
+    // 4. Generate unique Order ID
     const randomSuffix = Math.floor(100000 + Math.random() * 900000);
     const orderId = `QF-VJ-${randomSuffix}`;
 
-    const finalAssignedStore = req.body.assignedStore || assignedStore;
+    const resolvedCustomerEmail = (
+      directCustomerEmail ||
+      customer.email ||
+      req.body.email ||
+      ''
+    ).trim();
+
+    const hasCustomerEmail = Boolean(resolvedCustomerEmail && resolvedCustomerEmail.includes('@'));
 
     const order = new Order({
       orderId,
-      customer,
-      items,
+      customer: {
+        name: customer.name.trim(),
+        phone: customer.phone.trim(),
+        email: resolvedCustomerEmail,
+        address: customer.address.trim(),
+        landmark: customer.landmark ? customer.landmark.trim() : '',
+        pincode: customer.pincode ? customer.pincode.trim() : '520010',
+        area: customer.area ? customer.area.trim() : 'MG Road'
+      },
+      items: items.map(item => ({
+        product: item.product || item._id || item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity || item.qty || 1,
+        size: item.size || item.selectedSize || 'M',
+        color: item.color || item.selectedColor || '',
+        image: item.image || item.imageUrl || item.images?.front || '',
+        storeId: item.storeId || finalAssignedStore.id || null,
+        storeName: item.storeName || finalAssignedStore.name || ''
+      })),
       totalAmount,
-      paymentMethod,
-      locationLink: locationLink || '',
+      paymentMethod: paymentMethod || 'COD',
+      paymentStatus: paymentMethod === 'Razorpay' ? 'Paid' : 'Pending',
       deliveryStatus: 'Confirmed',
-      emailDeliveryStatus: (!customer?.email || !customer.email.trim()) ? 'Skipped' : 'Pending',
+      emailStatus: hasCustomerEmail ? 'pending' : 'skipped',
+      emailDeliveryStatus: hasCustomerEmail ? 'Pending' : 'Skipped',
+      locationLink: locationLink || '',
       customerLocation: hasCustomerLocation
         ? { lat: customerLat, lng: customerLng }
         : { lat: null, lng: null },
-      assignedStore: finalAssignedStore
-        ? {
-            id: finalAssignedStore.id || null,
-            name: finalAssignedStore.name || '',
-            distanceKm: finalAssignedStore.distanceKm !== undefined
-              ? Number(finalAssignedStore.distanceKm)
-              : null
-          }
-        : { id: null, name: '', distanceKm: null }
+      assignedStore: finalAssignedStore,
+      orderDate: new Date()
     });
 
+    // 5. Save Order to Database
     const createdOrder = await order.save();
 
-    // 3. Update customer total orders if registered
-    if (customer && customer.email) {
-      const user = await User.findOne({ email: customer.email });
-      if (user) {
-        user.totalOrders += 1;
-        await user.save();
-      }
+    // Required Backend Logs: Order Created & Order Saved To Database
+    console.log(`\n===============================================================`);
+    console.log(`[Order Created]: Order #${createdOrder.orderId} created for ${createdOrder.customer?.name} (${createdOrder.customer?.email || 'No email entered'}) - Total: ₹${createdOrder.totalAmount}`);
+    console.log(`[Order Saved To Database]: Order #${createdOrder.orderId} (ID: ${createdOrder._id}) saved successfully to MongoDB Atlas.`);
+    console.log(`===============================================================\n`);
+
+    // 6. Update user totalOrders if registered
+    if (hasCustomerEmail) {
+      User.findOneAndUpdate({ email: resolvedCustomerEmail }, { $inc: { totalOrders: 1 } }).catch(() => {});
     }
 
-    // 4. Trigger Email notification to admin
-    sendEmailNotification(createdOrder);
+    // 7. Send Customer Confirmation Email (Nodemailer SMTP)
+    if (hasCustomerEmail) {
+      sendOrderConfirmationEmail(createdOrder)
+        .then((res) => {
+          if (res.success) {
+            console.log(`[Email Sent]: Order confirmation email successfully delivered to ${resolvedCustomerEmail} for Order #${createdOrder.orderId}`);
+          } else {
+            console.error(`[Email Failed]: Order confirmation email could not be sent to ${resolvedCustomerEmail} - Reason: ${res.error || res.reason}`);
+          }
+        })
+        .catch((err) => {
+          console.error(`[Email Failed]: SMTP error while sending confirmation for Order #${createdOrder.orderId}:`, err.message);
+        });
+    } else {
+      console.log(`[Email Notice]: Customer email not provided for Order #${createdOrder.orderId}, email confirmation skipped.`);
+    }
 
-    // 4a. Trigger Automatic Order Confirmation Email to customer (Nodemailer)
-    sendCustomerOrderConfirmationEmail(createdOrder).catch((err) => {
-      console.error('[Customer Email Trigger Error]:', err.message);
+    // 8. Send Admin & Store Owner Notifications
+    sendAdminOrderNotificationEmail(createdOrder).catch((adminErr) => {
+      console.error('[Admin Notification Error]:', adminErr.message);
     });
 
-    // 4b. Generate WhatsApp alert URLs for each unique store owner
+    // 9. In-App Notifications
     try {
-      const uniqueStoreIds = [...new Set(
-        createdOrder.items.map(i => i.storeId?.toString()).filter(Boolean)
-      )];
-      for (const sid of uniqueStoreIds) {
-        const storeOwner = await User.findOne({ role: 'store_owner', assignedStoreId: sid }).select('phone name');
-        if (storeOwner && storeOwner.phone) {
-          const waUrl = getStoreOwnerWhatsAppUrl(createdOrder, sid, storeOwner.phone);
-          if (waUrl) {
-            console.log(`[WhatsApp → Store Owner (${storeOwner.name})]: ${waUrl.substring(0, 80)}...`);
-          }
-        }
-      }
-    } catch (waErr) {
-      console.warn('[WhatsApp Store Owner Error]:', waErr.message);
-    }
-
-    // 5. In-App Notifications — Dual: per-store + super admin global
-    try {
-      // Collect unique store IDs from order items
-      const storeIdsInOrder = [...new Set(
-        createdOrder.items
-          .map(item => item.storeId?.toString())
-          .filter(Boolean)
-      )];
-
-      // Create one notification per unique store (visible to store_owner)
-      for (const sid of storeIdsInOrder) {
-        const sName = createdOrder.items.find(i => i.storeId?.toString() === sid)?.storeName || '';
-        await Notification.create({
-          title: `New Order #${createdOrder.orderId}`,
-          message: `${createdOrder.customer.name} ordered items from ${sName || 'your store'} (₹${createdOrder.totalAmount}) via ${createdOrder.paymentMethod}.`,
-          type: 'order',
-          orderId: createdOrder.orderId,
-          storeId: sid,
-          priority: 'high'
-        });
-      }
-
-      // Create one global notification (visible to Super Admin, storeId=null)
-      const storeNote = storeIdsInOrder.length > 0
-        ? ` → ${[...new Set(createdOrder.items.map(i => i.storeName).filter(Boolean))].join(', ')}`
-        : '';
       await Notification.create({
         title: `New Order #${createdOrder.orderId}`,
-        message: `${createdOrder.customer.name} ordered ${createdOrder.items.length} items (₹${createdOrder.totalAmount}) via ${createdOrder.paymentMethod}${storeNote}.`,
+        message: `${createdOrder.customer.name} placed an order for ${createdOrder.items.length} items (₹${createdOrder.totalAmount}) via ${createdOrder.paymentMethod}.`,
         type: 'order',
         orderId: createdOrder.orderId,
         storeId: null,
         priority: 'high'
       });
     } catch (notifErr) {
-      console.warn('Could not create in-app notification:', notifErr.message);
+      console.warn('[Notification Error]:', notifErr.message);
     }
 
-    res.status(201).json(createdOrder);
+    return res.status(201).json(createdOrder);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('❌ [Order Creation Error]:', error);
+    return res.status(500).json({ message: error.message || 'Internal Server Error' });
   }
 });
 
@@ -386,6 +314,30 @@ router.put('/:id/status', protect, storeOwnerOrAdmin, async (req, res) => {
     }
 
     order.deliveryStatus = status;
+    const updatedOrder = await order.save();
+    res.json(updatedOrder);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Admin: Assign delivery partner to order
+router.put('/:id/assign-partner', protect, adminOnly, async (req, res) => {
+  try {
+    const { partnerId, partnerName, partnerPhone, vehicleNumber, deliveryStatus } = req.body;
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    order.assignedPartner = {
+      id: partnerId,
+      name: partnerName,
+      phone: partnerPhone,
+      vehicleNumber: vehicleNumber || ''
+    };
+    if (deliveryStatus) {
+      order.deliveryStatus = deliveryStatus;
+    }
+
     const updatedOrder = await order.save();
     res.json(updatedOrder);
   } catch (error) {

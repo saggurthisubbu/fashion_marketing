@@ -191,6 +191,26 @@ export default defineConfig({
         type: 'module',
       },
     }),
+    {
+      name: 'quickfit-admin-banner',
+      configureServer(server) {
+        server.httpServer?.once('listening', () => {
+          setTimeout(() => {
+            console.log('\n\x1b[36m%s\x1b[0m', '═══════════════════════════════════════════════════════════════');
+            console.log('\x1b[1m\x1b[33m%s\x1b[0m', '  ⚡ QUICKFIT ADMIN PORTAL & ROUTE DIRECTORY');
+            console.log('\x1b[36m%s\x1b[0m', '═══════════════════════════════════════════════════════════════');
+            console.log('  🎯 Admin Dashboard URL:  \x1b[32m\x1b[1mhttp://localhost:5173/admin\x1b[0m');
+            console.log('  🔐 Admin Login Page:     \x1b[32m\x1b[1mhttp://localhost:5173/admin/login\x1b[0m');
+            console.log('  🛍️ Customer Store:       \x1b[32mhttp://localhost:5173/\x1b[0m');
+            console.log('\x1b[90m%s\x1b[0m', '───────────────────────────────────────────────────────────────');
+            console.log('  🔑 Master Admin Email:   \x1b[37msaggurthisubbu9@gmail.com\x1b[0m');
+            console.log('  🔑 Master Password:      \x1b[37mQuickFitAdmin@2026!\x1b[0m (or ID: admin)');
+            console.log('  🔑 Demo Admin:           \x1b[37madmin@quickfit.com\x1b[0m / \x1b[37madmin123\x1b[0m');
+            console.log('\x1b[36m%s\x1b[0m\n', '═══════════════════════════════════════════════════════════════');
+          }, 400);
+        });
+      }
+    }
   ],
   build: {
     outDir: 'dist',

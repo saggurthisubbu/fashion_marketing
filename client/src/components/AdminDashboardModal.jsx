@@ -683,7 +683,7 @@ export const AdminDashboardModal = () => {
     <div className="fixed inset-0 z-50 bg-zinc-950 flex flex-col">
       
       {!isAdminAuthenticated ? (
-        <AdminLogin onLogin={handleAdminLogin} isLoading={isAuthLoading} />
+        <AdminLogin onLogin={handleAdminLogin} isLoading={isAuthLoading} onClose={() => setIsAdminOpen(false)} />
       ) : (
         <AdminLayout
           activeTab={activeTab}

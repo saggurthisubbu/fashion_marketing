@@ -186,12 +186,20 @@ export const ShopProvider = ({ children }) => {
 
           const data = res.data;
           if (!data.inZone) {
-            // Customer is outside all delivery zones
+            // Customer is outside 60-min express delivery zone — show banner but DO NOT hide catalog!
             setLocationStatus('out_of_range');
             setNearbyStores([]);
-            setProducts([]);
+            setProductsError(null);
+            console.log('[PRODUCT FETCH] Outside express zone. Loading complete product catalog for browsing & standard delivery...');
+            const fallbackRes = await axios.get(`${API_BASE_URL}/products`, {
+              params: { _t: Date.now() },
+              timeout: TIMEOUT_MS
+            });
+            const rawData = Array.isArray(fallbackRes.data) ? fallbackRes.data : [];
+            const normalized = rawData.map(normalizeProduct);
+            setProducts(normalized);
             setIsLoadingProducts(false);
-            setProductsError(data.message || 'We do not deliver to your current location.');
+            console.log(`[PRODUCT FETCH] ✅ /products fallback: ${normalized.length} products loaded`);
             return;
           }
 
@@ -473,6 +481,7 @@ export const ShopProvider = ({ children }) => {
       const cartItem = {
         id: String(product.id || product._id),
         _id: String(product._id || product.id),
+        product: String(product.id || product._id),
         name: product.name,
         price: product.price,
         originalPrice: product.originalPrice,
@@ -488,11 +497,57 @@ export const ShopProvider = ({ children }) => {
         boutique: product.boutique || '',
         selectedSize: size,
         selectedColor: color || 'Standard',
+        size: size,
+        color: color || 'Standard',
         quantity: 1
       };
       return [...prevCart, cartItem];
     });
     showToast(`Added "${product.name}" to Bag! 🛍️`);
+  };
+
+  const buyNow = (product, size = 'M', color = 'Standard') => {
+    if (!product || !product.name || (!product.id && !product._id)) {
+      console.error('[BUY NOW] Attempted to buy invalid product:', product);
+      showToast('Unable to proceed — product data is missing.', 'error');
+      return;
+    }
+    const stock = product.stockQuantity !== undefined ? product.stockQuantity : 25;
+    if (stock <= 0 || product.inStock === false) {
+      showToast(`"${product.name}" is Out of Stock.`, 'error');
+      return;
+    }
+
+    const frontImg = resolveImageUrl(product.images?.front || product.image);
+    const buyNowItem = {
+      id: String(product.id || product._id),
+      _id: String(product._id || product.id),
+      product: String(product.id || product._id),
+      name: product.name,
+      price: Number(product.price) || 0,
+      originalPrice: product.originalPrice,
+      image: frontImg,
+      images: product.images || { front: frontImg },
+      category: product.category || '',
+      subcategory: product.subcategory || '',
+      sizes: product.sizes || [],
+      colors: product.colors || [],
+      stockQuantity: stock,
+      inStock: product.inStock !== false,
+      badge: product.badge || '',
+      boutique: product.boutique || '',
+      selectedSize: size || 'M',
+      size: size || 'M',
+      selectedColor: color || 'Standard',
+      color: color || 'Standard',
+      quantity: 1
+    };
+
+    // Pre-populate cart with selected single product for instant direct checkout
+    setCart([buyNowItem]);
+    setIsDetailModalOpen(false);
+    setIsCartOpen(false);
+    setIsCheckoutOpen(true);
   };
 
   const updateQuantity = (id, size, color, delta) => {
@@ -643,6 +698,7 @@ export const ShopProvider = ({ children }) => {
         lastOrder,
         setLastOrder,
         addToCart,
+        buyNow,
         updateQuantity,
         removeFromCart,
         clearCart,

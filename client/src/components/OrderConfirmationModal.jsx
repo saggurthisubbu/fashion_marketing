@@ -82,6 +82,21 @@ export const OrderConfirmationModal = () => {
           </p>
         </div>
 
+        {/* EMAIL CONFIRMATION NOTICE */}
+        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-left text-xs flex items-center gap-3">
+          <span className="text-xl flex-shrink-0">✉️</span>
+          <div>
+            <div className="font-bold text-emerald-900 text-xs">
+              Order placed successfully. A confirmation email has been sent.
+            </div>
+            {lastOrder.customer?.email && (
+              <div className="text-[11px] text-emerald-700 mt-0.5">
+                Sent to: <strong>{lastOrder.customer.email}</strong>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* ESTIMATED ARRIVAL TIMER */}
         <div className="p-5 rounded-2xl bg-slate-900 text-white space-y-1">
           <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">

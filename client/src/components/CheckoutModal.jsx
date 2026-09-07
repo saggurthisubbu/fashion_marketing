@@ -177,23 +177,8 @@ export const CheckoutModal = () => {
     e.preventDefault();
     setErrorMsg('');
 
-    if (!formData.fullName || !formData.phone || !formData.address) {
+    if (!formData.fullName?.trim() || !formData.phone?.trim() || !formData.address?.trim()) {
       setErrorMsg('Please fill in your Full Name, WhatsApp Phone, and Address.');
-      return;
-    }
-
-    // HARD BLOCK — do not even attempt API call if location not verified
-    if (!canPlaceOrder) {
-      if (isLocationBlocked) {
-        setErrorMsg('Delivery is not available in your location. We cannot process this order.');
-      } else {
-        setErrorMsg('Please share your GPS location first to verify delivery availability.');
-      }
-      return;
-    }
-
-    if (!customerCoords) {
-      setErrorMsg('Customer location is required. Please share your GPS location.');
       return;
     }
 
@@ -216,21 +201,22 @@ export const CheckoutModal = () => {
 
       const orderPayload = {
         customer: {
-          name: formData.fullName,
-          phone: formData.phone,
-          email: formData.email || '',
-          address: formData.address,
-          landmark: formData.landmark,
-          pincode: formData.pincode,
-          area: formData.area
+          name: formData.fullName.trim(),
+          phone: formData.phone.trim(),
+          email: formData.email ? formData.email.trim() : '',
+          address: formData.address.trim(),
+          landmark: formData.landmark ? formData.landmark.trim() : '',
+          pincode: formData.pincode ? formData.pincode.trim() : '520010',
+          area: formData.area || 'MG Road'
         },
+        customerEmail: formData.email ? formData.email.trim() : '',
         items: cart.map(item => ({
           product: item._id || item.id,
           name: item.name,
           price: item.price,
-          quantity: item.quantity,
-          size: item.selectedSize || 'M',
-          color: item.selectedColor || '',
+          quantity: item.quantity || item.qty || 1,
+          size: item.selectedSize || item.size || 'M',
+          color: item.selectedColor || item.color || '',
           image: item.images?.front || item.image || item.imageUrl || ''
         })),
         totalAmount: cartGrandTotal,
@@ -241,65 +227,31 @@ export const CheckoutModal = () => {
             ? 'COD'
             : 'Razorpay',
         locationLink: locationLink || 'Not provided',
-        // CRITICAL: Send both nested and top-level coordinates as required
-        customerLocation: { lat: customerCoords.lat, lng: customerCoords.lng },
-        customerLatitude: customerCoords.lat,
-        customerLongitude: customerCoords.lng,
+        customerLocation: customerCoords ? { lat: customerCoords.lat, lng: customerCoords.lng } : null,
+        customerLatitude: customerCoords?.lat || null,
+        customerLongitude: customerCoords?.lng || null,
         storeLatitude,
         storeLongitude,
         assignedStore: assignedStorePayload
       };
 
-      // CLIENT ORDER PAYLOAD LOG (before sending to backend)
-      console.log('--- ORDER SUBMISSION PAYLOAD ---');
-      console.log('customerLatitude:', orderPayload.customerLatitude);
-      console.log('customerLongitude:', orderPayload.customerLongitude);
-      console.log('customerLocation:', orderPayload.customerLocation);
-      console.log('assignedStore:', orderPayload.assignedStore);
-      console.log('--------------------------------');
+      console.log('🛒 [Submitting Order to Backend]:', `${API_BASE_URL}/orders`, orderPayload);
 
-      let createdOrder;
-      try {
-        const res = await axios.post(`${API_BASE_URL}/orders`, orderPayload);
-        createdOrder = res.data;
-      } catch (apiErr) {
-        // If the server explicitly responded with an error, the backend is online and rejected it.
-        // We MUST reject the order and NEVER use the offline fallback.
-        if (apiErr.response) {
-          const backendMsg = apiErr.response.data?.message;
-          setErrorMsg(backendMsg || 'Your order was rejected by the server due to delivery validation.');
-          setLocationStatus('blocked');
-          showToast('❌ Order rejected: outside delivery zone.', 'error');
-          setIsSubmitting(false);
-          return;
-        }
+      const res = await axios.post(`${API_BASE_URL}/orders`, orderPayload);
+      const createdOrder = res.data;
 
-        // Only fall back to offline mode if the server is completely unreachable (network down)
-        console.warn('Backend completely offline, using offline order confirmation fallback');
-        const randomDigits = Math.floor(100000 + Math.random() * 900000);
-        createdOrder = {
-          orderId: `QF-VJ-${randomDigits}`,
-          customer: { ...formData, fullName: formData.fullName },
-          items: cart,
-          totalAmount: cartGrandTotal,
-          paymentMethod,
-          locationLink,
-          assignedStore: assignedStorePayload,
-          orderDate: new Date().toISOString()
-        };
-      }
+      console.log('✅ [Order Created in MongoDB]:', createdOrder);
 
       const enrichedItems = cart.map(item => ({
         ...item,
         name: item.name,
         price: item.price,
-        quantity: item.quantity,
-        selectedSize: item.selectedSize || 'M',
-        selectedColor: item.selectedColor || '',
-        size: item.selectedSize || 'M',
-        color: item.selectedColor || '',
-        image: item.images?.front || item.image || item.imageUrl || '',
-        images: item.images || {}
+        quantity: item.quantity || item.qty || 1,
+        selectedSize: item.selectedSize || item.size || 'M',
+        selectedColor: item.selectedColor || item.color || '',
+        size: item.selectedSize || item.size || 'M',
+        color: item.selectedColor || item.color || '',
+        image: item.images?.front || item.image || item.imageUrl || ''
       }));
 
       setLastOrder({
@@ -327,11 +279,13 @@ export const CheckoutModal = () => {
       setIsCheckoutOpen(false);
       setIsOrderConfirmedOpen(true);
       fetchProducts();
+      showToast('Order placed successfully. A confirmation email has been sent.');
       window.open(waUrl, '_blank');
-      showToast('Order confirmed! Sending details on WhatsApp 📲');
     } catch (err) {
       console.error('Checkout error:', err);
-      setErrorMsg(err.response?.data?.message || 'Failed to place order. Please try again.');
+      const backendError = err.response?.data?.message || err.message || 'Failed to place order. Please try again.';
+      setErrorMsg(backendError);
+      showToast(`❌ ${backendError}`, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -363,6 +317,48 @@ export const CheckoutModal = () => {
           <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-start gap-2">
             <span className="text-sm mt-0.5">🚫</span>
             <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {/* PRE-SELECTED PRODUCT / CART SUMMARY */}
+        {cart && cart.length > 0 && (
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                {cart.length === 1 ? 'Selected Product' : `Order Items (${cart.length})`}
+              </span>
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                ⚡ Express 60-Min Dispatch
+              </span>
+            </div>
+            <div className="divide-y divide-slate-100 max-h-36 overflow-y-auto">
+              {cart.map((item, idx) => (
+                <div key={idx} className="py-1.5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {item.image && (
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="w-10 h-12 object-cover rounded-xl border border-slate-200 shrink-0 bg-white"
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <div className="font-extrabold text-slate-900 truncate text-xs">{item.name}</div>
+                      <div className="text-[11px] text-slate-500 font-semibold flex items-center gap-1.5 mt-0.5">
+                        <span>Size: <strong className="text-slate-800 font-bold">{item.selectedSize || item.size || 'M'}</strong></span>
+                        {item.selectedColor || item.color ? (
+                          <span>· Color: <strong className="text-slate-800 font-bold">{item.selectedColor || item.color}</strong></span>
+                        ) : null}
+                        <span>· Qty: <strong className="text-slate-800 font-bold">{item.quantity || 1}</strong></span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="font-black text-slate-900 font-mono text-sm shrink-0">
+                    ₹{(item.price || 0) * (item.quantity || 1)}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -401,13 +397,15 @@ export const CheckoutModal = () => {
           </div>
 
           <div>
-            <label className="font-bold text-slate-800 block mb-1">Email (Optional)</label>
+            <label className="font-bold text-slate-800 block mb-1">
+              Email Address <span className="text-emerald-600 font-normal text-[11px]">(Confirmation receipt sent here)</span>
+            </label>
             <input
               type="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="Enter email address (optional)"
+              placeholder="e.g. name@gmail.com"
               className="input-field"
               autoComplete="off"
               data-form-type="other"
@@ -586,84 +584,59 @@ export const CheckoutModal = () => {
             )}
           </div>
 
-          {/* PAYMENT METHOD — only show if location verified */}
-          {isLocationAllowed && (
-            <div>
-              <label className="font-bold text-slate-800 block mb-1">Payment Method</label>
-              <div className="grid grid-cols-2 gap-2">
-                {['UPI (GPay/PhonePe)', 'Cash On Delivery'].map((mode) => (
-                  <button
-                    type="button"
-                    key={mode}
-                    onClick={() => setPaymentMethod(mode)}
-                    className={`p-3 rounded-xl border text-xs font-black transition-all cursor-pointer ${
-                      paymentMethod === mode
-                        ? 'bg-slate-900 text-white border-slate-900'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    {mode}
-                  </button>
-                ))}
-              </div>
+          {/* PAYMENT METHOD */}
+          <div>
+            <label className="font-bold text-slate-800 block mb-1">Payment Method</label>
+            <div className="grid grid-cols-2 gap-2">
+              {['UPI (GPay/PhonePe)', 'Cash On Delivery'].map((mode) => (
+                <button
+                  type="button"
+                  key={mode}
+                  onClick={() => setPaymentMethod(mode)}
+                  className={`p-3 rounded-xl border text-xs font-black transition-all cursor-pointer ${
+                    paymentMethod === mode
+                      ? 'bg-slate-900 text-white border-slate-900'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  {mode}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
-          {/* ORDER TOTAL — only show if location verified */}
-          {isLocationAllowed && (
-            <div className="p-3.5 rounded-2xl bg-slate-900 text-white flex items-center justify-between">
-              <div>
-                <div className="text-[10px] text-slate-400 uppercase font-black">Grand Total</div>
-                <div className="text-xl font-black font-heading">₹{cartGrandTotal}</div>
-              </div>
-              <div className="text-right text-[10px] text-slate-300 font-semibold">
-                <div>{cart.length} Item(s)</div>
-                <div className="text-emerald-400 font-bold">Free Express Delivery</div>
-              </div>
+          {/* ORDER TOTAL */}
+          <div className="p-3.5 rounded-2xl bg-slate-900 text-white flex items-center justify-between">
+            <div>
+              <div className="text-[10px] text-slate-400 uppercase font-black">Grand Total</div>
+              <div className="text-xl font-black font-heading">₹{cartGrandTotal}</div>
             </div>
-          )}
+            <div className="text-right text-[10px] text-slate-300 font-semibold">
+              <div>{cart.length} Item(s)</div>
+              <div className="text-emerald-400 font-bold">Free Express Delivery</div>
+            </div>
+          </div>
 
           {/* ═══════════════════════════════════════════ */}
           {/* SUBMIT BUTTON                              */}
           {/* ═══════════════════════════════════════════ */}
-          {isLocationBlocked ? (
-            /* Permanently blocked — show a clear non-clickable block */
-            <div className="w-full py-4 rounded-2xl bg-rose-100 border-2 border-rose-300 text-rose-600 font-black text-xs flex items-center justify-center gap-2 !min-h-[48px]">
-              <span>🚫</span>
-              <span>Order Unavailable — Outside Delivery Zone</span>
-            </div>
-          ) : isLocationPending ? (
-            /* Location not yet checked */
-            <div className="w-full py-4 rounded-2xl bg-slate-200 text-slate-400 font-black text-xs flex items-center justify-center gap-2 !min-h-[48px] cursor-not-allowed">
-              <span>📍</span>
-              <span>Share Location Above to Continue</span>
-            </div>
-          ) : isLocationChecking ? (
-            /* Checking */
-            <div className="w-full py-4 rounded-2xl bg-slate-200 text-slate-400 font-black text-xs flex items-center justify-center gap-2 !min-h-[48px]">
-              <span className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></span>
-              <span>Verifying delivery zone...</span>
-            </div>
-          ) : (
-            /* ALLOWED — show the real submit button */
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold uppercase tracking-wider text-xs shadow-lg transition-all flex items-center justify-center gap-2 !min-h-[48px] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                  <span>Placing Order...</span>
-                </>
-              ) : (
-                <>
-                  <span>💬</span>
-                  <span>Confirm & Send Order via WhatsApp ➔</span>
-                </>
-              )}
-            </button>
-          )}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold uppercase tracking-wider text-xs shadow-lg transition-all flex items-center justify-center gap-2 !min-h-[48px] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                <span>Placing Order & Sending Email...</span>
+              </>
+            ) : (
+              <>
+                <span>🛍️</span>
+                <span>Place Order & Confirm Dispatch ➔</span>
+              </>
+            )}
+          </button>
 
         </form>
       </div>

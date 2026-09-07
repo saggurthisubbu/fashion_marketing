@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useShop } from '../context/ShopContext';
 
 export const Navbar = () => {
@@ -14,11 +14,62 @@ export const Navbar = () => {
     setIsAuthModalOpen,
     setIsContactModalOpen,
     setIsAboutModalOpen,
+    setIsAdminOpen,
     user
   } = useShop();
 
+  const isAdminUser = user?.role === 'admin' || user?.role === 'store_owner';
+  const ADMIN_URL = `${window.location.origin}/admin`;
+
+  // Log admin URL whenever an admin is logged in
+  useEffect(() => {
+    if (isAdminUser) {
+      console.log('%c[QuickFit Admin] Dashboard URL → ' + ADMIN_URL, 'background:#1e293b;color:#fbbf24;font-weight:bold;padding:4px 8px;border-radius:4px;');
+    }
+  }, [isAdminUser, ADMIN_URL]);
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [showIOSDownloadTip, setShowIOSDownloadTip] = useState(false);
+  const deferredInstallPrompt = useRef(null);
+  const isAlreadyInstalled = typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches;
+
+  // Capture the PWA install prompt so the Download App button can trigger it
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      deferredInstallPrompt.current = e;
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const isIOS = typeof navigator !== 'undefined' &&
+    /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+  const handleDownloadApp = async () => {
+    if (isAlreadyInstalled) {
+      // Already installed — nothing to do, just close mobile menu
+      setIsMobileMenuOpen(false);
+      return;
+    }
+    if (deferredInstallPrompt.current) {
+      // Chrome / Android: trigger native install dialog
+      try {
+        await deferredInstallPrompt.current.prompt();
+        const { outcome } = await deferredInstallPrompt.current.userChoice;
+        if (outcome === 'accepted') deferredInstallPrompt.current = null;
+      } catch (_) {}
+    } else if (isIOS) {
+      // iOS Safari: show the tip overlay
+      setShowIOSDownloadTip(true);
+      setIsMobileMenuOpen(false);
+    } else {
+      // Fallback: scroll to top (PWA may already be installed or prompt not yet fired)
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setIsMobileMenuOpen(false);
+    }
+  };
 
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -148,6 +199,41 @@ export const Navbar = () => {
             })}
           </nav>
 
+          {/* DOWNLOAD APP CTA — Desktop, always visible between categories and actions */}
+          <a
+            id="navbar-download-app-btn"
+            href="#"
+            onClick={(e) => { e.preventDefault(); handleDownloadApp(); }}
+            aria-label="Download QuickFit App"
+            className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black text-white cursor-pointer flex-shrink-0 transition-all duration-200 hover:scale-105 hover:shadow-lg active:scale-95"
+            style={{
+              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)',
+              boxShadow: '0 2px 12px 0 rgba(139,92,246,0.45)'
+            }}
+          >
+            {/* Download arrow icon */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="w-3.5 h-3.5 flex-shrink-0"
+            >
+              <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
+              <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
+            </svg>
+            <span>Download App</span>
+            {/* Subtle phone icon */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="w-3 h-3 opacity-75 flex-shrink-0"
+            >
+              <path d="M8 16.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z" />
+              <path fillRule="evenodd" d="M4 4a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V4Zm4-1.5v.75c0 .414.336.75.75.75h2.5a.75.75 0 0 0 .75-.75V2.5h-4ZM8.5 2.5V2h3v.5h-3ZM6.5 4A1.5 1.5 0 0 0 5 5.5v9A1.5 1.5 0 0 0 6.5 16h7a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 13.5 4h-7Z" clipRule="evenodd" />
+            </svg>
+          </a>
+
           {/* ACTION BUTTONS — Scaled for 320px–414px Mobile + Desktop */}
           <div className="flex items-center gap-1 sm:gap-2">
             
@@ -159,6 +245,22 @@ export const Navbar = () => {
             >
               🔍
             </button>
+
+            {/* ADMIN PANEL BUTTON — Desktop only, visible when admin/store_owner logged in */}
+            {isAdminUser && (
+              <button
+                id="navbar-admin-panel-btn"
+                onClick={() => {
+                  console.log('%c[QuickFit Admin] Opening Admin Dashboard → ' + ADMIN_URL, 'background:#1e293b;color:#fbbf24;font-weight:bold;padding:4px 8px;border-radius:4px;');
+                  setIsAdminOpen(true);
+                }}
+                className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-amber-400 hover:bg-amber-300 border border-amber-500 text-xs font-black text-slate-900 transition-all cursor-pointer shadow-sm animate-pulse hover:animate-none"
+                title={`Open Admin Dashboard (${ADMIN_URL})`}
+              >
+                <span>⚡</span>
+                <span>{user?.role === 'store_owner' ? 'Store Panel' : 'Admin Panel'}</span>
+              </button>
+            )}
 
             {/* AUTH / USER (Desktop only — on mobile accessible via hamburger) */}
             <button
@@ -233,6 +335,56 @@ export const Navbar = () => {
       {isMobileMenuOpen && (
         <div className="lg:hidden bg-white border-t border-slate-200 px-4 py-4 space-y-4 animate-in slide-in-from-top-2 shadow-xl">
           
+          {/* DOWNLOAD APP CTA — Mobile, always at top */}
+          <div>
+            <button
+              id="mobile-download-app-btn"
+              onClick={handleDownloadApp}
+              className="w-full py-3 px-4 rounded-xl text-white text-xs font-black flex items-center justify-between shadow-md transition-all active:scale-98 cursor-pointer"
+              style={{
+                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)',
+                boxShadow: '0 3px 14px 0 rgba(139,92,246,0.4)'
+              }}
+            >
+              <div className="flex items-center gap-2.5">
+                {/* Phone icon */}
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 flex-shrink-0">
+                  <path fillRule="evenodd" d="M4 4a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V4Zm4-1.5v.75c0 .414.336.75.75.75h2.5a.75.75 0 0 0 .75-.75V2.5h-4ZM8.5 2.5V2h3v.5h-3ZM6.5 4A1.5 1.5 0 0 0 5 5.5v9A1.5 1.5 0 0 0 6.5 16h7a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 13.5 4h-7Z" clipRule="evenodd" />
+                </svg>
+                <div className="text-left">
+                  <div className="font-black text-xs tracking-wide">{isAlreadyInstalled ? '✓ App Installed' : 'Download App'}</div>
+                  <div className="text-white/70 font-medium" style={{fontSize:'9px'}}>Get the QuickFit mobile experience</div>
+                </div>
+              </div>
+              {/* Download arrow */}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 flex-shrink-0 opacity-90">
+                <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
+                <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
+              </svg>
+            </button>
+          </div>
+
+          {/* ADMIN PANEL CTA — only for admin/store_owner on mobile */}
+          {isAdminUser && (
+            <div>
+              <button
+                id="mobile-admin-panel-btn"
+                onClick={() => {
+                  console.log('%c[QuickFit Admin] Opening Admin Dashboard → ' + ADMIN_URL, 'background:#1e293b;color:#fbbf24;font-weight:bold;padding:4px 8px;border-radius:4px;');
+                  setIsAdminOpen(true);
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-amber-400 border border-amber-500 text-slate-900 text-xs font-black hover:bg-amber-300 transition-colors flex items-center justify-between shadow-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <span>⚡</span>
+                  <span>{user?.role === 'store_owner' ? 'Open Store Dashboard' : 'Open Admin Panel'}</span>
+                </div>
+                <span className="text-slate-700 text-xs font-black">➔</span>
+              </button>
+            </div>
+          )}
+
           {/* Customer Account / Sign In CTA */}
           <div>
             <button
@@ -301,6 +453,63 @@ export const Navbar = () => {
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* iOS "Add to Home Screen" tip overlay */}
+      {showIOSDownloadTip && (
+        <div
+          className="fixed inset-0 z-[200] flex items-end justify-center p-4"
+          style={{background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)'}}
+          onClick={() => setShowIOSDownloadTip(false)}
+        >
+          <div
+            className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl mb-8 animate-in slide-in-from-bottom-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-lg">⚡</div>
+                <div>
+                  <div className="font-black text-slate-900 text-sm">Install QuickFit</div>
+                  <div className="text-slate-500 text-[10px] font-medium">Add to your Home Screen</div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowIOSDownloadTip(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs hover:bg-slate-200 cursor-pointer"
+              >✕</button>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50">
+                <span className="text-xl flex-shrink-0">1️⃣</span>
+                <div>
+                  <div className="font-bold text-slate-900 text-xs">Tap the Share button</div>
+                  <div className="text-slate-500 text-[10px] mt-0.5">Look for the <span className="font-black">⎙</span> icon in the Safari toolbar at the bottom</div>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50">
+                <span className="text-xl flex-shrink-0">2️⃣</span>
+                <div>
+                  <div className="font-bold text-slate-900 text-xs">Tap "Add to Home Screen"</div>
+                  <div className="text-slate-500 text-[10px] mt-0.5">Scroll down in the share sheet and tap this option</div>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50">
+                <span className="text-xl flex-shrink-0">3️⃣</span>
+                <div>
+                  <div className="font-bold text-slate-900 text-xs">Tap "Add" to confirm</div>
+                  <div className="text-slate-500 text-[10px] mt-0.5">QuickFit will appear on your home screen like a native app</div>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowIOSDownloadTip(false)}
+              className="mt-4 w-full py-3 rounded-xl bg-slate-900 text-white text-xs font-black cursor-pointer hover:bg-black transition-colors"
+            >Got it ✓</button>
+          </div>
+          {/* Arrow pointing down toward Safari toolbar */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-2xl animate-bounce pointer-events-none">⬇</div>
         </div>
       )}
 

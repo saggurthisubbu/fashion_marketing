@@ -15,14 +15,47 @@ export const ShopProvider = ({ children }) => {
 
   // --- LOCATION & MULTI-STORE STATE ---
   // locationStatus: 'idle' | 'detecting' | 'granted' | 'denied' | 'out_of_range'
-  const [locationStatus, setLocationStatus] = useState('idle');
-  const [userLocation, setUserLocation] = useState(() => {
+  const [verifiedLocation, setVerifiedLocation] = useState(() => {
     try {
-      const saved = localStorage.getItem('quickfit_location');
+      const saved = localStorage.getItem('quickfit_verified_location');
       return saved ? JSON.parse(saved) : null;
     } catch { return null; }
   });
-  const [nearbyStores, setNearbyStores] = useState([]);
+
+  const [locationStatus, setLocationStatus] = useState(() => {
+    try {
+      const saved = localStorage.getItem('quickfit_verified_location');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.inZone) return 'granted';
+        if (parsed?.verificationStatus === 'out_of_range') return 'out_of_range';
+      }
+      return 'idle';
+    } catch { return 'idle'; }
+  });
+
+  const [userLocation, setUserLocation] = useState(() => {
+    try {
+      const saved = localStorage.getItem('quickfit_verified_location') || localStorage.getItem('quickfit_location');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { lat: parsed.lat, lng: parsed.lng };
+      }
+      return null;
+    } catch { return null; }
+  });
+
+  const [nearbyStores, setNearbyStores] = useState(() => {
+    try {
+      const saved = localStorage.getItem('quickfit_verified_location');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.allNearbyStores || (parsed.nearestStore ? [parsed.nearestStore] : []);
+      }
+      return [];
+    } catch { return []; }
+  });
+
   // Ref to avoid triggering fetchProducts more than once on mount
   const locationInitialized = useRef(false);
 
@@ -160,8 +193,11 @@ export const ShopProvider = ({ children }) => {
     let loc = locationOverride || null;
     if (!loc) {
       try {
-        const saved = localStorage.getItem('quickfit_location');
-        if (saved) loc = JSON.parse(saved);
+        const saved = localStorage.getItem('quickfit_verified_location') || localStorage.getItem('quickfit_location');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          loc = { lat: parsed.lat, lng: parsed.lng };
+        }
       } catch { loc = null; }
     }
 
@@ -190,6 +226,23 @@ export const ShopProvider = ({ children }) => {
             setLocationStatus('out_of_range');
             setNearbyStores([]);
             setProductsError(null);
+
+            const closest = data.closestStore || null;
+            const verifiedData = {
+              lat: loc.lat,
+              lng: loc.lng,
+              nearestStore: closest,
+              inZone: false,
+              verificationStatus: 'out_of_range',
+              areaName: closest?.name || 'Outside Delivery Zone',
+              allNearbyStores: []
+            };
+            try {
+              localStorage.setItem('quickfit_verified_location', JSON.stringify(verifiedData));
+              localStorage.setItem('quickfit_location', JSON.stringify({ lat: loc.lat, lng: loc.lng }));
+            } catch (e) {}
+            setVerifiedLocation(verifiedData);
+
             console.log('[PRODUCT FETCH] Outside express zone. Loading complete product catalog for browsing & standard delivery...');
             const fallbackRes = await axios.get(`${API_BASE_URL}/products`, {
               params: { _t: Date.now() },
@@ -204,10 +257,30 @@ export const ShopProvider = ({ children }) => {
           }
 
           const normalized = (data.products || []).map(normalizeProduct);
-          setNearbyStores(data.nearbyStores || []);
+          const nearbyList = data.nearbyStores || [];
+          setNearbyStores(nearbyList);
           setProducts(normalized);
           setIsLoadingProducts(false);
-          console.log(`[PRODUCT FETCH] ✅ /nearby: ${normalized.length} products from ${(data.nearbyStores || []).length} stores`);
+
+          const nearest = nearbyList[0] || null;
+          const areaName = nearest?.address?.split(',')?.[0]?.trim() || nearest?.name || 'Vijayawada';
+          const verifiedData = {
+            lat: loc.lat,
+            lng: loc.lng,
+            nearestStore: nearest,
+            inZone: true,
+            verificationStatus: 'verified',
+            areaName,
+            allNearbyStores: nearbyList
+          };
+          try {
+            localStorage.setItem('quickfit_verified_location', JSON.stringify(verifiedData));
+            localStorage.setItem('quickfit_location', JSON.stringify({ lat: loc.lat, lng: loc.lng }));
+          } catch (e) {}
+          setVerifiedLocation(verifiedData);
+          setLocationStatus('granted');
+
+          console.log(`[PRODUCT FETCH] ✅ /nearby: ${normalized.length} products from ${nearbyList.length} stores (Area: ${areaName})`);
           return;
 
         } else {
@@ -265,34 +338,52 @@ export const ShopProvider = ({ children }) => {
   }, [normalizeProduct]);
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Geolocation detection — called once on mount, or when user clicks "retry"
+  // Geolocation detection — asks only ONCE, or when user clicks "Change Location"
   // ─────────────────────────────────────────────────────────────────────────────
-  const detectUserLocation = useCallback(() => {
+  const detectUserLocation = useCallback((force = false) => {
+    // If not forcing re-ask, check if we already have a saved location
+    if (!force) {
+      try {
+        const saved = localStorage.getItem('quickfit_verified_location');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed.lat === 'number' && typeof parsed.lng === 'number') {
+            setVerifiedLocation(parsed);
+            setUserLocation({ lat: parsed.lat, lng: parsed.lng });
+            setNearbyStores(parsed.allNearbyStores || (parsed.nearestStore ? [parsed.nearestStore] : []));
+            setLocationStatus(parsed.inZone ? 'granted' : 'out_of_range');
+            fetchProducts({ lat: parsed.lat, lng: parsed.lng });
+            return;
+          }
+        }
+      } catch (e) {}
+    }
+
     if (!navigator.geolocation) {
       console.warn('[GEO] Geolocation not supported by this browser.');
       setLocationStatus('denied');
       fetchProducts(null);
       return;
     }
+
     setLocationStatus('detecting');
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         localStorage.setItem('quickfit_location', JSON.stringify(loc));
         setUserLocation(loc);
-        setLocationStatus('granted');
         fetchProducts(loc);
       },
       (err) => {
         console.warn('[GEO] Location denied or unavailable:', err.message);
         setLocationStatus('denied');
-        // Try to use previously saved location
+        // Try to use previously saved location if available
         try {
-          const saved = localStorage.getItem('quickfit_location');
+          const saved = localStorage.getItem('quickfit_verified_location') || localStorage.getItem('quickfit_location');
           if (saved) {
-            const loc = JSON.parse(saved);
-            setUserLocation(loc);
-            fetchProducts(loc);
+            const parsed = JSON.parse(saved);
+            setUserLocation({ lat: parsed.lat, lng: parsed.lng });
+            fetchProducts({ lat: parsed.lat, lng: parsed.lng });
             return;
           }
         } catch { /* ignore */ }
@@ -307,10 +398,15 @@ export const ShopProvider = ({ children }) => {
    * Called by the LocationBanner "Change Location" button.
    */
   const resetLocation = useCallback(() => {
-    localStorage.removeItem('quickfit_location');
+    try {
+      localStorage.removeItem('quickfit_verified_location');
+      localStorage.removeItem('quickfit_location');
+    } catch (e) {}
+    setVerifiedLocation(null);
     setUserLocation(null);
     setNearbyStores([]);
-    detectUserLocation();
+    setLocationStatus('idle');
+    detectUserLocation(true);
   }, [detectUserLocation]);
 
   // --- FETCH CATEGORIES FROM MONGODB ---
@@ -341,7 +437,6 @@ export const ShopProvider = ({ children }) => {
         if (!isLast) {
           await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt - 1]));
         } else {
-          // All retries exhausted — keep whatever stale state we have (static fallback in CategoriesSection)
           console.error('[CATEGORIES] All retries failed. Static fallback will be used.');
         }
       }
@@ -349,7 +444,7 @@ export const ShopProvider = ({ children }) => {
     setIsLoadingCategories(false); // Settled (success or all retries exhausted)
   }, []);
 
-  // Fetch categories on mount AND whenever the tab regains focus (same pattern as products)
+  // Fetch categories on mount AND whenever the tab regains focus
   useEffect(() => {
     fetchCategories();
 
@@ -373,23 +468,27 @@ export const ShopProvider = ({ children }) => {
     };
   }, [fetchCategories]);
 
-
-
   useEffect(() => {
     if (locationInitialized.current) return;
     locationInitialized.current = true;
 
-    // If we already have a saved location, use it immediately to fetch products,
-    // then silently refresh geolocation in the background.
+    // Check if location was already saved in localStorage
     const saved = (() => {
-      try { return JSON.parse(localStorage.getItem('quickfit_location')); } catch { return null; }
+      try {
+        const verified = localStorage.getItem('quickfit_verified_location');
+        if (verified) return JSON.parse(verified);
+        const basic = localStorage.getItem('quickfit_location');
+        if (basic) return JSON.parse(basic);
+        return null;
+      } catch { return null; }
     })();
 
     if (saved?.lat && saved?.lng) {
-      setLocationStatus('granted');
+      // Saved location exists — load products immediately without re-asking permission
       fetchProducts(saved);
     } else {
-      detectUserLocation();
+      // First visit: ask for location permission once
+      detectUserLocation(false);
     }
 
     // Auto-refresh products (but not location) when tab regains focus
@@ -652,6 +751,8 @@ export const ShopProvider = ({ children }) => {
         // Location & multi-store
         locationStatus,
         userLocation,
+        verifiedLocation,
+        setVerifiedLocation,
         nearbyStores,
         detectUserLocation,
         resetLocation,

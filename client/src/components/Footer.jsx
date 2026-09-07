@@ -72,22 +72,24 @@ export const Footer = () => {
 
           {/* COMPANY & ASSISTANCE */}
           <div className="space-y-3">
-            <h4 className="text-xs font-black uppercase tracking-wider text-white">QuickFit Store</h4>
+            <h4 className="text-xs font-black uppercase tracking-wider text-white">About & Support</h4>
             <ul className="space-y-2.5 text-xs">
               <li>
                 <button
                   onClick={() => setIsAboutModalOpen(true)}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  About Our Brand
+                  <span>ℹ️</span>
+                  <span>About Us</span>
                 </button>
               </li>
               <li>
                 <button
                   onClick={() => setIsContactModalOpen(true)}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  Contact & Support
+                  <span>💬</span>
+                  <span>Contact Us</span>
                 </button>
               </li>
               <li className="flex items-center gap-2 pt-1 text-slate-300">

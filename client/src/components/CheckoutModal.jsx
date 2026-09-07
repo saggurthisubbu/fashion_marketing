@@ -25,7 +25,9 @@ export const CheckoutModal = () => {
     clearCart,
     API_BASE_URL,
     showToast,
-    fetchProducts
+    fetchProducts,
+    verifiedLocation,
+    setVerifiedLocation
   } = useShop();
 
   const [formData, setFormData] = useState({
@@ -50,9 +52,23 @@ export const CheckoutModal = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Reset form to completely blank state on modal open
+  const vijayawadaAreas = ['MG Road', 'Benz Circle', 'Patamata', 'Eluru Road', 'Governorpet', 'Labbipet', 'Kunchanapalli', 'Moghalrajpuram'];
+
+  // Initialize or pre-fill verified location state on modal open
   useEffect(() => {
     if (isCheckoutOpen) {
+      // 1. Check if we already have a verified location in context or localStorage
+      const savedVerified = verifiedLocation || (() => {
+        try {
+          const s = localStorage.getItem('quickfit_verified_location');
+          return s ? JSON.parse(s) : null;
+        } catch { return null; }
+      })();
+
+      const matchedArea = savedVerified?.areaName && vijayawadaAreas.includes(savedVerified.areaName)
+        ? savedVerified.areaName
+        : '';
+
       setFormData({
         fullName: '',
         phone: '',
@@ -60,31 +76,45 @@ export const CheckoutModal = () => {
         address: '',
         landmark: '',
         pincode: '',
-        area: ''
+        area: matchedArea || ''
       });
-      setLocationStatus('idle');
-      setCustomerCoords(null);
-      setLocationLink('');
-      setLocationError('');
-      setDeliveryInfo(null);
       setErrorMsg('');
       setIsSubmitting(false);
 
-      // Clear any legacy storage items used by previous orders
-      try {
-        localStorage.removeItem('quickfit_customer');
-        localStorage.removeItem('quickfit_checkout');
-        localStorage.removeItem('quickfit_formData');
-        sessionStorage.removeItem('quickfit_customer');
-        sessionStorage.removeItem('quickfit_checkout');
-        sessionStorage.removeItem('quickfit_formData');
-      } catch (e) {}
+      if (savedVerified && typeof savedVerified.lat === 'number' && typeof savedVerified.lng === 'number') {
+        const mapsUrl = `https://www.google.com/maps?q=${savedVerified.lat},${savedVerified.lng}`;
+        setLocationLink(mapsUrl);
+        setCustomerCoords({ lat: savedVerified.lat, lng: savedVerified.lng });
+        setLocationError('');
+
+        if (savedVerified.inZone !== false) {
+          setLocationStatus('allowed');
+          setDeliveryInfo({
+            inZone: true,
+            nearestStore: savedVerified.nearestStore,
+            distanceKm: savedVerified.nearestStore?.distanceKm || null,
+            message: `Delivery available from ${savedVerified.nearestStore?.name || 'QuickFit Store'}`
+          });
+        } else {
+          setLocationStatus('blocked');
+          setDeliveryInfo({
+            inZone: false,
+            closestStore: savedVerified.nearestStore,
+            distanceKm: savedVerified.nearestStore?.distanceKm || null,
+            message: 'Outside express delivery zone.'
+          });
+        }
+      } else {
+        setLocationStatus('idle');
+        setCustomerCoords(null);
+        setLocationLink('');
+        setLocationError('');
+        setDeliveryInfo(null);
+      }
     }
-  }, [isCheckoutOpen]);
+  }, [isCheckoutOpen, verifiedLocation]);
 
   if (!isCheckoutOpen) return null;
-
-  const vijayawadaAreas = ['MG Road', 'Benz Circle', 'Patamata', 'Eluru Road', 'Governorpet', 'Labbipet', 'Kunchanapalli', 'Moghalrajpuram'];
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -108,36 +138,62 @@ export const CheckoutModal = () => {
         const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
         setLocationLink(mapsUrl);
         setCustomerCoords({ lat: latitude, lng: longitude });
-        localStorage.setItem('quickfit_location', JSON.stringify({ lat: latitude, lng: longitude }));
 
         // Immediately validate against all active stores
         try {
           const result = await checkDeliveryAvailability(latitude, longitude, API_BASE_URL);
           setDeliveryInfo(result);
 
-          // CLIENT-SIDE DELIVERY VALIDATION LOG
-          console.log('--- CLIENT DELIVERY ZONE CHECK ---');
-          console.log('Customer Coordinates: lat:', latitude, ', lng:', longitude);
-          console.log('Store:', result.nearestStore?.name || result.closestStore?.name || 'N/A');
-          console.log('Store Coordinates:', result.nearestStore?.location || result.closestStore?.location || 'N/A');
-          console.log('Calculated Distance:', result.distanceKm != null ? result.distanceKm.toFixed(4) + ' KM' : 'N/A');
-          console.log('Store Radius:', result.nearestStore?.deliveryRadiusKm || result.closestStore?.deliveryRadiusKm || 'N/A', 'KM');
-          console.log('Validation Result:', result.inZone ? 'Allowed ✅' : 'Rejected ❌');
-          console.log('----------------------------------');
-
           if (result.inZone) {
             setLocationStatus('allowed');
             showToast(`✅ ${result.message}`, 'success');
+
+            const areaName = result.nearestStore?.address?.split(',')?.[0]?.trim() || result.nearestStore?.name || 'Vijayawada';
+            const verifiedData = {
+              lat: latitude,
+              lng: longitude,
+              nearestStore: result.nearestStore,
+              inZone: true,
+              verificationStatus: 'verified',
+              areaName,
+              allNearbyStores: result.allStores || []
+            };
+
+            try {
+              localStorage.setItem('quickfit_verified_location', JSON.stringify(verifiedData));
+              localStorage.setItem('quickfit_location', JSON.stringify({ lat: latitude, lng: longitude }));
+            } catch (e) {}
+
+            if (setVerifiedLocation) {
+              setVerifiedLocation(verifiedData);
+            }
+
             // Re-fetch products to ensure catalog updates to the new nearest store
-            fetchProducts();
+            fetchProducts({ lat: latitude, lng: longitude });
           } else {
             setLocationStatus('blocked');
             showToast('❌ Outside delivery zone. Order blocked.', 'error');
+
+            const verifiedData = {
+              lat: latitude,
+              lng: longitude,
+              nearestStore: result.closestStore,
+              inZone: false,
+              verificationStatus: 'out_of_range',
+              areaName: result.closestStore?.name || 'Outside Delivery Zone',
+              allNearbyStores: []
+            };
+            try {
+              localStorage.setItem('quickfit_verified_location', JSON.stringify(verifiedData));
+              localStorage.setItem('quickfit_location', JSON.stringify({ lat: latitude, lng: longitude }));
+            } catch (e) {}
+
+            if (setVerifiedLocation) {
+              setVerifiedLocation(verifiedData);
+            }
           }
         } catch (err) {
-          console.error('[DELIVERY CHECK] Stores API unreachable — blocking checkout (fail-safe):', err);
-          // SECURITY: If the stores API is unreachable, BLOCK checkout rather than allow it.
-          // This prevents outside-zone customers bypassing validation during API hiccups.
+          console.error('[DELIVERY CHECK] Stores API unreachable:', err);
           setLocationStatus('error');
           setLocationError('Could not verify delivery availability. Please try again.');
           showToast('⚠️ Could not check delivery zone. Please retry.', 'error');

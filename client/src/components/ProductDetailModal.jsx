@@ -4,7 +4,7 @@ import { formatQuickFitWhatsAppOrder } from '../utils/whatsapp';
 import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 
 export const ProductDetailModal = () => {
-  const { selectedProduct, isDetailModalOpen, setIsDetailModalOpen, addToCart, buyNow, showToast } = useShop();
+  const { selectedProduct, isDetailModalOpen, setIsDetailModalOpen, addToCart, buyNow, showToast, verifiedLocation, userLocation } = useShop();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedSize, setSelectedSize] = useState('M');
@@ -42,8 +42,13 @@ export const ProductDetailModal = () => {
       setSelectedColor(selectedProduct.colors && selectedProduct.colors.length > 0 ? (selectedProduct.colors[0].name || '') : '');
       setIsZoomed(false);
       setIsQuickOrderOpen(false);
+
+      const loc = verifiedLocation || userLocation;
+      if (loc?.lat && loc?.lng) {
+        setGpsLocation(`https://www.google.com/maps?q=${loc.lat},${loc.lng}`);
+      }
     }
-  }, [selectedProduct]);
+  }, [selectedProduct, verifiedLocation, userLocation]);
 
   // Keyboard navigation (Arrow keys & Escape)
   useEffect(() => {

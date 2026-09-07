@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useShop } from '../context/ShopContext';
+import { AppDownloadModal } from './AppDownloadModal';
 
 export const Navbar = () => {
   const {
@@ -30,45 +31,11 @@ export const Navbar = () => {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [showIOSDownloadTip, setShowIOSDownloadTip] = useState(false);
-  const deferredInstallPrompt = useRef(null);
-  const isAlreadyInstalled = typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches;
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
 
-  // Capture the PWA install prompt so the Download App button can trigger it
-  useEffect(() => {
-    const handler = (e) => {
-      e.preventDefault();
-      deferredInstallPrompt.current = e;
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  const isIOS = typeof navigator !== 'undefined' &&
-    /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-
-  const handleDownloadApp = async () => {
-    if (isAlreadyInstalled) {
-      // Already installed — nothing to do, just close mobile menu
-      setIsMobileMenuOpen(false);
-      return;
-    }
-    if (deferredInstallPrompt.current) {
-      // Chrome / Android: trigger native install dialog
-      try {
-        await deferredInstallPrompt.current.prompt();
-        const { outcome } = await deferredInstallPrompt.current.userChoice;
-        if (outcome === 'accepted') deferredInstallPrompt.current = null;
-      } catch (_) {}
-    } else if (isIOS) {
-      // iOS Safari: show the tip overlay
-      setShowIOSDownloadTip(true);
-      setIsMobileMenuOpen(false);
-    } else {
-      // Fallback: scroll to top (PWA may already be installed or prompt not yet fired)
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      setIsMobileMenuOpen(false);
-    }
+  const handleDownloadApp = () => {
+    setIsDownloadModalOpen(true);
+    setIsMobileMenuOpen(false);
   };
 
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -352,7 +319,7 @@ export const Navbar = () => {
                   <path fillRule="evenodd" d="M4 4a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V4Zm4-1.5v.75c0 .414.336.75.75.75h2.5a.75.75 0 0 0 .75-.75V2.5h-4ZM8.5 2.5V2h3v.5h-3ZM6.5 4A1.5 1.5 0 0 0 5 5.5v9A1.5 1.5 0 0 0 6.5 16h7a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 13.5 4h-7Z" clipRule="evenodd" />
                 </svg>
                 <div className="text-left">
-                  <div className="font-black text-xs tracking-wide">{isAlreadyInstalled ? '✓ App Installed' : 'Download App'}</div>
+                  <div className="font-black text-xs tracking-wide">Download App</div>
                   <div className="text-white/70 font-medium" style={{fontSize:'9px'}}>Get the QuickFit mobile experience</div>
                 </div>
               </div>
@@ -456,62 +423,11 @@ export const Navbar = () => {
         </div>
       )}
 
-      {/* iOS "Add to Home Screen" tip overlay */}
-      {showIOSDownloadTip && (
-        <div
-          className="fixed inset-0 z-[200] flex items-end justify-center p-4"
-          style={{background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)'}}
-          onClick={() => setShowIOSDownloadTip(false)}
-        >
-          <div
-            className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl mb-8 animate-in slide-in-from-bottom-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-lg">⚡</div>
-                <div>
-                  <div className="font-black text-slate-900 text-sm">Install QuickFit</div>
-                  <div className="text-slate-500 text-[10px] font-medium">Add to your Home Screen</div>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowIOSDownloadTip(false)}
-                className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs hover:bg-slate-200 cursor-pointer"
-              >✕</button>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50">
-                <span className="text-xl flex-shrink-0">1️⃣</span>
-                <div>
-                  <div className="font-bold text-slate-900 text-xs">Tap the Share button</div>
-                  <div className="text-slate-500 text-[10px] mt-0.5">Look for the <span className="font-black">⎙</span> icon in the Safari toolbar at the bottom</div>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50">
-                <span className="text-xl flex-shrink-0">2️⃣</span>
-                <div>
-                  <div className="font-bold text-slate-900 text-xs">Tap "Add to Home Screen"</div>
-                  <div className="text-slate-500 text-[10px] mt-0.5">Scroll down in the share sheet and tap this option</div>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50">
-                <span className="text-xl flex-shrink-0">3️⃣</span>
-                <div>
-                  <div className="font-bold text-slate-900 text-xs">Tap "Add" to confirm</div>
-                  <div className="text-slate-500 text-[10px] mt-0.5">QuickFit will appear on your home screen like a native app</div>
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowIOSDownloadTip(false)}
-              className="mt-4 w-full py-3 rounded-xl bg-slate-900 text-white text-xs font-black cursor-pointer hover:bg-black transition-colors"
-            >Got it ✓</button>
-          </div>
-          {/* Arrow pointing down toward Safari toolbar */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-2xl animate-bounce pointer-events-none">⬇</div>
-        </div>
-      )}
+      {/* APP DOWNLOAD MODAL */}
+      <AppDownloadModal
+        isOpen={isDownloadModalOpen}
+        onClose={() => setIsDownloadModalOpen(false)}
+      />
 
     </header>
   );

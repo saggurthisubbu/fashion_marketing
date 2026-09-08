@@ -8,8 +8,6 @@ export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
     resolveImageUrl,
     addToCart,
     buyNow,
-    toggleWishlist,
-    isInWishlist,
     openProductDetail,
     user,
   } = useShop();
@@ -589,7 +587,6 @@ export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
                 {products.map((product) => {
                   const img = resolveImageUrl(product.image || product.images?.front);
-                  const isWishlisted = isInWishlist(product.id || product._id);
                   const discountPct = product.discount || (
                     product.originalPrice && product.originalPrice > product.price
                       ? `${Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF`
@@ -601,7 +598,7 @@ export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
                       key={product._id || product.id}
                       className="group relative bg-white rounded-3xl p-2.5 sm:p-3.5 border border-slate-200/80 hover:border-slate-900 hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
                     >
-                      {/* TOP BADGE & WISHLIST BUTTON */}
+                      {/* PRODUCT IMAGE CONTAINER */}
                       <div className="relative w-full aspect-[4/5] rounded-2xl bg-slate-100 overflow-hidden mb-3">
                         <img
                           src={img}
@@ -626,20 +623,6 @@ export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
                             </span>
                           )}
                         </div>
-
-                        {/* WISHLIST BUTTON */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleWishlist(product);
-                          }}
-                          className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-slate-700 hover:text-rose-500 flex items-center justify-center shadow-md transition-transform hover:scale-110 cursor-pointer"
-                          title="Wishlist"
-                        >
-                          <span className={isWishlisted ? 'text-rose-500 font-black' : 'text-slate-400'}>
-                            {isWishlisted ? '❤️' : '🤍'}
-                          </span>
-                        </button>
 
                         {/* EXPRESS DELIVERY BANNER */}
                         <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-slate-950/80 to-transparent p-2 text-white text-[10px] font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

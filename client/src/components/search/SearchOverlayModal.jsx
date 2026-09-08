@@ -1,117 +1,36 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useShop } from '../../context/ShopContext';
 
-// Helper to highlight matching text
-const HighlightMatch = ({ text = '', query = '' }) => {
-  if (!query) return <span>{text}</span>;
-  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-  const parts = text.split(regex);
-  return (
-    <span>
-      {parts.map((part, i) =>
-        regex.test(part) ? (
-          <span key={i} className="font-black text-slate-900 bg-amber-100 px-0.5 rounded">
-            {part}
-          </span>
-        ) : (
-          <span key={i}>{part}</span>
-        )
-      )}
-    </span>
-  );
-};
-
 export const SearchOverlayModal = ({ isOpen, onClose, initialQuery = '' }) => {
-  const { API_BASE_URL, resolveImageUrl, user, openProductDetail, products: globalProducts } = useShop();
+  const { API_BASE_URL, resolveImageUrl, openProductDetail, addToCart, buyNow, products: globalProducts } = useShop();
 
   const [searchQuery, setSearchQuery] = useState(initialQuery);
-  const [recentSearches, setRecentSearches] = useState([]);
-  const [trendingSearches, setTrendingSearches] = useState([
-    'Oversized T-Shirts',
-    'Drop Shoulder',
-    'Linen Shirts',
-    'Polo T-Shirts',
-    'Graphic Tees',
-    'Black Streetwear',
-    'Summer Fits',
-  ]);
-  const [recommendedProducts, setRecommendedProducts] = useState([]);
-  const [liveSuggestions, setLiveSuggestions] = useState({
-    suggestions: [],
-    categories: [],
-    products: [],
-  });
+  const [matchedProducts, setMatchedProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef(null);
-
-  // Load Recent Searches from localStorage on mount
-  const loadLocalRecentSearches = useCallback(() => {
-    try {
-      const saved = localStorage.getItem('quickfit_recent_searches');
-      if (saved) {
-        return JSON.parse(saved).slice(0, 10);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return [];
-  }, []);
-
-  // Sync / Fetch history from backend
-  const fetchSearchHistory = useCallback(async () => {
-    const local = loadLocalRecentSearches();
-    setRecentSearches(local);
-
-    try {
-      const params = {};
-      if (user?._id || user?.id) params.userId = user._id || user.id;
-      if (user?.email) params.email = user.email;
-
-      const res = await axios.get(`${API_BASE_URL}/search/history`, { params });
-      if (res.data) {
-        if (res.data.recent && res.data.recent.length > 0) {
-          // Merge local and remote uniquely
-          const merged = Array.from(new Set([...local, ...res.data.recent])).slice(0, 10);
-          setRecentSearches(merged);
-          localStorage.setItem('quickfit_recent_searches', JSON.stringify(merged));
-        }
-        if (res.data.trending && res.data.trending.length > 0) {
-          setTrendingSearches(res.data.trending);
-        }
-        if (res.data.recommended && res.data.recommended.length > 0) {
-          setRecommendedProducts(res.data.recommended);
-        }
-      }
-    } catch (err) {
-      console.warn('Could not fetch search history from API:', err.message);
-    }
-  }, [API_BASE_URL, user, loadLocalRecentSearches]);
 
   useEffect(() => {
     if (isOpen) {
       setSearchQuery(initialQuery || '');
-      fetchSearchHistory();
       setTimeout(() => {
         if (inputRef.current) {
           inputRef.current.focus();
         }
-      }, 50);
+      }, 60);
     }
-  }, [isOpen, initialQuery, fetchSearchHistory]);
+  }, [isOpen, initialQuery]);
 
-  // Fallback recommended products from globalProducts if API is empty
-  useEffect(() => {
-    if (recommendedProducts.length === 0 && globalProducts && globalProducts.length > 0) {
-      setRecommendedProducts(globalProducts.slice(0, 8));
-    }
-  }, [recommendedProducts, globalProducts]);
-
-  // Live search debouncer
+  // Query live matching real products as user types
   useEffect(() => {
     const q = searchQuery.trim();
     if (!q) {
-      setLiveSuggestions({ suggestions: [], categories: [], products: [] });
+      // If query is empty, show latest / featured products from store
+      if (globalProducts && globalProducts.length > 0) {
+        setMatchedProducts(globalProducts.slice(0, 10));
+      } else {
+        setMatchedProducts([]);
+      }
       setIsLoading(false);
       return;
     }
@@ -122,124 +41,43 @@ export const SearchOverlayModal = ({ isOpen, onClose, initialQuery = '' }) => {
         const res = await axios.get(`${API_BASE_URL}/search/suggestions`, {
           params: { q },
         });
-        if (res.data) {
-          setLiveSuggestions({
-            suggestions: res.data.suggestions || [],
-            categories: res.data.categories || [],
-            products: res.data.products || [],
-          });
+        if (res.data && Array.isArray(res.data.products)) {
+          setMatchedProducts(res.data.products);
         }
       } catch (err) {
-        // Fallback to in-memory matching if offline
+        // Fallback to client-side in-memory search across global products
         if (globalProducts && globalProducts.length > 0) {
           const lower = q.toLowerCase();
-          const matched = globalProducts.filter(
+          const localMatched = globalProducts.filter(
             (p) =>
               p.name?.toLowerCase().includes(lower) ||
               p.category?.toLowerCase().includes(lower) ||
-              p.subcategory?.toLowerCase().includes(lower)
+              p.subcategory?.toLowerCase().includes(lower) ||
+              p.storeName?.toLowerCase().includes(lower) ||
+              p.description?.toLowerCase().includes(lower)
           );
-          setLiveSuggestions({
-            suggestions: matched.map((m) => m.name).slice(0, 5),
-            categories: Array.from(new Set(matched.map((m) => m.subcategory).filter(Boolean))).slice(0, 3),
-            products: matched.slice(0, 5),
-          });
+          setMatchedProducts(localMatched.slice(0, 10));
         }
       } finally {
         setIsLoading(false);
       }
-    }, 180);
+    }, 120);
 
     return () => clearTimeout(timeoutId);
   }, [searchQuery, API_BASE_URL, globalProducts]);
 
-  // Save search query to history (localStorage + MongoDB)
-  const saveSearchTerm = useCallback(
-    async (term) => {
-      const clean = term.trim();
-      if (!clean) return;
-
-      // Update local state and localStorage
-      setRecentSearches((prev) => {
-        const updated = [clean, ...prev.filter((item) => item.toLowerCase() !== clean.toLowerCase())].slice(0, 10);
-        try {
-          localStorage.setItem('quickfit_recent_searches', JSON.stringify(updated));
-        } catch (e) {
-          console.error(e);
-        }
-        return updated;
-      });
-
-      // Async save to MongoDB
-      try {
-        await axios.post(`${API_BASE_URL}/search/history`, {
-          query: clean,
-          userId: user?._id || user?.id || null,
-          email: user?.email || null,
-        });
-      } catch (e) {
-        // Non-blocking
-      }
-    },
-    [API_BASE_URL, user]
-  );
-
-  // Navigate to Search Results Page
+  // Execute full search and navigate to /search?q=...
   const executeSearch = (term) => {
-    const clean = (term || searchQuery).trim();
+    const clean = (term !== undefined ? term : searchQuery).trim();
     if (!clean) return;
 
-    saveSearchTerm(clean);
     onClose();
-
-    // Trigger URL pushState to /search?q=...
     const searchUrl = `/search?q=${encodeURIComponent(clean)}`;
     window.history.pushState({ modal: 'search', q: clean }, '', searchUrl);
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
-  // Delete a single recent search term
-  const handleDeleteRecent = async (e, termToDelete) => {
-    e.stopPropagation();
-    const updated = recentSearches.filter((item) => item !== termToDelete);
-    setRecentSearches(updated);
-    try {
-      localStorage.setItem('quickfit_recent_searches', JSON.stringify(updated));
-    } catch (err) {
-      console.error(err);
-    }
-
-    try {
-      const params = {};
-      if (user?._id || user?.id) params.userId = user._id || user.id;
-      if (user?.email) params.email = user.email;
-      await axios.delete(`${API_BASE_URL}/search/history/${encodeURIComponent(termToDelete)}`, { params });
-    } catch (err) {
-      // Ignore
-    }
-  };
-
-  // Clear all recent searches
-  const handleClearAllRecent = async (e) => {
-    e.stopPropagation();
-    setRecentSearches([]);
-    try {
-      localStorage.removeItem('quickfit_recent_searches');
-    } catch (err) {
-      console.error(err);
-    }
-
-    try {
-      const params = {};
-      if (user?._id || user?.id) params.userId = user._id || user.id;
-      if (user?.email) params.email = user.email;
-      await axios.delete(`${API_BASE_URL}/search/history`, { params });
-    } catch (err) {
-      // Ignore
-    }
-  };
-
-  // Keyboard navigation / ESC
+  // Keyboard navigation & ESC handler
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isOpen) {
@@ -252,56 +90,50 @@ export const SearchOverlayModal = ({ isOpen, onClose, initialQuery = '' }) => {
 
   if (!isOpen) return null;
 
-  const hasLiveResults =
-    liveSuggestions.suggestions.length > 0 ||
-    liveSuggestions.categories.length > 0 ||
-    liveSuggestions.products.length > 0;
-
   return (
     <div className="fixed inset-0 z-[150] flex flex-col items-center animate-in fade-in duration-200">
       {/* BACKDROP */}
       <div
-        className="absolute inset-0 bg-slate-950/70 backdrop-blur-md transition-opacity"
+        className="absolute inset-0 bg-slate-950/75 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      {/* SEARCH CONTAINER (Full-Screen on Mobile, Floating Dropdown Container on Desktop) */}
-      <div className="relative w-full max-w-3xl md:mt-16 bg-white md:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] md:max-h-[85vh] z-10 border border-slate-200">
-
-        {/* TOP GOLD ACCENT */}
+      {/* SEARCH CONTAINER (Responsive: Full-width on mobile, floating card on desktop) */}
+      <div className="relative w-full max-w-4xl h-full md:h-auto md:max-h-[88vh] md:mt-12 bg-white md:rounded-3xl shadow-2xl flex flex-col z-10 border border-slate-200 overflow-hidden">
+        {/* GOLD ACCENT BAR */}
         <div style={{ height: 4, background: 'linear-gradient(90deg, #B8860B 0%, #FFD700 40%, #DAA520 70%, #B8860B 100%)' }} />
 
-        {/* SEARCH HEADER BAR */}
-        <div className="p-3 sm:p-4 border-b border-slate-100 bg-white flex items-center gap-3">
-          {/* Mobile Back Button */}
+        {/* SEARCH HEADER BAR (Mobile-first, responsive, perfectly aligned) */}
+        <div className="p-3 sm:p-4 bg-white border-b border-slate-200 flex items-center gap-2 sm:gap-3">
+          {/* Back Button */}
           <button
             onClick={onClose}
-            className="md:hidden w-9 h-9 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold hover:bg-slate-200 transition-colors flex-shrink-0"
+            className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-base flex-shrink-0 transition-colors cursor-pointer"
             aria-label="Back"
           >
             ←
           </button>
 
-          {/* Search Input Box */}
+          {/* Search Form */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               executeSearch();
             }}
-            className="flex-1 relative flex items-center"
+            className="flex-1 relative flex items-center min-w-0"
           >
-            <div className="absolute left-3.5 text-slate-400 text-sm">🔍</div>
+            <span className="absolute left-3.5 text-slate-400 text-sm pointer-events-none">🔍</span>
             <input
               ref={inputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search oversized, drop shoulder, polo shirts, stores..."
-              className="w-full pl-10 pr-20 py-3 rounded-full bg-slate-100 hover:bg-slate-50 focus:bg-white border border-slate-200 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all shadow-inner"
+              placeholder="Search for shirts, oversized, polo..."
+              className="w-full pl-10 pr-20 py-2.5 sm:py-3 rounded-full bg-slate-100 focus:bg-white border border-slate-200 text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all shadow-inner"
             />
 
-            {/* Right Action Icons in Input (Clear & Search Submit) */}
-            <div className="absolute right-2 flex items-center gap-1.5">
+            {/* Clear & Submit Action Buttons */}
+            <div className="absolute right-2 flex items-center gap-1">
               {searchQuery && (
                 <button
                   type="button"
@@ -309,7 +141,7 @@ export const SearchOverlayModal = ({ isOpen, onClose, initialQuery = '' }) => {
                     setSearchQuery('');
                     if (inputRef.current) inputRef.current.focus();
                   }}
-                  className="w-7 h-7 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 flex items-center justify-center text-xs font-bold transition-all"
+                  className="w-7 h-7 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 flex items-center justify-center text-xs font-black transition-all cursor-pointer"
                   title="Clear"
                 >
                   ✕
@@ -317,7 +149,7 @@ export const SearchOverlayModal = ({ isOpen, onClose, initialQuery = '' }) => {
               )}
               <button
                 type="submit"
-                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-black text-white flex items-center justify-center text-xs font-black shadow transition-all"
+                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-black text-white flex items-center justify-center text-xs font-black shadow transition-all cursor-pointer active:scale-95"
                 title="Search"
               >
                 ➔
@@ -328,311 +160,165 @@ export const SearchOverlayModal = ({ isOpen, onClose, initialQuery = '' }) => {
           {/* Desktop Close Icon */}
           <button
             onClick={onClose}
-            className="hidden md:flex w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 items-center justify-center text-sm font-black transition-colors flex-shrink-0"
-            title="Close (Esc)"
+            className="hidden md:flex w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 items-center justify-center text-sm font-black transition-colors flex-shrink-0 cursor-pointer"
+            title="Close"
           >
             ✕
           </button>
         </div>
 
-        {/* SEARCH CONTENT BODY */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 divide-y divide-slate-100">
+        {/* SEARCH RESULTS HEADER & ACTION */}
+        <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-xs">
+          <span className="font-bold text-slate-700 truncate">
+            {searchQuery.trim()
+              ? `Real Products Matching "${searchQuery.trim()}" (${matchedProducts.length})`
+              : `Featured Fits (${matchedProducts.length})`}
+          </span>
+          {searchQuery.trim() && (
+            <button
+              onClick={() => executeSearch()}
+              className="font-black text-slate-900 hover:text-amber-600 underline flex items-center gap-1 cursor-pointer flex-shrink-0 ml-2"
+            >
+              <span>View Full Results Page</span>
+              <span>➔</span>
+            </button>
+          )}
+        </div>
 
-          {/* ───────────────────────────────────────────────────────────── */}
-          {/* SCENARIO A: LIVE SEARCH AS USER IS TYPING                     */}
-          {/* ───────────────────────────────────────────────────────────── */}
-          {searchQuery.trim().length > 0 ? (
-            <div className="space-y-5">
-
-              {isLoading && (
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-400 py-1">
-                  <div className="w-3 h-3 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
-                  <span>Searching collections...</span>
+        {/* REAL PRODUCTS GRID BODY (NO SUGGESTION LISTS / NO AUTOCOMPLETE CHIPS) */}
+        <div className="flex-1 overflow-y-auto p-3 sm:p-5">
+          {isLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="bg-slate-50 rounded-2xl p-2.5 border border-slate-100 animate-pulse space-y-2">
+                  <div className="w-full aspect-[4/5] bg-slate-200 rounded-xl" />
+                  <div className="h-3 bg-slate-200 rounded w-3/4" />
+                  <div className="h-3 bg-slate-200 rounded w-1/2" />
                 </div>
-              )}
+              ))}
+            </div>
+          ) : matchedProducts.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+              {matchedProducts.map((product) => {
+                const img = resolveImageUrl(product.image || product.images?.front);
+                const discountPct =
+                  product.discount ||
+                  (product.originalPrice && product.originalPrice > product.price
+                    ? `${Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF`
+                    : null);
 
-              {/* 1. KEYWORD & CATEGORY SUGGESTIONS */}
-              {(liveSuggestions.suggestions.length > 0 || liveSuggestions.categories.length > 0) && (
-                <div className="space-y-2">
-                  <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                    Search Suggestions
-                  </div>
-                  <div className="space-y-1">
-                    {/* Category Direct Links */}
-                    {liveSuggestions.categories.map((cat, idx) => (
-                      <div
-                        key={`cat-${idx}`}
-                        onClick={() => executeSearch(cat)}
-                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-amber-50/60 cursor-pointer text-xs font-bold text-slate-800 transition-colors group"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-amber-500 text-sm">✦</span>
-                          <span>
-                            Search in <span className="text-amber-700 underline font-black">{cat}</span>
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-black uppercase text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">
-                          Category
-                        </span>
-                      </div>
-                    ))}
-
-                    {/* Term Suggestions */}
-                    {liveSuggestions.suggestions.map((suggestion, idx) => (
-                      <div
-                        key={`sug-${idx}`}
-                        onClick={() => executeSearch(suggestion)}
-                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 cursor-pointer text-xs font-bold text-slate-700 hover:text-slate-900 transition-colors group"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-slate-400 group-hover:text-slate-900 transition-colors text-xs">🔍</span>
-                          <HighlightMatch text={suggestion} query={searchQuery} />
-                        </div>
-                        <span className="text-slate-300 group-hover:text-slate-600 text-xs transition-colors">➔</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 2. INSTANT PRODUCT MATCH CARDS */}
-              {liveSuggestions.products.length > 0 && (
-                <div className="space-y-3 pt-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                      Matching Fits
-                    </span>
-                    <button
-                      onClick={() => executeSearch(searchQuery)}
-                      className="text-xs font-black text-slate-900 hover:text-amber-600 underline transition-colors cursor-pointer"
+                return (
+                  <div
+                    key={product._id || product.id}
+                    className="bg-white rounded-2xl p-2.5 border border-slate-200/90 hover:border-slate-900 hover:shadow-lg transition-all flex flex-col justify-between group"
+                  >
+                    {/* PRODUCT IMAGE */}
+                    <div
+                      onClick={() => {
+                        onClose();
+                        openProductDetail(product);
+                      }}
+                      className="relative w-full aspect-[4/5] rounded-xl bg-slate-100 overflow-hidden mb-2 cursor-pointer"
                     >
-                      View All Results ➔
-                    </button>
-                  </div>
+                      <img
+                        src={img}
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600';
+                        }}
+                      />
+                      {discountPct && (
+                        <span className="absolute top-1.5 left-1.5 bg-rose-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow-xs">
+                          {discountPct}
+                        </span>
+                      )}
+                      {product.badge && (
+                        <span className="absolute top-1.5 right-1.5 bg-slate-900/90 text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase">
+                          {product.badge}
+                        </span>
+                      )}
+                    </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {liveSuggestions.products.map((product) => {
-                      const img = resolveImageUrl(product.image || product.images?.front);
-                      return (
-                        <div
-                          key={product._id || product.id}
+                    {/* PRODUCT DETAILS */}
+                    <div className="space-y-1 flex-1 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between text-[9px] sm:text-[10px] text-slate-400">
+                          <span className="truncate font-bold">{product.storeName || 'QuickFit Store'}</span>
+                          <span className="text-amber-500 font-black">★ {product.rating || 4.9}</span>
+                        </div>
+                        <h4
                           onClick={() => {
                             onClose();
                             openProductDetail(product);
                           }}
-                          className="flex items-center gap-3 p-2.5 rounded-2xl border border-slate-200/80 hover:border-slate-900 bg-white hover:shadow-md transition-all cursor-pointer group"
+                          className="text-xs font-black text-slate-900 line-clamp-1 group-hover:text-amber-600 transition-colors cursor-pointer mt-0.5"
                         >
-                          <div className="w-14 h-16 rounded-xl bg-slate-100 overflow-hidden flex-shrink-0 relative">
-                            <img
-                              src={img}
-                              alt={product.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              onError={(e) => {
-                                e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600';
-                              }}
-                            />
-                            {product.discount && (
-                              <span className="absolute bottom-1 left-1 bg-rose-500 text-white text-[8px] font-black px-1 rounded">
-                                {product.discount}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-xs font-black text-slate-900 truncate group-hover:text-amber-600 transition-colors">
-                              <HighlightMatch text={product.name} query={searchQuery} />
-                            </h4>
-                            <p className="text-[10px] text-slate-500 truncate mt-0.5">
-                              {product.subcategory || product.category} • {product.storeName || 'QuickFit Store'}
-                            </p>
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <span className="text-xs font-black text-slate-900">₹{product.price}</span>
-                              {product.originalPrice && product.originalPrice > product.price && (
-                                <span className="text-[10px] text-slate-400 line-through">₹{product.originalPrice}</span>
-                              )}
-                            </div>
-                          </div>
+                          {product.name}
+                        </h4>
+                      </div>
+
+                      {/* PRICE & BUTTONS */}
+                      <div className="pt-1.5">
+                        <div className="flex items-baseline gap-1.5 mb-2">
+                          <span className="text-xs sm:text-sm font-black text-slate-900">₹{product.price}</span>
+                          {product.originalPrice && product.originalPrice > product.price && (
+                            <span className="text-[10px] text-slate-400 line-through">₹{product.originalPrice}</span>
+                          )}
                         </div>
-                      );
-                    })}
+
+                        {/* ADD TO BAG & BUY NOW BUTTONS */}
+                        <div className="grid grid-cols-2 gap-1">
+                          <button
+                            onClick={() => addToCart(product, product.sizes?.[0] || 'M')}
+                            className="py-1.5 px-1 rounded-lg border border-slate-200 hover:border-slate-900 text-slate-800 text-[10px] font-black transition-colors text-center truncate cursor-pointer active:scale-95"
+                          >
+                            Add
+                          </button>
+                          <button
+                            onClick={() => {
+                              onClose();
+                              buyNow(product, product.sizes?.[0] || 'M');
+                            }}
+                            className="py-1.5 px-1 rounded-lg bg-slate-900 hover:bg-black text-white text-[10px] font-black transition-colors text-center truncate cursor-pointer active:scale-95"
+                          >
+                            Buy
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
-
-              {/* VIEW ALL RESULTS CTA BUTTON */}
-              <div className="pt-2">
-                <button
-                  onClick={() => executeSearch(searchQuery)}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-slate-900 hover:bg-black text-white text-xs font-black flex items-center justify-center gap-2 shadow-lg transition-all active:scale-98 cursor-pointer"
-                >
-                  <span>See all matching results for "{searchQuery}"</span>
-                  <span>➔</span>
-                </button>
-              </div>
-
-              {/* NO MATCHES FALLBACK WHILE TYPING */}
-              {!isLoading && !hasLiveResults && (
-                <div className="text-center py-8 space-y-3">
-                  <div className="text-3xl">🔍</div>
-                  <h3 className="text-sm font-black text-slate-800">No instant results for "{searchQuery}"</h3>
-                  <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                    Press Enter or click below to search our full catalog with multi-faceted filters.
-                  </p>
-                  <button
-                    onClick={() => executeSearch(searchQuery)}
-                    className="px-5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black hover:bg-black transition-colors"
-                  >
-                    Search Full Catalog ➔
-                  </button>
-                </div>
-              )}
-
+                );
+              })}
             </div>
           ) : (
-            /* ───────────────────────────────────────────────────────────── */
-            /* SCENARIO B: DEFAULT OPEN STATE (EMPTY SEARCH BAR)             */
-            /* ───────────────────────────────────────────────────────────── */
-            <div className="space-y-6">
-
-              {/* 1. RECENT SEARCHES */}
-              {recentSearches.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                      <span>🕒</span>
-                      <span>Recent Searches</span>
-                    </div>
-                    <button
-                      onClick={handleClearAllRecent}
-                      className="text-[10px] font-black text-rose-500 hover:text-rose-700 hover:underline transition-colors"
-                    >
-                      Clear All
-                    </button>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {recentSearches.map((term, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => executeSearch(term)}
-                        className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs font-bold text-slate-800 cursor-pointer transition-all active:scale-95"
-                      >
-                        <span className="text-slate-400 text-[10px]">🕒</span>
-                        <span>{term}</span>
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteRecent(e, term)}
-                          className="w-3.5 h-3.5 rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-100 flex items-center justify-center text-[9px] font-black transition-colors ml-0.5"
-                          title="Remove"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 2. POPULAR & TRENDING SEARCHES */}
-              <div className="space-y-3 pt-4">
-                <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  <span>🔥</span>
-                  <span>Popular Searches</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {trendingSearches.map((tag, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => executeSearch(tag)}
-                      className="px-3.5 py-1.5 rounded-full bg-amber-50 hover:bg-amber-100 border border-amber-200/80 text-xs font-black text-amber-900 cursor-pointer transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 shadow-xs"
-                    >
-                      <span className="text-amber-500 text-xs">⚡</span>
-                      <span>{tag}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 3. RECOMMENDED PRODUCTS (FROM NEARBY STORES / BESTSELLERS) */}
-              {recommendedProducts.length > 0 && (
-                <div className="space-y-3 pt-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                      <span>✦</span>
-                      <span>Trending Fits Near You</span>
-                    </div>
-                    <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      60-min Express Available
-                    </span>
-                  </div>
-
-                  {/* Horizontal Scrollable Carousel */}
-                  <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-200">
-                    {recommendedProducts.map((prod) => {
-                      const img = resolveImageUrl(prod.image || prod.images?.front);
-                      return (
-                        <div
-                          key={prod._id || prod.id}
-                          onClick={() => {
-                            onClose();
-                            openProductDetail(prod);
-                          }}
-                          className="w-36 flex-shrink-0 bg-slate-50 hover:bg-white rounded-2xl p-2 border border-slate-200/80 hover:border-slate-900 hover:shadow-md transition-all cursor-pointer group"
-                        >
-                          <div className="w-full aspect-[4/5] rounded-xl bg-slate-100 overflow-hidden relative mb-2">
-                            <img
-                              src={img}
-                              alt={prod.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              onError={(e) => {
-                                e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=400';
-                              }}
-                            />
-                            {prod.badge && (
-                              <span className="absolute top-1.5 left-1.5 bg-slate-900 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-                                {prod.badge}
-                              </span>
-                            )}
-                          </div>
-                          <h5 className="text-[11px] font-black text-slate-900 truncate group-hover:text-amber-600 transition-colors">
-                            {prod.name}
-                          </h5>
-                          <p className="text-[9px] text-slate-400 truncate mt-0.5">
-                            {prod.storeName || 'QuickFit Store'}
-                          </p>
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <span className="text-xs font-black text-slate-900">₹{prod.price}</span>
-                            {prod.originalPrice && prod.originalPrice > prod.price && (
-                              <span className="text-[9px] text-slate-400 line-through">₹{prod.originalPrice}</span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
+            /* NO PRODUCTS FOUND STATE (REAL 0 MATCHES ONLY) */
+            <div className="py-12 text-center space-y-3">
+              <div className="text-4xl">🔍</div>
+              <h3 className="text-sm font-black text-slate-800">
+                No products found for "{searchQuery}"
+              </h3>
+              <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                Please check your spelling or search for popular terms like "oversized", "polo", "shirts", or "t-shirt".
+              </p>
             </div>
           )}
-
         </div>
 
-        {/* BOTTOM HELPER FOOTER */}
-        <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 text-[11px] text-slate-400 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span>⚡ QuickFit Smart Search</span>
-            <span className="hidden sm:inline">•</span>
-            <span className="hidden sm:inline">Press <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[9px] font-bold text-slate-700">Enter</kbd> to view full results</span>
+        {/* BOTTOM FOOTER BUTTON */}
+        {searchQuery.trim() && matchedProducts.length > 0 && (
+          <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-xs text-slate-500 font-semibold hidden sm:inline">
+              Showing top matching fits from QuickFit stores
+            </span>
+            <button
+              onClick={() => executeSearch()}
+              className="w-full sm:w-auto py-2.5 px-6 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-black transition-all shadow cursor-pointer text-center"
+            >
+              See All Results for "{searchQuery}" ➔
+            </button>
           </div>
-          <button
-            onClick={() => executeSearch('All')}
-            className="font-bold text-slate-700 hover:text-slate-900 hover:underline"
-          >
-            Explore All Fits ➔
-          </button>
-        </div>
-
+        )}
       </div>
     </div>
   );

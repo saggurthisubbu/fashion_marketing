@@ -21,59 +21,61 @@ const DEFAULT_TRENDING_SEARCHES = [
 // Helper to sanitize search string
 const sanitizeRegex = (str = '') => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+// Helper to build flexible multi-word and partial regex filter
+const buildSearchFilter = (rawQuery = '') => {
+  const clean = rawQuery.trim();
+  if (!clean) return {};
+
+  const words = clean.split(/\s+/).filter(Boolean);
+  const wordRegexes = words.map((w) => new RegExp(sanitizeRegex(w), 'i'));
+
+  // Normalize hyphenated terms like "t-shirt" vs "tshirt" vs "t shirt", "oversized" vs "over sized"
+  const normalizedPattern = sanitizeRegex(clean.replace(/[-_]/g, ' ')).replace(/\s+/g, '[\\s-_]*');
+  const relaxedRegex = new RegExp(normalizedPattern, 'i');
+
+  return {
+    $or: [
+      { name: { $regex: relaxedRegex } },
+      { subcategory: { $regex: relaxedRegex } },
+      { category: { $regex: relaxedRegex } },
+      { description: { $regex: relaxedRegex } },
+      { boutique: { $regex: relaxedRegex } },
+      { storeName: { $regex: relaxedRegex } },
+      { badge: { $regex: relaxedRegex } },
+      ...wordRegexes.map((w) => ({ name: { $regex: w } })),
+      ...wordRegexes.map((w) => ({ subcategory: { $regex: w } })),
+      ...wordRegexes.map((w) => ({ description: { $regex: w } })),
+      ...wordRegexes.map((w) => ({ storeName: { $regex: w } })),
+    ],
+  };
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. GET /api/search/suggestions?q=...
-// Live search suggestions as the user types (matches products, categories, keywords)
+// Live search returning REAL MATCHING PRODUCTS ONLY (no keyword suggestion lists)
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/suggestions', async (req, res) => {
   try {
     const rawQuery = (req.query.q || '').trim();
     if (!rawQuery || rawQuery.length < 1) {
-      return res.json({ suggestions: [], categories: [], products: [] });
+      return res.json({ products: [] });
     }
 
-    const safeRegex = new RegExp(sanitizeRegex(rawQuery), 'i');
+    const filter = buildSearchFilter(rawQuery);
 
-    // Find matching products (only active/in-stock or prioritized)
-    const matchingProducts = await Product.find({
-      $or: [
-        { name: { $regex: safeRegex } },
-        { subcategory: { $regex: safeRegex } },
-        { category: { $regex: safeRegex } },
-        { boutique: { $regex: safeRegex } },
-        { storeName: { $regex: safeRegex } },
-        { description: { $regex: safeRegex } },
-      ],
-    })
-      .select('name price originalPrice discount image images category subcategory boutique storeName rating inStock badge')
-      .limit(6)
+    const matchingProducts = await Product.find(filter)
+      .select('name price originalPrice discount image images category subcategory boutique storeName rating inStock stockQuantity sizes badge')
+      .sort({ inStock: -1, rating: -1, createdAt: -1 })
+      .limit(8)
       .lean();
-
-    // Extract unique subcategory and category suggestions
-    const categoriesSet = new Set();
-    const suggestionsSet = new Set();
-
-    matchingProducts.forEach((p) => {
-      if (p.name) suggestionsSet.add(p.name);
-      if (p.subcategory) categoriesSet.add(p.subcategory);
-      if (p.category) categoriesSet.add(p.category);
-    });
-
-    // Also match general category / subcategory names if query matches
-    const allMatchingCategories = await Product.distinct('subcategory', {
-      subcategory: { $regex: safeRegex },
-    });
-    allMatchingCategories.forEach((cat) => categoriesSet.add(cat));
 
     res.json({
       query: rawQuery,
-      suggestions: Array.from(suggestionsSet).slice(0, 5),
-      categories: Array.from(categoriesSet).slice(0, 4),
       products: matchingProducts,
     });
   } catch (error) {
     console.error('[SEARCH SUGGESTIONS ERROR]:', error.message);
-    res.status(500).json({ message: error.message, suggestions: [], categories: [], products: [] });
+    res.status(500).json({ message: error.message, products: [] });
   }
 });
 
@@ -276,21 +278,12 @@ router.get('/results', async (req, res) => {
       limit = 24,
     } = req.query;
 
-    const queryFilter = {};
+    let queryFilter = {};
     const rawSearch = q.trim();
 
-    // 1. Text / Keyword Matching
+    // 1. Text / Keyword Matching with partial, multi-word, and normalized word boundaries
     if (rawSearch) {
-      const safeRegex = new RegExp(sanitizeRegex(rawSearch), 'i');
-      queryFilter.$or = [
-        { name: { $regex: safeRegex } },
-        { subcategory: { $regex: safeRegex } },
-        { category: { $regex: safeRegex } },
-        { description: { $regex: safeRegex } },
-        { boutique: { $regex: safeRegex } },
-        { storeName: { $regex: safeRegex } },
-        { badge: { $regex: safeRegex } },
-      ];
+      queryFilter = buildSearchFilter(rawSearch);
     }
 
     // 2. Category & Subcategory Filters

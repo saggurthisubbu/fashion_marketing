@@ -46,17 +46,6 @@ export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
   // Recommended products for empty state
   const [recommendedProducts, setRecommendedProducts] = useState([]);
 
-  // Popular search tags for empty state
-  const popularTags = [
-    'Oversized T-Shirts',
-    'Drop Shoulder',
-    'Linen Shirts',
-    'Polo T-Shirts',
-    'Graphic Tees',
-    'Streetwear',
-    'Black Fits',
-  ];
-
   const colorOptions = [
     { name: 'Black', hex: '#0f172a' },
     { name: 'White', hex: '#ffffff', border: true },
@@ -218,21 +207,14 @@ export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
-  const executeTagSearch = (tag) => {
-    setSearchQuery(tag);
-    const url = `/search?q=${encodeURIComponent(tag)}`;
-    window.history.pushState({ modal: 'search', q: tag }, '', url);
-    window.dispatchEvent(new PopStateEvent('popstate'));
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-24">
       {/* ───────────────────────────────────────────────────────────────── */}
       {/* STICKY SEARCH HEADER BAR                                          */}
       {/* ───────────────────────────────────────────────────────────────── */}
       <div className="sticky top-14 sm:top-16 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 space-y-2.5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-3">
 
             {/* BREADCRUMB & QUERY TITLE */}
             <div className="flex items-center gap-3">
@@ -247,48 +229,68 @@ export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
               <div>
                 <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
                   <span>Results for</span>
-                  <span className="text-amber-600 underline decoration-amber-300">
+                  <span className="text-amber-600 underline decoration-amber-300 truncate max-w-[200px] sm:max-w-xs">
                     "{searchQuery || 'All Products'}"
                   </span>
                 </h1>
                 <p className="text-[11px] text-slate-500 font-semibold">
-                  {isLoading ? 'Searching catalog...' : `${totalCount} ${totalCount === 1 ? 'fit' : 'fits'} found`}
+                  {isLoading ? 'Searching catalog...' : `${totalCount} ${totalCount === 1 ? 'product' : 'products'} found`}
                 </p>
               </div>
             </div>
 
-            {/* SORTING & FILTER BUTTON BAR */}
-            <div className="flex items-center gap-2.5 self-end md:self-auto w-full md:w-auto justify-between md:justify-end">
+            {/* INLINE SEARCH BAR & SORTING / FILTERS */}
+            <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+
+              {/* SEARCH INPUT BAR */}
+              <form
+                onSubmit={handleInlineSearch}
+                className="relative flex-1 md:w-64 lg:w-72 flex items-center min-w-0"
+              >
+                <span className="absolute left-3 text-slate-400 text-xs pointer-events-none">🔍</span>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search products..."
+                  className="w-full pl-8 pr-8 py-1.5 sm:py-2 rounded-full bg-slate-100 focus:bg-white border border-slate-200 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all"
+                />
+                <button
+                  type="submit"
+                  className="absolute right-1.5 w-6 h-6 rounded-full bg-slate-900 hover:bg-black text-white text-[10px] font-black flex items-center justify-center transition-colors cursor-pointer"
+                  title="Search"
+                >
+                  ➔
+                </button>
+              </form>
 
               {/* Mobile Filters Toggle Button */}
               <button
                 onClick={() => setIsMobileFilterOpen(true)}
-                className="lg:hidden flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-black shadow-xs active:scale-95 transition-all cursor-pointer"
+                className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl bg-slate-900 text-white text-xs font-black shadow-xs active:scale-95 transition-all cursor-pointer flex-shrink-0"
               >
-                <span>⚙️ Filters</span>
+                <span>⚙️</span>
+                <span>Filters</span>
                 {activeFiltersCount > 0 && (
-                  <span className="w-5 h-5 rounded-full bg-amber-400 text-slate-900 text-[10px] font-black flex items-center justify-center">
+                  <span className="w-4 h-4 rounded-full bg-amber-400 text-slate-900 text-[9px] font-black flex items-center justify-center">
                     {activeFiltersCount}
                   </span>
                 )}
               </button>
 
-              {/* SORT DROPDOWN (AMAZON/MYNTRA STYLE) */}
-              <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
-                <label className="text-[11px] font-black uppercase tracking-wider text-slate-400 hidden sm:inline">
-                  Sort By:
-                </label>
+              {/* SORT DROPDOWN */}
+              <div className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1.5 rounded-xl border border-slate-200 flex-shrink-0">
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                   className="bg-transparent text-xs font-black text-slate-900 focus:outline-none cursor-pointer"
                 >
-                  <option value="relevance">✦ Relevance (Featured)</option>
+                  <option value="relevance">✦ Relevance</option>
                   <option value="price_low">Price: Low to High</option>
                   <option value="price_high">Price: High to Low</option>
                   <option value="newest">Newest First</option>
-                  <option value="popular">Customer Rating</option>
-                  <option value="discount">Highest Discount</option>
+                  <option value="popular">Top Rated</option>
+                  <option value="discount">Discount</option>
                 </select>
               </div>
 
@@ -712,24 +714,6 @@ export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
                       Clear Filters & Show All
                     </button>
                   )}
-                </div>
-
-                {/* POPULAR SEARCHES PILLS */}
-                <div className="space-y-3">
-                  <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                    Try Searching For
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {popularTags.map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => executeTagSearch(tag)}
-                        className="px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-800 transition-all hover:scale-105 cursor-pointer"
-                      >
-                        ⚡ {tag}
-                      </button>
-                    ))}
-                  </div>
                 </div>
 
                 {/* RECOMMENDED PRODUCTS CAROUSEL */}

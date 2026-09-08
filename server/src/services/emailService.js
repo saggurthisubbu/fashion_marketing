@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { Order } from '../models/Order.js';
+import { User } from '../models/User.js';
 
 /**
  * Creates and returns a Nodemailer transporter configured via SMTP environment variables:
@@ -493,3 +494,213 @@ QuickFit Admin Management System
     return { success: false, error: err.message };
   }
 };
+
+/**
+ * Sends an automatic Welcome Email to a newly registered user using Nodemailer (SMTP).
+ *
+ * Requirements:
+ * 1. Automatically send Welcome Email to registered user's email address.
+ * 2. Uses SMTP with env vars: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS.
+ * 3. Send only after the user account is successfully saved in MongoDB.
+ * 4. Subject: "🎉 Welcome to QuickFit"
+ * 5. Exact plain text template + luxury responsive HTML template.
+ * 6. Exported as reusable function sendWelcomeEmail(user).
+ * 7. Save email status ('sent' / 'failed') in the User document.
+ * 8. Safe non-blocking error handling: User creation remains successful, logs SMTP error.
+ *
+ * @param {Object} user - The saved MongoDB user document or object { _id, name, email, ... }
+ * @returns {Promise<{success: boolean, status: string, error?: string}>}
+ */
+export const sendWelcomeEmail = async (user) => {
+  if (!user) {
+    console.warn('[Welcome Email]: No user provided to sendWelcomeEmail.');
+    return { success: false, status: 'failed', error: 'No user provided' };
+  }
+
+  const customerEmail = (user.email || '').trim();
+  const customerName = (user.name || 'Valued Customer').trim();
+
+  if (!customerEmail || !customerEmail.includes('@')) {
+    console.error(`[Welcome Email Error]: Invalid email address '${customerEmail}' for user ${customerName}`);
+    if (user._id) {
+      try {
+        await User.findByIdAndUpdate(user._id, { emailStatus: 'failed' });
+      } catch (dbErr) {
+        console.error('[Welcome Email]: Failed to update user emailStatus in DB:', dbErr.message);
+      }
+    }
+    return { success: false, status: 'failed', error: 'Invalid email address' };
+  }
+
+  // Exact plain text template as specified in requirements
+  const plainText = `Hi ${customerName},
+
+Welcome to QuickFit! 🎉
+
+Thank you for creating your account.
+
+Your account has been successfully registered.
+
+With QuickFit you can:
+- Browse premium fashion products
+- Order from nearby stores
+- Enjoy fast delivery
+- Track your orders
+
+We are excited to have you with us.
+
+Happy Shopping!
+
+Regards,
+QuickFit Team`;
+
+  // Luxury responsive HTML template matching QuickFit aesthetic
+  const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎉 Welcome to QuickFit</title>
+</head>
+<body style="margin:0;padding:0;background-color:#09090b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#ffffff;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#09090b;padding:30px 15px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width:580px;background-color:#18181b;border-radius:18px;overflow:hidden;border:1px solid #27272a;box-shadow:0 20px 40px rgba(0,0,0,0.6);">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#000000;padding:26px 32px;border-bottom:1px solid #27272a;">
+              <table width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td>
+                    <div style="font-size:22px;font-weight:900;color:#ffffff;letter-spacing:2px;">⚡ QUICKFIT</div>
+                    <div style="font-size:11px;color:#a1a1aa;margin-top:3px;letter-spacing:0.5px;">HYPERLOCAL 60-MIN EXPRESS FASHION</div>
+                  </td>
+                  <td align="right">
+                    <span style="display:inline-block;padding:6px 14px;background-color:#1e1b4b;color:#a5b4fc;border:1px solid #4338ca;border-radius:24px;font-size:11px;font-weight:800;letter-spacing:0.5px;">WELCOME ABOARD 🎉</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Main Content -->
+          <tr>
+            <td style="padding:32px;color:#e4e4e7;font-size:15px;line-height:1.6;">
+              <p style="margin:0 0 16px 0;font-size:18px;font-weight:800;color:#ffffff;">Hi ${customerName},</p>
+              
+              <p style="margin:0 0 14px 0;font-size:16px;color:#ffffff;font-weight:700;">
+                Welcome to QuickFit! 🎉
+              </p>
+
+              <p style="margin:0 0 14px 0;color:#d4d4d8;">
+                Thank you for creating your account.
+              </p>
+              
+              <div style="background-color:#064e3b;border:1px solid #059669;color:#34d399;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:700;margin-bottom:24px;">
+                ✓ Your account has been successfully registered.
+              </div>
+
+              <!-- Features / Value Prop Card -->
+              <div style="background-color:#09090b;border:1px solid #27272a;border-radius:14px;padding:22px;margin-bottom:24px;">
+                <div style="font-weight:900;font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:#fbbf24;margin-bottom:16px;border-bottom:1px solid #27272a;padding-bottom:10px;">
+                  With QuickFit you can:
+                </div>
+                
+                <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                  <tr>
+                    <td style="padding:8px 0;color:#38bdf8;width:24px;vertical-align:top;font-size:16px;">✦</td>
+                    <td style="padding:8px 0;color:#e4e4e7;font-size:14px;">Browse premium fashion products</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;color:#fbbf24;width:24px;vertical-align:top;font-size:16px;">✦</td>
+                    <td style="padding:8px 0;color:#e4e4e7;font-size:14px;">Order from nearby stores</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;color:#34d399;width:24px;vertical-align:top;font-size:16px;">✦</td>
+                    <td style="padding:8px 0;color:#e4e4e7;font-size:14px;">Enjoy fast delivery</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;color:#a78bfa;width:24px;vertical-align:top;font-size:16px;">✦</td>
+                    <td style="padding:8px 0;color:#e4e4e7;font-size:14px;">Track your orders</td>
+                  </tr>
+                </table>
+              </div>
+              
+              <p style="margin:0 0 16px 0;color:#d4d4d8;font-size:14px;">
+                We are excited to have you with us.
+              </p>
+              
+              <p style="margin:0 0 24px 0;color:#fbbf24;font-weight:800;font-size:15px;">
+                Happy Shopping!
+              </p>
+
+              <div style="text-align:center;margin:28px 0 20px 0;">
+                <a href="${process.env.CLIENT_URL || 'https://quickfit-app.vercel.app'}" style="display:inline-block;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#09090b;font-weight:900;font-size:14px;padding:14px 32px;border-radius:12px;text-decoration:none;letter-spacing:0.5px;box-shadow:0 4px 15px rgba(245,158,11,0.35);">
+                  EXPLORE TRENDING COLLECTIONS ➔
+                </a>
+              </div>
+              
+              <p style="margin:0 0 4px 0;color:#d4d4d8;">Regards,</p>
+              <p style="margin:0;font-weight:900;color:#ffffff;font-size:15px;">QuickFit Team</p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#09090b;padding:18px 32px;text-align:center;border-top:1px solid #27272a;font-size:11px;color:#71717a;">
+              ⚡ QuickFit Menswear — Express Fashion Delivered to Your Doorstep | Vijayawada
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const senderUser = process.env.SMTP_USER || process.env.EMAIL_USER || 'saggurthisubbu9@gmail.com';
+
+  const mailOptions = {
+    from: `"QuickFit" <${senderUser}>`,
+    to: customerEmail,
+    subject: '🎉 Welcome to QuickFit',
+    text: plainText,
+    html: htmlBody
+  };
+
+  try {
+    const transporter = createEmailTransporter();
+    const info = await transporter.sendMail(mailOptions);
+
+    console.log(`[Welcome Email Sent]: Successfully sent welcome email to ${customerEmail} (MessageId: ${info.messageId})`);
+
+    if (user._id) {
+      await User.findByIdAndUpdate(user._id, {
+        emailStatus: 'sent',
+        welcomeEmailSentAt: new Date()
+      });
+    }
+
+    return { success: true, status: 'sent', messageId: info.messageId };
+  } catch (error) {
+    console.error(`[SMTP Error]: Failed to send welcome email to ${customerEmail}:`, error.message);
+
+    if (user._id) {
+      try {
+        await User.findByIdAndUpdate(user._id, {
+          emailStatus: 'failed'
+        });
+      } catch (dbErr) {
+        console.error('[SMTP Error]: Failed to update user emailStatus in DB:', dbErr.message);
+      }
+    }
+
+    // Return failed status without throwing so user registration remains successful
+    return { success: false, status: 'failed', error: error.message };
+  }
+};
+

@@ -107,14 +107,15 @@ export const AuthModal = () => {
         await loginUser(formData.email, formData.password);
         setIsAuthModalOpen(false);
       } else {
-        await axios.post(`${API_BASE_URL}/auth/register`, {
+        const res = await axios.post(`${API_BASE_URL}/auth/register`, {
           name: formData.name,
           email: formData.email,
           password: formData.password,
           phone: formData.phone,
           address: { street: formData.street, area: formData.area }
         });
-        showToast('Registration successful! Welcome to QuickFit 🎉');
+        const successMsg = res.data?.message || 'Account created successfully. A welcome email has been sent.';
+        showToast(successMsg, 'success');
         await loginUser(formData.email, formData.password);
         setIsAuthModalOpen(false);
       }

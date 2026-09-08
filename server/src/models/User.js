@@ -16,6 +16,8 @@ const userSchema = new mongoose.Schema({
     pincode: String,
     city: { type: String, default: 'Vijayawada' }
   },
+  emailStatus: { type: String, enum: ['pending', 'sent', 'failed'], default: 'pending' },
+  welcomeEmailSentAt: { type: Date },
   isBlocked: { type: Boolean, default: false },
   totalOrders: { type: Number, default: 0 },
   totalSpent: { type: Number, default: 0 },

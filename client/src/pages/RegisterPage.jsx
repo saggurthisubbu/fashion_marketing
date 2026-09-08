@@ -80,20 +80,24 @@ export const RegisterPage = ({ onClose }) => {
 
     setLoading(true);
     try {
-      await axios.post(`${API_BASE_URL}/auth/register`, {
+      const res = await axios.post(`${API_BASE_URL}/auth/register`, {
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
         phone: form.phone.trim(),
         password: form.password,
         role: 'customer',
       });
-      setSuccess('Account created! Redirecting to QuickFit...');
+      const successMsg = res.data?.message || 'Account created successfully. A welcome email has been sent.';
+      setSuccess(successMsg);
+      if (typeof showToast === 'function') {
+        showToast(successMsg, 'success');
+      }
       await loginUser(form.email.trim().toLowerCase(), form.password);
       setTimeout(() => {
         window.history.replaceState({ modal: 'home' }, '', '/');
         window.dispatchEvent(new PopStateEvent('popstate'));
         onClose?.();
-      }, 500);
+      }, 1200);
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Registration failed. Please try again.';
       setError(msg);

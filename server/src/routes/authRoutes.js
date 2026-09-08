@@ -2,6 +2,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
 import { protect } from '../middleware/auth.js';
+import { sendWelcomeEmail } from '../services/emailService.js';
 
 const router = express.Router();
 
@@ -20,6 +21,7 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'User already exists with this email' });
     }
 
+    // 1. Create and save user in MongoDB
     const user = await User.create({
       name,
       email,
@@ -29,12 +31,19 @@ router.post('/register', async (req, res) => {
       role: 'customer'
     });
 
+    // 2. Automatically send Welcome Email using Nodemailer SMTP after user is saved
+    // Safe & non-blocking: Account creation remains successful even if SMTP fails
+    sendWelcomeEmail(user).catch((emailErr) => {
+      console.error('[Welcome Email Background Trigger Error]:', emailErr.message);
+    });
+
     res.status(201).json({
       _id: user._id,
       name: user.name,
       email: user.email,
       phone: user.phone,
       role: user.role,
+      message: 'Account created successfully. A welcome email has been sent.',
       token: generateToken(user._id)
     });
   } catch (error) {

@@ -547,6 +547,8 @@ export const ShopProvider = ({ children }) => {
     localStorage.removeItem('quickfit_user');
     localStorage.removeItem('quickfit_token');
     showToast('Logged out successfully.', 'info');
+    window.history.replaceState({ modal: 'login' }, '', '/login');
+    window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
   // --- CART FUNCTIONS ---

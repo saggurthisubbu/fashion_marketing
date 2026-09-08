@@ -1,0 +1,39 @@
+﻿{
+  "expo": {
+    "name": "QuickFit",
+    "slug": "quickfit",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "quickfit",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.quickfit.menswear",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "QuickFit needs your location to show nearby stores and enable 60-minute express delivery.",
+        "NSLocationAlwaysUsageDescription": "QuickFit needs your location for 60-minute express delivery."
+      }
+    },
+    "android": {
+      "package": "com.quickfit.menswear",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "QuickFit needs your location for 60-minute express delivery."
+        }
+      ]
+    ]
+  }
+}

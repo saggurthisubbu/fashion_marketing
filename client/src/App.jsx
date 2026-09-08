@@ -17,6 +17,8 @@ import { AuthModal } from './components/AuthModal';
 import { ContactModal } from './components/ContactModal';
 import { AboutModal } from './components/AboutModal';
 import { InstallPWA } from './components/InstallPWA';
+import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
 
 const ToastNotification = () => {
   const { toast } = useShop();
@@ -36,17 +38,44 @@ const ToastNotification = () => {
 
 const MainApp = () => {
   const { isAdminOpen, setIsAdminOpen, user, token } = useShop();
+  const [currentPath, setCurrentPath] = React.useState(() => window.location.pathname.toLowerCase());
 
+  const isAuthenticated = Boolean(user && (token || localStorage.getItem('quickfit_token')));
   const isAdminAuthenticated = Boolean(
-    user && (user.role === 'admin' || user.role === 'store_owner') && (token || localStorage.getItem('quickfit_token'))
+    isAuthenticated && (user.role === 'admin' || user.role === 'store_owner')
   );
 
-  // Bi-directional /admin & /admin/login URL Synchronization
+  // Bi-directional URL Synchronization & Route Protection
   useEffect(() => {
     const handleUrlChange = () => {
       const path = window.location.pathname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
       const search = window.location.search.toLowerCase();
+      const isAuth = Boolean(user && (token || localStorage.getItem('quickfit_token')));
+
+      // REQUIREMENT 1 & 2: If user is not authenticated, block all pages and redirect to /login (except /register)
+      if (!isAuth) {
+        if (path === '/register' || path === '/register/') {
+          setCurrentPath('/register');
+        } else {
+          if (path !== '/login' && path !== '/login/') {
+            window.history.replaceState({ modal: 'login' }, '', '/login');
+          }
+          setCurrentPath('/login');
+        }
+        setIsAdminOpen(false);
+        return;
+      }
+
+      // REQUIREMENT 4: If user is already logged in and visits /login or /register, skip and open homepage directly
+      if (path === '/login' || path === '/login/' || path === '/register' || path === '/register/') {
+        window.history.replaceState({ modal: 'home' }, '', '/');
+        setCurrentPath('/');
+      } else {
+        setCurrentPath(path);
+      }
+
+      // Admin route handling for authenticated admins
       const shouldOpenAdmin = (
         path.startsWith('/admin') ||
         hash === '#admin' ||
@@ -57,7 +86,6 @@ const MainApp = () => {
 
       if (shouldOpenAdmin) {
         setIsAdminOpen(true);
-        // Requirement 3: If admin authentication is required, redirect to /admin/login
         if (!isAdminAuthenticated && (path === '/admin' || path === '/admin/')) {
           window.history.replaceState({ modal: 'admin_login' }, '', '/admin/login');
         } else if (isAdminAuthenticated && (path === '/admin/login' || path === '/admin/login/')) {
@@ -75,19 +103,19 @@ const MainApp = () => {
       window.removeEventListener('popstate', handleUrlChange);
       window.removeEventListener('hashchange', handleUrlChange);
     };
-  }, [setIsAdminOpen, isAdminAuthenticated]);
+  }, [user, token, setIsAdminOpen, isAdminAuthenticated]);
 
-  // Sync URL when modal is opened or closed or auth state changes
+  // Handle admin modal URL synchronization
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     const path = window.location.pathname.toLowerCase();
     if (isAdminOpen) {
       if (isAdminAuthenticated) {
-        // Authenticated admin should be on /admin
         if (path === '/admin/login' || path === '/admin/login/' || !path.startsWith('/admin')) {
           window.history.replaceState({ modal: 'admin' }, '', '/admin');
         }
       } else {
-        // Unauthenticated user must be on /admin/login (Requirement 3)
         if (path === '/admin' || path === '/admin/' || !path.startsWith('/admin')) {
           window.history.replaceState({ modal: 'admin_login' }, '', '/admin/login');
         }
@@ -97,12 +125,33 @@ const MainApp = () => {
         window.history.pushState({ modal: 'home' }, '', '/');
       }
     }
-  }, [isAdminOpen, isAdminAuthenticated]);
+  }, [isAdminOpen, isAdminAuthenticated, isAuthenticated]);
 
+  const handleCloseAuth = () => {
+    window.history.replaceState({ modal: 'home' }, '', '/');
+    setCurrentPath('/');
+  };
 
+  // ─── PROTECTED ROUTE GATE ───────────────────────────────────────────────────
+  // If not authenticated, exclusively render the Login or Register screen
+  if (!isAuthenticated) {
+    const isRegister = currentPath === '/register' || currentPath === '/register/';
+    return (
+      <div className="min-h-screen bg-slate-950 text-white selection:bg-amber-400 selection:text-slate-950 font-sans antialiased">
+        {isRegister ? (
+          <RegisterPage onClose={handleCloseAuth} />
+        ) : (
+          <LoginPage onClose={handleCloseAuth} />
+        )}
+        <ToastNotification />
+      </div>
+    );
+  }
+
+  // ─── AUTHENTICATED STORE (HOMEPAGE & ALL FEATURES UNLOCKED) ────────────────
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-slate-900 selection:text-white">
-      {/* PUBLIC STICKY NAVBAR */}
+      {/* PUBLIC STICKY NAVBAR WITH USER PROFILE */}
       <Navbar />
 
       {/* HERO SECTION */}

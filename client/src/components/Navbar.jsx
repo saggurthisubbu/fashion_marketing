@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useShop } from '../context/ShopContext';
 import { AppDownloadModal } from './AppDownloadModal';
+import { SearchOverlayModal } from './search/SearchOverlayModal';
 
 // ─── Navigate to /login or /register (no react-router) ──────────────────────
 const navigateTo = (path) => {
@@ -49,7 +50,7 @@ export const Navbar = () => {
   }, [isAdminUser, ADMIN_URL]);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
 
   const handleDownloadApp = () => {
@@ -79,11 +80,11 @@ export const Navbar = () => {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      const catalogElement = document.getElementById('catalog-section');
-      if (catalogElement) {
-        catalogElement.scrollIntoView({ behavior: 'smooth' });
-      }
-      setIsMobileMenuOpen(false);
+      const searchUrl = `/search?q=${encodeURIComponent(searchQuery.trim())}`;
+      window.history.pushState({ modal: 'search', q: searchQuery.trim() }, '', searchUrl);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    } else {
+      setIsSearchModalOpen(true);
     }
   };
 
@@ -97,6 +98,10 @@ export const Navbar = () => {
           {/* BRAND LOGO */}
           <div
             onClick={() => {
+              if (window.location.pathname.startsWith('/search')) {
+                window.history.pushState({ modal: 'home' }, '', '/');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }
               setSelectedCategory('All');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
@@ -115,21 +120,24 @@ export const Navbar = () => {
             </div>
           </div>
 
-          {/* DESKTOP SEARCH BAR */}
-          <form onSubmit={handleSearchSubmit} className="hidden md:flex flex-1 max-w-xs lg:max-w-sm mx-2">
+          {/* DESKTOP SEARCH BAR (CLICK OPENS MODERN SEARCH OVERLAY) */}
+          <div
+            onClick={() => setIsSearchModalOpen(true)}
+            className="hidden md:flex flex-1 max-w-xs lg:max-w-sm mx-2 cursor-pointer"
+          >
             <div className="relative w-full">
               <input
                 type="text"
+                readOnly
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search oversized, drop shoulder, polo..."
-                className="w-full pl-9 pr-4 py-2 rounded-full bg-slate-100/90 border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all"
+                placeholder="Search oversized, drop shoulder, polo shirts..."
+                className="w-full pl-9 pr-4 py-2 rounded-full bg-slate-100/90 hover:bg-slate-100 border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all cursor-pointer shadow-inner"
               />
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
                 🔍
               </span>
             </div>
-          </form>
+          </div>
 
           {/* DESKTOP CATEGORY NAVIGATION */}
           <nav className="hidden lg:flex items-center space-x-1 text-xs font-bold text-slate-600">
@@ -179,7 +187,7 @@ export const Navbar = () => {
 
             {/* MOBILE SEARCH TOGGLE */}
             <button
-              onClick={() => setIsSearchOpen(!isSearchOpen)}
+              onClick={() => setIsSearchModalOpen(true)}
               className="md:hidden w-9 h-9 rounded-full hover:bg-slate-100 text-slate-700 flex items-center justify-center text-sm transition-colors cursor-pointer flex-shrink-0"
               aria-label="Search"
             >
@@ -376,27 +384,7 @@ export const Navbar = () => {
             </button>
 
           </div>
-
         </div>
-
-        {/* MOBILE EXPANDABLE SEARCH BAR */}
-        {isSearchOpen && (
-          <form onSubmit={handleSearchSubmit} className="md:hidden pb-3 pt-1">
-            <div className="relative w-full">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search oversized, drop shoulder, polo shirts..."
-                className="w-full pl-9 pr-4 py-2 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white"
-                autoFocus
-              />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
-                🔍
-              </span>
-            </div>
-          </form>
-        )}
       </div>
 
       {/* MOBILE EXPANDED MENU DRAWER */}
@@ -522,6 +510,13 @@ export const Navbar = () => {
       <AppDownloadModal
         isOpen={isDownloadModalOpen}
         onClose={() => setIsDownloadModalOpen(false)}
+      />
+
+      {/* MODERN AMAZON / FLIPKART STYLE SEARCH OVERLAY MODAL */}
+      <SearchOverlayModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        initialQuery={searchQuery}
       />
 
     </header>

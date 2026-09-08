@@ -71,4 +71,34 @@ productSchema.pre('save', function (next) {
   next();
 });
 
+// Compound text index for full-text search across all relevant fields
+productSchema.index({
+  name: 'text',
+  category: 'text',
+  subcategory: 'text',
+  description: 'text',
+  boutique: 'text',
+  storeName: 'text',
+  badge: 'text'
+}, {
+  weights: {
+    name: 10,
+    subcategory: 8,
+    category: 5,
+    badge: 4,
+    storeName: 3,
+    boutique: 2,
+    description: 1
+  },
+  name: 'ProductTextIndex'
+});
+
+// Single-field and compound indexes for fast filtering and sorting
+productSchema.index({ inStock: 1, price: 1 });
+productSchema.index({ category: 1, subcategory: 1 });
+productSchema.index({ storeId: 1 });
+productSchema.index({ rating: -1 });
+productSchema.index({ createdAt: -1 });
+
 export const Product = mongoose.model('Product', productSchema);
+export default Product;

@@ -19,6 +19,7 @@ import { AboutModal } from './components/AboutModal';
 import { InstallPWA } from './components/InstallPWA';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { SearchResultsPage } from './pages/SearchResultsPage';
 
 const ToastNotification = () => {
   const { toast } = useShop();
@@ -132,6 +133,12 @@ const MainApp = () => {
     setCurrentPath('/');
   };
 
+  const handleNavigateHome = () => {
+    window.history.pushState({ modal: 'home' }, '', '/');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    setCurrentPath('/');
+  };
+
   // ─── PROTECTED ROUTE GATE ───────────────────────────────────────────────────
   // If not authenticated, exclusively render the Login or Register screen
   if (!isAuthenticated) {
@@ -148,26 +155,40 @@ const MainApp = () => {
     );
   }
 
+  // Check if current route is Search Results Page
+  const isSearchPage = currentPath.startsWith('/search');
+  const searchQueryParam = new URLSearchParams(window.location.search).get('q') || '';
+
   // ─── AUTHENTICATED STORE (HOMEPAGE & ALL FEATURES UNLOCKED) ────────────────
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-slate-900 selection:text-white">
       {/* PUBLIC STICKY NAVBAR WITH USER PROFILE */}
       <Navbar />
 
-      {/* HERO SECTION */}
-      <Hero />
+      {/* RENDER DEDICATED SEARCH RESULTS PAGE OR HOMEPAGE COLLECTIONS */}
+      {isSearchPage ? (
+        <SearchResultsPage
+          queryParam={searchQueryParam}
+          onNavigateHome={handleNavigateHome}
+        />
+      ) : (
+        <>
+          {/* HERO SECTION */}
+          <Hero />
 
-      {/* MEN'S CURATED CATEGORY HUBS */}
-      <CategoriesSection />
+          {/* MEN'S CURATED CATEGORY HUBS */}
+          <CategoriesSection />
 
-      {/* PRODUCT CATALOG WITH 4-ANGLE GALLERY & FILTERS */}
-      <ProductCatalog />
+          {/* PRODUCT CATALOG WITH 4-ANGLE GALLERY & FILTERS */}
+          <ProductCatalog />
 
-      {/* REVIEWS */}
-      <Testimonials />
+          {/* REVIEWS */}
+          <Testimonials />
 
-      {/* WHY CHOOSE QUICKFIT — informational, placed just above footer */}
-      <FeaturesGrid />
+          {/* WHY CHOOSE QUICKFIT — informational, placed just above footer */}
+          <FeaturesGrid />
+        </>
+      )}
 
       {/* FOOTER */}
       <Footer />

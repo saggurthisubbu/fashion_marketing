@@ -212,7 +212,7 @@ export const SearchOverlayModal = ({ isOpen, onClose, initialQuery = '' }) => {
                     key={product._id || product.id}
                     className="bg-white rounded-2xl p-2.5 border border-slate-200/90 hover:border-slate-900 hover:shadow-lg transition-all flex flex-col justify-between group"
                   >
-                    {/* PRODUCT IMAGE */}
+                    {/* PRODUCT IMAGE (COMPLETELY CLEAN WITHOUT OVERLAYS) */}
                     <div
                       onClick={() => {
                         onClose();
@@ -228,16 +228,6 @@ export const SearchOverlayModal = ({ isOpen, onClose, initialQuery = '' }) => {
                           e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600';
                         }}
                       />
-                      {discountPct && (
-                        <span className="absolute top-1.5 left-1.5 bg-rose-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow-xs">
-                          {discountPct}
-                        </span>
-                      )}
-                      {product.badge && (
-                        <span className="absolute top-1.5 right-1.5 bg-slate-900/90 text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase">
-                          {product.badge}
-                        </span>
-                      )}
                     </div>
 
                     {/* PRODUCT DETAILS */}
@@ -264,6 +254,9 @@ export const SearchOverlayModal = ({ isOpen, onClose, initialQuery = '' }) => {
                           <span className="text-xs sm:text-sm font-black text-slate-900">₹{product.price}</span>
                           {product.originalPrice && product.originalPrice > product.price && (
                             <span className="text-[10px] text-slate-400 line-through">₹{product.originalPrice}</span>
+                          )}
+                          {discountPct && (
+                            <span className="text-[9px] font-bold text-rose-600">{discountPct}</span>
                           )}
                         </div>
 

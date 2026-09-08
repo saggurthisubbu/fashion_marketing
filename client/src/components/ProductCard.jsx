@@ -27,7 +27,7 @@ export const ProductCard = ({ product }) => {
       onClick={() => openProductDetail(product)}
       className="group bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200 hover:border-slate-400 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between cursor-pointer relative"
     >
-      {/* ── IMAGE ─────────────────────────────────────────────────────── */}
+      {/* ── IMAGE (COMPLETELY CLEAN WITHOUT ANY OVERLAYS) ─────────────── */}
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-100">
 
         {/* Front */}
@@ -60,23 +60,9 @@ export const ProductCard = ({ product }) => {
           />
         )}
 
-        {/* Wishlist / Heart button — top-right corner */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleWishlist(product);
-          }}
-          className="absolute top-2.5 right-2.5 p-1.5 sm:p-2 rounded-full bg-white/90 backdrop-blur-xs border border-slate-200 shadow-xs hover:bg-white transition-transform active:scale-90 !min-h-[34px] !min-w-[34px] flex items-center justify-center z-10 cursor-pointer"
-          title="Save to Wishlist"
-        >
-          <span className={`text-sm ${isSaved ? 'text-rose-500 font-bold' : 'text-slate-600'}`}>
-            {isSaved ? '♥' : '♡'}
-          </span>
-        </button>
-
       </div>
 
-      {/* ── CONTENT ───────────────────────────────────────────────────── */}
+      {/* ── CONTENT (ALL LABELS & ACTIONS BELOW IMAGE ONLY) ────────────── */}
       <div className="p-3 sm:p-4 flex flex-col flex-1 justify-between gap-2.5">
 
         <div>
@@ -86,27 +72,42 @@ export const ProductCard = ({ product }) => {
           </h3>
         </div>
 
-        {/* Price + Add to Bag */}
+        {/* Price + Actions */}
         <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
           <span className="text-base sm:text-lg font-black text-slate-900 font-heading">
             ₹{product.price}
           </span>
 
-          <button
-            disabled={isOutOfStock}
-            onClick={(e) => {
-              e.stopPropagation();
-              const defaultSize = sizesList[0] || 'M';
-              addToCart(product, defaultSize);
-            }}
-            className={`py-1.5 px-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-colors flex-shrink-0 !min-h-[34px] cursor-pointer ${
-              isOutOfStock
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                : 'bg-slate-900 hover:bg-black text-white active:scale-95'
-            }`}
-          >
-            {isOutOfStock ? 'Sold Out' : 'Add to Bag'}
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleWishlist(product);
+              }}
+              className="p-1.5 rounded-xl border border-slate-200 hover:border-slate-400 bg-white text-slate-700 hover:text-rose-500 transition-colors flex items-center justify-center !min-h-[34px] !min-w-[34px] cursor-pointer"
+              title={isSaved ? "Remove from Wishlist" : "Save to Wishlist"}
+            >
+              <span className={`text-sm leading-none ${isSaved ? 'text-rose-500 font-bold' : 'text-slate-500'}`}>
+                {isSaved ? '♥' : '♡'}
+              </span>
+            </button>
+
+            <button
+              disabled={isOutOfStock}
+              onClick={(e) => {
+                e.stopPropagation();
+                const defaultSize = sizesList[0] || 'M';
+                addToCart(product, defaultSize);
+              }}
+              className={`py-1.5 px-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-colors flex-shrink-0 !min-h-[34px] cursor-pointer ${
+                isOutOfStock
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  : 'bg-slate-900 hover:bg-black text-white active:scale-95'
+              }`}
+            >
+              {isOutOfStock ? 'Sold Out' : 'Add to Bag'}
+            </button>
+          </div>
         </div>
 
       </div>

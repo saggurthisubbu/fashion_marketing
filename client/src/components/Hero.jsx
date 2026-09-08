@@ -94,31 +94,31 @@ export const Hero = () => {
           <div className="lg:col-span-5 flex justify-center">
             <div
               onClick={() => featuredProduct && openProductDetail(featuredProduct)}
-              className="relative w-full max-w-sm sm:max-w-md aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl border border-slate-200 group cursor-pointer"
+              className="w-full max-w-sm sm:max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-200 group cursor-pointer p-3 sm:p-4 flex flex-col justify-between"
             >
-              <img
-                src={heroImageSrc}
-                alt={featuredProduct?.name || "QuickFit Men's Streetwear"}
-                loading="lazy"
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = '/placeholder-product.jpg';
-                }}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-              />
+              <div className="relative aspect-[3/4] w-full rounded-2xl overflow-hidden bg-slate-100 mb-3">
+                <img
+                  src={heroImageSrc}
+                  alt={featuredProduct?.name || "QuickFit Men's Streetwear"}
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = '/placeholder-product.jpg';
+                  }}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                />
+              </div>
 
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
-
-              <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-slate-100 flex items-center justify-between text-slate-900">
-                <div>
-                  <span className="text-[10px] font-black uppercase text-orange-600 tracking-wider">
+              <div className="flex items-center justify-between text-slate-900 px-1 pt-1">
+                <div className="min-w-0 pr-2">
+                  <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
                     {featuredProduct?.subcategory || "Heavy French Terry"}
                   </span>
                   <h3 className="text-xs sm:text-sm font-black uppercase line-clamp-1">
                     {featuredProduct?.name || "Monochrome Boxy Oversized Tee"}
                   </h3>
                 </div>
-                <div className="text-right shrink-0 ml-2">
+                <div className="text-right shrink-0">
                   <div className="text-sm sm:text-base font-black text-slate-900">
                     ₹{featuredProduct?.price || 1499}
                   </div>

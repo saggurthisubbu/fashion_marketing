@@ -236,17 +236,6 @@ export const ProductDetailModal = () => {
               }
             />
 
-            {/* ANGLE VIEW BADGE */}
-            <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-md text-white text-[10px] sm:text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full border border-white/20 z-20 shadow-xs">
-              {currentAngle.badge} • {currentAngle.label}
-            </div>
-
-            {/* ZOOM HINT OVERLAY ON DESKTOP */}
-            <div className="absolute top-3 right-3 hidden sm:flex items-center gap-1.5 bg-white/80 backdrop-blur-md text-slate-800 text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-200 opacity-80 group-hover:opacity-100 transition-opacity z-20">
-              <span>🔍</span>
-              <span>Hover to Zoom</span>
-            </div>
-
             {/* PREV ARROW */}
             {angleViews.length > 1 && (
               <button
@@ -307,27 +296,29 @@ export const ProductDetailModal = () => {
                     <button
                       key={angle.key}
                       onClick={() => setCurrentIndex(idx)}
-                      className={`relative aspect-[3/4] rounded-xl overflow-hidden border-2 transition-all p-0.5 bg-white flex flex-col justify-between group shadow-xs ${
+                      className={`relative rounded-xl overflow-hidden border-2 transition-all p-1 bg-white flex flex-col items-center group shadow-xs ${
                         isActive
                           ? 'border-slate-900 ring-2 ring-slate-900/20 scale-102'
                           : 'border-slate-200 opacity-70 hover:opacity-100 hover:border-slate-400'
                       }`}
                     >
-                      <img
-                        src={angle.url}
-                        alt={angle.label}
-                        loading="lazy"
-                        onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
-                        }}
-                        className="w-full h-full object-cover rounded-lg"
-                      />
-                      <div className={`absolute bottom-1 inset-x-1 py-0.5 rounded text-center text-[8px] sm:text-[9px] font-black uppercase tracking-wider ${
-                        isActive ? 'bg-slate-900 text-white' : 'bg-black/60 text-white backdrop-blur-xs'
+                      <div className="aspect-[3/4] w-full rounded-lg overflow-hidden bg-slate-100 mb-1">
+                        <img
+                          src={angle.url}
+                          alt={angle.label}
+                          loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
+                          }}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-wider ${
+                        isActive ? 'text-slate-900' : 'text-slate-500'
                       }`}>
                         {angle.badge}
-                      </div>
+                      </span>
                     </button>
                   );
                 })}

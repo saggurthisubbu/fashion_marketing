@@ -600,7 +600,7 @@ export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
                       key={product._id || product.id}
                       className="group relative bg-white rounded-3xl p-2.5 sm:p-3.5 border border-slate-200/80 hover:border-slate-900 hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
                     >
-                      {/* PRODUCT IMAGE CONTAINER */}
+                      {/* PRODUCT IMAGE CONTAINER (COMPLETELY CLEAN WITHOUT OVERLAYS) */}
                       <div className="relative w-full aspect-[4/5] rounded-2xl bg-slate-100 overflow-hidden mb-3">
                         <img
                           src={img}
@@ -611,25 +611,6 @@ export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
                             e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600';
                           }}
                         />
-
-                        {/* BADGES */}
-                        <div className="absolute top-2 left-2 flex flex-col gap-1 z-10 pointer-events-none">
-                          {product.badge && (
-                            <span className="px-2 py-0.5 rounded-full bg-slate-900/90 text-white text-[9px] font-black uppercase tracking-wider backdrop-blur-xs">
-                              {product.badge}
-                            </span>
-                          )}
-                          {discountPct && (
-                            <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[9px] font-black shadow-xs">
-                              {discountPct}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* EXPRESS DELIVERY BANNER */}
-                        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-slate-950/80 to-transparent p-2 text-white text-[10px] font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span>⚡ 60-min Express</span>
-                        </div>
                       </div>
 
                       {/* PRODUCT INFO */}
@@ -663,6 +644,11 @@ export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
                             {product.originalPrice && product.originalPrice > product.price && (
                               <span className="text-xs text-slate-400 line-through">
                                 ₹{product.originalPrice}
+                              </span>
+                            )}
+                            {discountPct && (
+                              <span className="text-[10px] font-black text-rose-600">
+                                {discountPct}
                               </span>
                             )}
                           </div>

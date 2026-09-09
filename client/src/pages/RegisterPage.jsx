@@ -30,7 +30,9 @@ const EyeIcon = ({ open }) => (
 );
 
 export const RegisterPage = ({ onClose }) => {
-  const { loginUser, API_BASE_URL, showToast, user } = useShop();
+  const { loginUser, API_BASE_URL, showToast, user, checkoutRedirectPending } = useShop();
+  const isCheckoutRedirect = checkoutRedirectPending ||
+    new URLSearchParams(window.location.search).get('redirect') === 'checkout';
 
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
   const [showPassword, setShowPassword] = useState(false);
@@ -88,7 +90,7 @@ export const RegisterPage = ({ onClose }) => {
         role: 'customer',
       });
       const successMsg = res.data?.message || 'Account created successfully. A welcome email has been sent.';
-      setSuccess(successMsg);
+      setSuccess(isCheckoutRedirect ? 'Account created! Taking you to checkout...' : successMsg);
       if (typeof showToast === 'function') {
         showToast(successMsg, 'success');
       }
@@ -97,6 +99,7 @@ export const RegisterPage = ({ onClose }) => {
         window.history.replaceState({ modal: 'home' }, '', '/');
         window.dispatchEvent(new PopStateEvent('popstate'));
         onClose?.();
+        // Note: App.jsx detects checkoutRedirectPending and auto-opens checkout
       }, 1200);
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Registration failed. Please try again.';
@@ -129,6 +132,21 @@ export const RegisterPage = ({ onClose }) => {
           {/* GOLD ACCENT */}
           <div style={{ height: 4, background: 'linear-gradient(90deg, #B8860B 0%, #FFD700 40%, #DAA520 70%, #B8860B 100%)' }} />
 
+          {/* CLOSE / BACK TO SHOP BUTTON */}
+          <button
+            type="button"
+            onClick={() => {
+              window.history.replaceState({ modal: 'home' }, '', '/');
+              window.dispatchEvent(new PopStateEvent('popstate'));
+              onClose?.();
+            }}
+            className="absolute top-4 right-4 z-10 text-slate-400 hover:text-slate-700 transition-colors text-xs font-semibold flex items-center gap-1"
+            title="Continue browsing without signing in"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <span>Continue browsing</span>
+          </button>
+
           <div className="px-8 pt-8 pb-8">
             {/* BRAND */}
             <div className="text-center mb-7">
@@ -136,6 +154,11 @@ export const RegisterPage = ({ onClose }) => {
                 <div className="w-10 h-10 rounded-xl bg-slate-900 text-amber-400 flex items-center justify-center text-lg font-black shadow-md">⚡</div>
                 <span className="text-2xl font-black text-slate-900 tracking-tight">QUICKFIT</span>
               </div>
+              {isCheckoutRedirect && (
+                <div className="mb-3 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                  🔐 Create an account to complete your order — your cart is saved!
+                </div>
+              )}
               <h1 className="text-xl font-black text-slate-900 mb-1">Create Your Account</h1>
               <p className="text-sm text-slate-500">Join QuickFit — Premium Men's Fashion</p>
             </div>

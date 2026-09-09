@@ -110,6 +110,10 @@ export const ShopProvider = ({ children }) => {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 
+  // Tracks whether a checkout should auto-open after the user logs in/registers
+  // Set to true when an unauthenticated user tries to checkout.
+  const [checkoutRedirectPending, setCheckoutRedirectPending] = useState(false);
+
   // Last Generated Order
   const [lastOrder, setLastOrder] = useState(null);
 
@@ -546,8 +550,10 @@ export const ShopProvider = ({ children }) => {
     setToken('');
     localStorage.removeItem('quickfit_user');
     localStorage.removeItem('quickfit_token');
+    setCheckoutRedirectPending(false);
     showToast('Logged out successfully.', 'info');
-    window.history.replaceState({ modal: 'login' }, '', '/login');
+    // After logout, stay on homepage — do NOT redirect to /login
+    window.history.replaceState({ modal: 'home' }, '', '/');
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
@@ -644,11 +650,25 @@ export const ShopProvider = ({ children }) => {
       quantity: 1
     };
 
-    // Pre-populate cart with selected single product for instant direct checkout
+    // Pre-populate cart with the selected product regardless of auth state
     setCart([buyNowItem]);
     setIsDetailModalOpen(false);
     setIsCartOpen(false);
-    setIsCheckoutOpen(true);
+
+    // AUTH GATE: only open checkout if the user is already logged in.
+    // Otherwise redirect to /login and flag that checkout should open after auth.
+    const currentUser = (() => {
+      try { return JSON.parse(localStorage.getItem('quickfit_user')); } catch { return null; }
+    })();
+    const currentToken = localStorage.getItem('quickfit_token');
+    if (currentUser && currentToken) {
+      setIsCheckoutOpen(true);
+    } else {
+      setCheckoutRedirectPending(true);
+      showToast('Please sign in to complete your order.', 'info');
+      window.history.pushState({ modal: 'login', redirect: 'checkout' }, '', '/login?redirect=checkout');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
   };
 
   const updateQuantity = (id, size, color, delta) => {
@@ -741,6 +761,8 @@ export const ShopProvider = ({ children }) => {
   return (
     <ShopContext.Provider
       value={{
+        checkoutRedirectPending,
+        setCheckoutRedirectPending,
         products,
         setProducts,
         isLoadingProducts,

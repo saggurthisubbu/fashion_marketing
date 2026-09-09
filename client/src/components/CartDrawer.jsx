@@ -18,7 +18,10 @@ export const CartDrawer = () => {
     appliedPromo,
     promoError,
     applyPromoCode,
-    setIsCheckoutOpen
+    setIsCheckoutOpen,
+    user,
+    setCheckoutRedirectPending,
+    showToast
   } = useShop();
 
   if (!isCartOpen) return null;
@@ -211,8 +214,18 @@ export const CartDrawer = () => {
               {/* PROCEED TO CHECKOUT BUTTON */}
               <button
                 onClick={() => {
-                  setIsCartOpen(false);
-                  setIsCheckoutOpen(true);
+                  if (user) {
+                    // User is logged in — proceed to checkout normally
+                    setIsCartOpen(false);
+                    setIsCheckoutOpen(true);
+                  } else {
+                    // User is NOT logged in — save checkout intent and redirect to login
+                    setCheckoutRedirectPending(true);
+                    setIsCartOpen(false);
+                    showToast('Please sign in to proceed to checkout.', 'info');
+                    window.history.pushState({ modal: 'login', redirect: 'checkout' }, '', '/login?redirect=checkout');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                  }
                 }}
                 className="w-full py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-xl shadow-blue-500/30 transition-all btn-shimmer"
               >

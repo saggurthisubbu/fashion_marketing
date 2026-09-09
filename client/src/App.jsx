@@ -38,13 +38,25 @@ const ToastNotification = () => {
 };
 
 const MainApp = () => {
-  const { isAdminOpen, setIsAdminOpen, user, token } = useShop();
+  const {
+    isAdminOpen, setIsAdminOpen, user, token,
+    checkoutRedirectPending, setCheckoutRedirectPending, setIsCheckoutOpen
+  } = useShop();
   const [currentPath, setCurrentPath] = React.useState(() => window.location.pathname.toLowerCase());
 
   const isAuthenticated = Boolean(user && (token || localStorage.getItem('quickfit_token')));
   const isAdminAuthenticated = Boolean(
     isAuthenticated && (user.role === 'admin' || user.role === 'store_owner')
   );
+
+  // After login/register: if a checkout was pending, open the checkout modal
+  useEffect(() => {
+    if (isAuthenticated && checkoutRedirectPending) {
+      setCheckoutRedirectPending(false);
+      // Small delay so the homepage fully renders first
+      setTimeout(() => setIsCheckoutOpen(true), 150);
+    }
+  }, [isAuthenticated, checkoutRedirectPending, setCheckoutRedirectPending, setIsCheckoutOpen]);
 
   // Bi-directional URL Synchronization & Route Protection
   useEffect(() => {
@@ -54,27 +66,17 @@ const MainApp = () => {
       const search = window.location.search.toLowerCase();
       const isAuth = Boolean(user && (token || localStorage.getItem('quickfit_token')));
 
-      // REQUIREMENT 1 & 2: If user is not authenticated, block all pages and redirect to /login (except /register)
-      if (!isAuth) {
-        if (path === '/register' || path === '/register/') {
-          setCurrentPath('/register');
-        } else {
-          if (path !== '/login' && path !== '/login/') {
-            window.history.replaceState({ modal: 'login' }, '', '/login');
-          }
-          setCurrentPath('/login');
-        }
-        setIsAdminOpen(false);
+      // GUEST-FIRST: No longer block unauthenticated users from the homepage.
+      // Login/Register are accessible at /login and /register, but NOT forced on guests.
+
+      // If user is already authenticated and visits /login or /register, redirect to /
+      if (isAuth && (path === '/login' || path === '/login/' || path === '/register' || path === '/register/')) {
+        window.history.replaceState({ modal: 'home' }, '', '/');
+        setCurrentPath('/');
         return;
       }
 
-      // REQUIREMENT 4: If user is already logged in and visits /login or /register, skip and open homepage directly
-      if (path === '/login' || path === '/login/' || path === '/register' || path === '/register/') {
-        window.history.replaceState({ modal: 'home' }, '', '/');
-        setCurrentPath('/');
-      } else {
-        setCurrentPath(path);
-      }
+      setCurrentPath(path);
 
       // Admin route handling for authenticated admins
       const shouldOpenAdmin = (
@@ -139,29 +141,26 @@ const MainApp = () => {
     setCurrentPath('/');
   };
 
-  // ─── PROTECTED ROUTE GATE ───────────────────────────────────────────────────
-  // If not authenticated, exclusively render the Login or Register screen
-  if (!isAuthenticated) {
-    const isRegister = currentPath === '/register' || currentPath === '/register/';
-    return (
-      <div className="min-h-screen bg-slate-950 text-white selection:bg-amber-400 selection:text-slate-950 font-sans antialiased">
-        {isRegister ? (
-          <RegisterPage onClose={handleCloseAuth} />
-        ) : (
-          <LoginPage onClose={handleCloseAuth} />
-        )}
-        <ToastNotification />
-      </div>
-    );
-  }
-
-  // Check if current route is Search Results Page
-  const isSearchPage = currentPath.startsWith('/search');
+  // Determine which route/overlay to show
+  const isLoginPath    = currentPath === '/login'    || currentPath === '/login/';
+  const isRegisterPath = currentPath === '/register' || currentPath === '/register/';
+  const isSearchPage   = currentPath.startsWith('/search');
   const searchQueryParam = new URLSearchParams(window.location.search).get('q') || '';
 
-  // ─── AUTHENTICATED STORE (HOMEPAGE & ALL FEATURES UNLOCKED) ────────────────
+  // ─── FULL STOREFRONT (accessible to ALL users — guest & authenticated) ───────
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-slate-900 selection:text-white">
+
+      {/* LOGIN / REGISTER OVERLAY — shown as a full-screen layer over the homepage
+          when the user navigates to /login or /register.
+          Guests land here only when they try to checkout, not on first visit. */}
+      {isLoginPath && (
+        <LoginPage onClose={handleCloseAuth} />
+      )}
+      {isRegisterPath && (
+        <RegisterPage onClose={handleCloseAuth} />
+      )}
+
       {/* PUBLIC STICKY NAVBAR WITH USER PROFILE */}
       <Navbar />
 

@@ -306,7 +306,7 @@ export const Navbar = () => {
                 <style>{`@keyframes dropdownIn { from { opacity: 0; transform: translateY(-8px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }`}</style>
               </div>
             ) : (
-              /* ── LOGGED-OUT: Sign In + Register Buttons ─────────────── */
+              /* ── LOGGED-OUT: Sign In Button ─────────────── */
               <div className="hidden sm:flex items-center gap-2">
                 <button
                   id="navbar-signin-btn"
@@ -317,14 +317,6 @@ export const Navbar = () => {
                     <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
                   </svg>
                   <span>Sign In</span>
-                </button>
-                <button
-                  id="navbar-register-btn"
-                  onClick={() => navigateTo('/register')}
-                  className="hidden lg:flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-black text-white transition-all cursor-pointer flex-shrink-0 hover:opacity-90"
-                  style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }}
-                >
-                  Join QuickFit
                 </button>
               </div>
             )}
@@ -500,18 +492,12 @@ export const Navbar = () => {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2">
+            <div>
               <button
                 onClick={() => { navigateTo('/login'); setIsMobileMenuOpen(false); }}
-                className="py-2.5 px-4 rounded-xl bg-slate-100 text-slate-800 text-xs font-black text-center hover:bg-slate-200 transition-colors"
+                className="w-full py-2.5 px-4 rounded-xl bg-slate-100 text-slate-800 text-xs font-black text-center hover:bg-slate-200 transition-colors"
               >
                 👤 Sign In
-              </button>
-              <button
-                onClick={() => { navigateTo('/register'); setIsMobileMenuOpen(false); }}
-                className="py-2.5 px-4 rounded-xl bg-slate-900 text-white text-xs font-black text-center hover:bg-black transition-colors"
-              >
-                ✦ Join Now
               </button>
             </div>
           )}

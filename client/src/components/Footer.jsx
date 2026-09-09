@@ -27,12 +27,12 @@ export const Footer = () => {
                 ⚡
               </div>
               <span className="text-2xl font-black text-white font-heading tracking-tight">
-                Quick<span className="text-slate-400">Fit</span>
+                Quick<span className="text-slate-400">Fit</span> <span className="text-xs uppercase tracking-widest text-slate-400 font-bold ml-1">Fashion</span>
               </span>
             </div>
             
             <p className="text-xs text-slate-400 leading-relaxed">
-              Premium menswear engineered for modern silhouettes, heavyweight French Terry pure cotton, and clean monochrome aesthetics.
+              QuickFit Fashion — premium men's clothing engineered for modern silhouettes, heavyweight French Terry pure cotton, and clean streetwear aesthetics.
             </p>
 
             <div className="flex items-center gap-2 text-xs pt-1">

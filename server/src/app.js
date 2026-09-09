@@ -96,6 +96,75 @@ app.use((err, req, res, next) => {
   });
 });
 
+const DEFAULT_SITEMAP_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+                            http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+  <url>
+    <loc>https://quickfitfashion.in/</loc>
+    <lastmod>2026-09-09</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://quickfitfashion.in/search</loc>
+    <lastmod>2026-09-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>`;
+
+const DEFAULT_ROBOTS_TXT = `# https://www.robotstxt.org/robotstxt.html
+# Robots.txt for QuickFit Fashion (https://quickfitfashion.in/)
+
+User-agent: Googlebot
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: Googlebot-Image
+Allow: /
+Allow: /icons/
+Allow: /uploads/
+Allow: /placeholder-product.*
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://quickfitfashion.in/sitemap.xml
+`;
+
+// Serve robots.txt and sitemap.xml for search engines & Googlebot
+app.get('/robots.txt', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain; charset=UTF-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  const robotsClientDist = path.join(__dirname, '../../client/dist/robots.txt');
+  const robotsClientPublic = path.join(__dirname, '../../client/public/robots.txt');
+  const target = fs.existsSync(robotsClientDist) ? robotsClientDist : robotsClientPublic;
+  if (fs.existsSync(target)) {
+    return res.sendFile(target);
+  }
+  return res.send(DEFAULT_ROBOTS_TXT);
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  res.setHeader('Content-Type', 'application/xml; charset=UTF-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  const sitemapClientDist = path.join(__dirname, '../../client/dist/sitemap.xml');
+  const sitemapClientPublic = path.join(__dirname, '../../client/public/sitemap.xml');
+  const target = fs.existsSync(sitemapClientDist) ? sitemapClientDist : sitemapClientPublic;
+  if (fs.existsSync(target)) {
+    return res.sendFile(target);
+  }
+  return res.send(DEFAULT_SITEMAP_XML);
+});
+
 // Serve built frontend assets if available (Unified Full-Stack Deployment)
 const clientDistPath = path.join(__dirname, '../../client/dist');
 if (fs.existsSync(clientDistPath)) {

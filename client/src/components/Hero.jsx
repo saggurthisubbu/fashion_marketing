@@ -37,7 +37,7 @@ export const Hero = () => {
             {/* BADGE */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900 text-white text-[11px] font-black uppercase tracking-wider shadow-sm">
               <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse"></span>
-              <span>QUICKFIT MEN'S STREETWEAR ARCHIVE</span>
+              <span>QUICKFIT FASHION · MEN'S STREETWEAR ARCHIVE</span>
             </div>
 
             {/* MAIN HEADLINE */}
@@ -50,7 +50,7 @@ export const Hero = () => {
 
             {/* SUBHEADLINE */}
             <p className="text-sm sm:text-lg text-slate-600 max-w-2xl mx-auto lg:mx-0 font-normal leading-relaxed">
-              Oversized T-Shirts, Drop Shoulder T-Shirts and Polo T-Shirts crafted with 240+ GSM heavyweight cotton for modern drape and durability.
+              Welcome to <strong className="font-semibold text-slate-800">QuickFit Fashion</strong>. Discover premium men's clothing, luxury oversized t-shirts, drop shoulder fits, and polo t-shirts crafted with 240+ GSM heavyweight cotton for modern drape and durability.
             </p>
 
             {/* CTAs BUTTONS */}

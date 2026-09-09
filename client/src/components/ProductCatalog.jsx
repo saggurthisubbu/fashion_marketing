@@ -120,10 +120,10 @@ export const ProductCatalog = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4 pb-4 border-b border-slate-200">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 text-white text-[10px] sm:text-xs font-black uppercase tracking-wider mb-1">
-              MEN'S STREETWEAR CATALOG
+              QUICKFIT MEN'S FASHION & CLOTHING
             </div>
             <h2 className="text-2xl sm:text-3xl font-black font-heading text-slate-900 tracking-tight">
-              {selectedCategory === 'All' ? 'All Men\'s Fashion & Fits' : `${selectedCategory}`}
+              {selectedCategory === 'All' ? "QuickFit Men's Fashion & Fits" : `${selectedCategory}`}
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
               {isLoadingProducts ? (

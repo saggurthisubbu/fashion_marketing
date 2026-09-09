@@ -29,10 +29,10 @@ export const FeaturesGrid = () => {
         {/* HEADER */}
         <div className="text-center max-w-2xl mx-auto mb-10 space-y-2">
           <span className="px-3 py-1 rounded-full bg-slate-200 text-slate-800 text-[10px] sm:text-xs font-black tracking-wider uppercase">
-            THE QUICKFIT QUALITY STANDARD
+            THE QUICKFIT FASHION QUALITY STANDARD
           </span>
           <h2 className="text-2xl sm:text-3xl font-black font-heading text-slate-900 tracking-tight">
-            Why Choose QuickFit Men's Fashion
+            Why Choose QuickFit Fashion Men's Clothing
           </h2>
           <p className="text-slate-500 text-xs sm:text-sm">
             Zero compromises on fabric density, drape, and delivery speed.

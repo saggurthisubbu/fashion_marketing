@@ -1,0 +1,23 @@
+# https://www.robotstxt.org/robotstxt.html
+# Robots.txt for QuickFit Fashion (https://quickfitfashion.in/)
+
+User-agent: Googlebot
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: Googlebot-Image
+Allow: /
+Allow: /icons/
+Allow: /uploads/
+Allow: /placeholder-product.*
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://quickfitfashion.in/sitemap.xml

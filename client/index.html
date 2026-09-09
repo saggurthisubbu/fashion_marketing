@@ -7,10 +7,18 @@
   <!-- ══════════════════════════════════════════
        SEO & TITLE
   ══════════════════════════════════════════ -->
-  <title>QuickFit - Fashion Delivered In 1 Hour | Vijayawada 60-Min Express</title>
-  <meta name="description" content="Order luxury fashion from top Vijayawada boutiques in MG Road and Benz Circle. Express delivery to your doorstep within 60 minutes." />
-  <meta name="keywords" content="QuickFit, fashion delivery, Vijayawada, boutique, express delivery, 60 minutes, clothes, MG Road, Benz Circle" />
-  <meta name="author" content="QuickFit" />
+  <title>QuickFit Fashion | Premium Men's Fashion &amp; Clothing</title>
+  <meta name="description" content="QuickFit Fashion is your premier destination for luxury men's fashion and clothing. Discover premium oversized t-shirts, drop shoulder fits, polo t-shirts, and modern streetwear crafted with 240+ GSM heavyweight cotton." />
+  <meta name="keywords" content="QuickFit Fashion, QuickFit, QuickFit clothing, QuickFit men's fashion, men's clothing, streetwear, oversized t-shirts, drop shoulder t-shirts, polo shirts, luxury menswear" />
+  <meta name="author" content="QuickFit Fashion" />
+  <link rel="canonical" href="https://quickfitfashion.in/" />
+
+  <!-- ══════════════════════════════════════════
+       CRAWL & INDEXING DIRECTIVES (EXPLICITLY ALLOW GOOGLEBOT)
+  ══════════════════════════════════════════ -->
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+  <meta name="bingbot" content="index, follow" />
 
   <!-- ══════════════════════════════════════════
        PWA — THEME & MANIFEST
@@ -24,7 +32,7 @@
   ══════════════════════════════════════════ -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-  <meta name="apple-mobile-web-app-title" content="QuickFit" />
+  <meta name="apple-mobile-web-app-title" content="QuickFit Fashion" />
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 
   <!-- iOS Splash Screens (portrait) -->
@@ -53,15 +61,100 @@
   <link rel="shortcut icon" href="/favicon.ico" />
 
   <!-- ══════════════════════════════════════════
-       OPEN GRAPH (Social sharing)
+       OPEN GRAPH & TWITTER (Social Sharing & Brand Signals)
   ══════════════════════════════════════════ -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="QuickFit - Fashion Delivered In 1 Hour" />
-  <meta property="og:description" content="Order luxury fashion from top Vijayawada boutiques. Express delivery within 60 minutes." />
-  <meta property="og:image" content="/icons/icon-512x512.png" />
+  <meta property="og:site_name" content="QuickFit Fashion" />
+  <meta property="og:url" content="https://quickfitfashion.in/" />
+  <meta property="og:title" content="QuickFit Fashion | Premium Men's Fashion &amp; Clothing" />
+  <meta property="og:description" content="QuickFit Fashion is your premier destination for luxury men's fashion and clothing. Discover premium oversized t-shirts, drop shoulder fits, polo t-shirts, and modern streetwear crafted with 240+ GSM heavyweight cotton." />
+  <meta property="og:image" content="https://quickfitfashion.in/icons/icon-512x512.png" />
+  <meta property="og:image:alt" content="QuickFit Fashion - Premium Men's Fashion &amp; Clothing" />
+  <meta property="og:locale" content="en_IN" />
+
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="QuickFit - Fashion in 1 Hour" />
-  <meta name="twitter:description" content="Express fashion delivery in Vijayawada. Order from top boutiques in MG Road &amp; Benz Circle." />
+  <meta name="twitter:site" content="@QuickFitFashion" />
+  <meta name="twitter:creator" content="@QuickFitFashion" />
+  <meta name="twitter:url" content="https://quickfitfashion.in/" />
+  <meta name="twitter:title" content="QuickFit Fashion | Premium Men's Fashion &amp; Clothing" />
+  <meta name="twitter:description" content="QuickFit Fashion is your premier destination for luxury men's fashion and clothing. Discover premium oversized t-shirts, drop shoulder fits, polo t-shirts, and modern streetwear crafted with 240+ GSM heavyweight cotton." />
+  <meta name="twitter:image" content="https://quickfitfashion.in/icons/icon-512x512.png" />
+
+  <!-- ══════════════════════════════════════════
+       STRUCTURED DATA (JSON-LD: WebSite + ClothingStore / Organization)
+  ══════════════════════════════════════════ -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://quickfitfashion.in/#website",
+        "url": "https://quickfitfashion.in/",
+        "name": "QuickFit Fashion",
+        "alternateName": [
+          "QuickFit",
+          "QuickFit clothing",
+          "QuickFit men's fashion",
+          "QuickFit Fashion Store"
+        ],
+        "description": "QuickFit Fashion is your premier destination for luxury men's fashion and clothing.",
+        "inLanguage": "en-IN",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://quickfitfashion.in/search?q={search_term_string}"
+          },
+          "query-input": "required name=search_term_string"
+        }
+      },
+      {
+        "@type": "ClothingStore",
+        "@id": "https://quickfitfashion.in/#store",
+        "name": "QuickFit Fashion",
+        "alternateName": [
+          "QuickFit",
+          "QuickFit clothing",
+          "QuickFit men's fashion"
+        ],
+        "url": "https://quickfitfashion.in/",
+        "logo": "https://quickfitfashion.in/logo.png",
+        "image": "https://quickfitfashion.in/icons/icon-512x512.png",
+        "description": "QuickFit Fashion is a premium men's clothing brand specializing in 240+ GSM heavyweight cotton oversized t-shirts, drop shoulder fits, polo t-shirts, and luxury streetwear.",
+        "telephone": "+91-73966-29821",
+        "priceRange": "₹₹",
+        "currenciesAccepted": "INR",
+        "paymentAccepted": "Cash, Credit Card, Debit Card, UPI, Net Banking",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Vijayawada",
+          "addressRegion": "Andhra Pradesh",
+          "addressCountry": "IN"
+        },
+        "geo": {
+          "@type": "GeoCoordinates",
+          "latitude": "16.5062",
+          "longitude": "80.6480"
+        },
+        "openingHoursSpecification": {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday"
+          ],
+          "opens": "09:00",
+          "closes": "23:00"
+        }
+      }
+    ]
+  }
+  </script>
 
   <!-- ══════════════════════════════════════════
        GOOGLE FONTS
@@ -75,10 +168,12 @@
   <!-- APP ROOT -->
   <div id="root"></div>
 
-  <!-- NO-JS FALLBACK -->
+  <!-- NO-JS / CRAWLER FALLBACK -->
   <noscript>
-    <div style="text-align:center;padding:40px;font-family:Inter,sans-serif;">
-      <strong>QuickFit</strong> requires JavaScript to run. Please enable it in your browser settings.
+    <div style="text-align:center;padding:40px;font-family:Inter,sans-serif;max-width:800px;margin:0 auto;">
+      <h1 style="font-size:24px;font-weight:bold;margin-bottom:12px;">QuickFit Fashion | Premium Men's Fashion &amp; Clothing</h1>
+      <p style="color:#475569;margin-bottom:16px;">QuickFit Fashion brings you luxury men's clothing, heavyweight cotton oversized t-shirts, drop shoulder fits, polo t-shirts, and modern streetwear.</p>
+      <p style="font-size:13px;color:#64748b;">JavaScript is required to use the interactive shopping bag and cart features. Please enable JavaScript in your browser settings to explore the complete store.</p>
     </div>
   </noscript>
 

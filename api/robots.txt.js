@@ -22,6 +22,7 @@ Disallow: /api/
 
 # Sitemap location
 Sitemap: https://quickfitfashion.in/sitemap.xml
+Sitemap: https://www.quickfitfashion.in/sitemap.xml
 `;
 
   res.setHeader('Content-Type', 'text/plain; charset=UTF-8');

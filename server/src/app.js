@@ -138,6 +138,7 @@ Disallow: /api/
 
 # Sitemap location
 Sitemap: https://quickfitfashion.in/sitemap.xml
+Sitemap: https://www.quickfitfashion.in/sitemap.xml
 `;
 
 // Serve robots.txt and sitemap.xml for search engines & Googlebot

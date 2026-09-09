@@ -5,7 +5,8 @@ import React, { useState, useEffect, useRef } from 'react';
 // ============================================================
 export const APP_CONFIG = {
   PLAY_STORE_URL: null,   // e.g. 'https://play.google.com/store/apps/details?id=com.quickfit.app'
-  APK_URL: '/QuickFit.apk',
+  APK_URL: '/QuickFit.apk', // Place QuickFit.apk in client/public/ to activate this download
+  APK_READY: false,       // Set to true once QuickFit.apk is placed in client/public/
   APP_STORE_URL: null,    // e.g. 'https://apps.apple.com/app/quickfit/id123456789'
   get WEB_APP_URL() { return window.location.origin; },
 };
@@ -210,14 +211,26 @@ export const AppDownloadModal = ({ isOpen, onClose }) => {
             </div>
 
             {/* Direct APK */}
-            <DLBtn
-              icon="📥"
-              label="Download APK"
-              sublabel="Android · Direct install"
-              bg="linear-gradient(135deg,#0f172a 0%,#1e293b 100%)"
-              href={APP_CONFIG.APK_URL}
-              dl="QuickFit.apk"
-            />
+            <div className="relative">
+              {!APP_CONFIG.APK_READY && (
+                <span
+                  className="absolute -top-1.5 right-2.5 z-10 text-[8px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider"
+                  style={{ background: '#f59e0b', color: '#0f172a' }}
+                >
+                  Coming Soon
+                </span>
+              )}
+              <DLBtn
+                icon="📥"
+                label="Download APK"
+                sublabel="Android · Direct install"
+                bg="linear-gradient(135deg,#0f172a 0%,#1e293b 100%)"
+                href={APP_CONFIG.APK_READY ? APP_CONFIG.APK_URL : undefined}
+                download={APP_CONFIG.APK_READY ? 'QuickFit.apk' : undefined}
+                onClick={APP_CONFIG.APK_READY ? undefined : (e) => e.preventDefault()}
+                disabled={!APP_CONFIG.APK_READY}
+              />
+            </div>
 
           </div>
 

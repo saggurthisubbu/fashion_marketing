@@ -57,10 +57,10 @@ export const CheckoutModal = () => {
   // Initialize or pre-fill verified location state on modal open
   useEffect(() => {
     if (isCheckoutOpen) {
-      // 1. Check if we already have a verified location in context or localStorage
+      // 1. Check if we already have a verified location in context or active session
       const savedVerified = verifiedLocation || (() => {
         try {
-          const s = localStorage.getItem('quickfit_verified_location');
+          const s = sessionStorage.getItem('quickfit_session_verified_location');
           return s ? JSON.parse(s) : null;
         } catch { return null; }
       })();
@@ -160,8 +160,8 @@ export const CheckoutModal = () => {
             };
 
             try {
-              localStorage.setItem('quickfit_verified_location', JSON.stringify(verifiedData));
-              localStorage.setItem('quickfit_location', JSON.stringify({ lat: latitude, lng: longitude }));
+              sessionStorage.setItem('quickfit_session_verified_location', JSON.stringify(verifiedData));
+              sessionStorage.setItem('quickfit_session_location', JSON.stringify({ lat: latitude, lng: longitude }));
             } catch (e) {}
 
             if (setVerifiedLocation) {
@@ -184,8 +184,8 @@ export const CheckoutModal = () => {
               allNearbyStores: []
             };
             try {
-              localStorage.setItem('quickfit_verified_location', JSON.stringify(verifiedData));
-              localStorage.setItem('quickfit_location', JSON.stringify({ lat: latitude, lng: longitude }));
+              sessionStorage.setItem('quickfit_session_verified_location', JSON.stringify(verifiedData));
+              sessionStorage.setItem('quickfit_session_location', JSON.stringify({ lat: latitude, lng: longitude }));
             } catch (e) {}
 
             if (setVerifiedLocation) {

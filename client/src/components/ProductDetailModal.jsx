@@ -133,8 +133,9 @@ export const ProductDetailModal = () => {
       (position) => {
         const { latitude, longitude } = position.coords;
         const mapsLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
-        setGpsLocation(mapsLink);
-        localStorage.setItem('quickfit_location', JSON.stringify({ lat: latitude, lng: longitude }));
+        try {
+          sessionStorage.setItem('quickfit_session_location', JSON.stringify({ lat: latitude, lng: longitude }));
+        } catch (e) {}
         setIsGettingGps(false);
         showToast('GPS Location captured! 📍');
       },

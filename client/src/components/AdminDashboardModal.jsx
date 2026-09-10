@@ -16,8 +16,9 @@ import { AdminNotificationsTab } from './admin/tabs/AdminNotificationsTab';
 import { AdminSettingsTab } from './admin/tabs/AdminSettingsTab';
 import { AdminStoresTab } from './admin/tabs/AdminStoresTab';
 import { AdminStoreOwnersTab } from './admin/tabs/AdminStoreOwnersTab';
-import { Camera, X, Upload } from 'lucide-react';
+import { Camera, X, Upload, Crop } from 'lucide-react';
 import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
+import { ProductImageCropperModal } from './admin/ProductImageCropperModal';
 
 export const AdminDashboardModal = () => {
   const {
@@ -96,6 +97,14 @@ export const AdminDashboardModal = () => {
   });
 
   const [fileErrors, setFileErrors] = useState({});
+
+  // Cropper Modal State
+  const [cropperModal, setCropperModal] = useState({
+    isOpen: false,
+    imageSrc: '',
+    angleKey: 'front',
+    angleLabel: 'Front View'
+  });
 
   const fileInputRefs = {
     front: useRef(null),
@@ -241,7 +250,7 @@ export const AdminDashboardModal = () => {
     user && (user.role === 'admin' || user.role === 'store_owner') && (token || adminToken)
   );
 
-  // --- 4-Angle File Handlers ---
+  // --- 4-Angle File Handlers & Cropper Modal ---
   const handleAngleFileChange = (angleKey, e) => {
     const file = e.target.files && e.target.files[0];
     setFileErrors(prev => ({ ...prev, [angleKey]: '' }));
@@ -266,31 +275,65 @@ export const AdminDashboardModal = () => {
       return;
     }
 
-    // Generate instant preview via FileReader & object URL
+    const angleObj = angleConfig.find(a => a.key === angleKey);
+    const angleLabel = angleObj ? angleObj.label : `${angleKey.toUpperCase()} View`;
+
     try {
       const reader = new FileReader();
       reader.onload = (event) => {
-        const previewUrl = event.target.result;
-        console.log(`[IMAGE PREVIEW] Angle: ${angleKey}`, "Preview URL:", previewUrl ? `${previewUrl.substring(0, 50)}...` : '');
-        setImageFiles(prev => ({ ...prev, [angleKey]: file }));
-        setImagePreviews(prev => ({ ...prev, [angleKey]: previewUrl }));
-        setImagesData(prev => ({ ...prev, [angleKey]: previewUrl }));
+        const dataUrl = event.target.result;
+        setCropperModal({
+          isOpen: true,
+          imageSrc: dataUrl,
+          angleKey,
+          angleLabel
+        });
       };
       reader.onerror = () => {
         const objUrl = URL.createObjectURL(file);
-        console.log(`[IMAGE PREVIEW FALLBACK] Angle: ${angleKey}`, "Preview URL:", objUrl);
-        setImageFiles(prev => ({ ...prev, [angleKey]: file }));
-        setImagePreviews(prev => ({ ...prev, [angleKey]: objUrl }));
-        setImagesData(prev => ({ ...prev, [angleKey]: objUrl }));
+        setCropperModal({
+          isOpen: true,
+          imageSrc: objUrl,
+          angleKey,
+          angleLabel
+        });
       };
       reader.readAsDataURL(file);
     } catch (err) {
       const objUrl = URL.createObjectURL(file);
-      console.log(`[IMAGE PREVIEW OBJECT URL] Angle: ${angleKey}`, "Preview URL:", objUrl);
-      setImageFiles(prev => ({ ...prev, [angleKey]: file }));
-      setImagePreviews(prev => ({ ...prev, [angleKey]: objUrl }));
-      setImagesData(prev => ({ ...prev, [angleKey]: objUrl }));
+      setCropperModal({
+        isOpen: true,
+        imageSrc: objUrl,
+        angleKey,
+        angleLabel
+      });
     }
+
+    if (fileInputRefs[angleKey]?.current) fileInputRefs[angleKey].current.value = '';
+  };
+
+  const handleOpenCropperForAngle = (angleKey) => {
+    const preview = imagePreviews[angleKey] || imagesData[angleKey];
+    if (!preview) return;
+
+    const angleObj = angleConfig.find(a => a.key === angleKey);
+    const angleLabel = angleObj ? angleObj.label : `${angleKey.toUpperCase()} View`;
+
+    setCropperModal({
+      isOpen: true,
+      imageSrc: resolveImageUrl(preview),
+      angleKey,
+      angleLabel
+    });
+  };
+
+  const handleSaveCroppedImage = (croppedFile, previewUrl, angleKey) => {
+    console.log(`[SAVING CROPPED IMAGE] Angle: ${angleKey}`, croppedFile);
+    setImageFiles(prev => ({ ...prev, [angleKey]: croppedFile }));
+    setImagePreviews(prev => ({ ...prev, [angleKey]: previewUrl }));
+    setImagesData(prev => ({ ...prev, [angleKey]: previewUrl }));
+    setFileErrors(prev => ({ ...prev, [angleKey]: '' }));
+    showToast(`Cropped & saved ${angleKey.toUpperCase()} view image! ✂️`, 'success');
   };
 
   const handleRemoveAngle = (angleKey) => {
@@ -909,18 +952,27 @@ export const AdminDashboardModal = () => {
                               }}
                               className="w-full h-full object-cover"
                             />
-                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-2">
+                            <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-2">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenCropperForAngle(angle.key)}
+                                className="px-2 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold text-[10px] cursor-pointer shadow-md flex items-center gap-1"
+                                title="Crop & Edit Image"
+                              >
+                                <Crop className="w-3 h-3" />
+                                <span>Crop</span>
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => fileInputRefs[angle.key]?.current?.click()}
-                                className="px-2.5 py-1 rounded-lg bg-white text-zinc-950 font-bold text-[10px] hover:bg-zinc-200 cursor-pointer shadow-md"
+                                className="px-2 py-1 rounded-lg bg-white text-zinc-950 font-bold text-[10px] hover:bg-zinc-200 cursor-pointer shadow-md"
                               >
                                 Replace
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveAngle(angle.key)}
-                                className="px-2.5 py-1 rounded-lg bg-red-600 text-white font-bold text-[10px] hover:bg-red-700 cursor-pointer shadow-md"
+                                className="px-2 py-1 rounded-lg bg-red-600 text-white font-bold text-[10px] hover:bg-red-700 cursor-pointer shadow-md"
                               >
                                 Clear
                               </button>
@@ -1119,6 +1171,15 @@ export const AdminDashboardModal = () => {
         </div>
       )}
 
+      {/* PRODUCT IMAGE CROPPER STUDIO MODAL */}
+      <ProductImageCropperModal
+        isOpen={cropperModal.isOpen}
+        imageSrc={cropperModal.imageSrc}
+        angleKey={cropperModal.angleKey}
+        angleLabel={cropperModal.angleLabel}
+        onClose={() => setCropperModal(prev => ({ ...prev, isOpen: false }))}
+        onSaveCroppedImage={handleSaveCroppedImage}
+      />
     </div>
   );
 };

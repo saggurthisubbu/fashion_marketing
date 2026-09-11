@@ -31,6 +31,7 @@ export const AdminDashboardModal = () => {
     token,
     setToken,
     fetchProducts,
+    fetchCategories,
     products = []
   } = useShop();
 
@@ -447,16 +448,20 @@ export const AdminDashboardModal = () => {
         finalImages.front = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop';
       }
 
+      const fallbackStoreId = productForm.storeId || (storesList.length > 0 ? storesList[0]._id : undefined);
+      const fallbackStore = storesList.find(s => s._id === fallbackStoreId);
+      const fallbackStoreName = productForm.storeName || (fallbackStore ? fallbackStore.name : 'QuickFit Central, Vijayawada');
+
       const payload = {
         name: productForm.name.trim(),
-        storeId: productForm.storeId,
-        storeName: productForm.storeName,
+        storeId: fallbackStoreId,
+        storeName: fallbackStoreName,
         category: 'Men',
         subcategory: productForm.subcategory || 'Oversized T-Shirts',
         price: Number(productForm.price),
         originalPrice: productForm.originalPrice ? Number(productForm.originalPrice) : undefined,
         stockQuantity: Number(productForm.stockQuantity || 25),
-        boutique: productForm.boutique || 'QuickFit Central, Vijayawada',
+        boutique: productForm.boutique || fallbackStoreName,
         description: productForm.description || '',
         sizes: typeof productForm.sizes === 'string'
           ? productForm.sizes.split(',').map(s => s.trim()).filter(Boolean)
@@ -487,6 +492,7 @@ export const AdminDashboardModal = () => {
         });
       }
 
+      try { sessionStorage.removeItem('quickfit_cached_products'); } catch (e) {}
       setIsProductModalOpen(false);
       setEditingProduct(null);
       await fetchProducts();
@@ -503,6 +509,7 @@ export const AdminDashboardModal = () => {
     try {
       await axios.delete(`${API_BASE_URL}/products/${id}`, getAuthHeader());
       showToast(`Deleted "${name}".`);
+      try { sessionStorage.removeItem('quickfit_cached_products'); } catch (e) {}
       setProductsList(prev => (Array.isArray(prev) ? prev.filter(p => (p._id || p.id) !== id) : []));
       await fetchProducts();
       await loadAllAdminData();
@@ -515,6 +522,7 @@ export const AdminDashboardModal = () => {
     try {
       await axios.put(`${API_BASE_URL}/products/${id}`, { inStock }, getAuthHeader());
       showToast(`Product status updated.`);
+      try { sessionStorage.removeItem('quickfit_cached_products'); } catch (e) {}
       setProductsList(prev => (Array.isArray(prev) ? prev.map(p => (p._id || p.id) === id ? { ...p, inStock } : p) : []));
       await fetchProducts();
       await loadAllAdminData();
@@ -609,6 +617,9 @@ export const AdminDashboardModal = () => {
     try {
       await axios.post(`${API_BASE_URL}/admin/categories`, catData, getAuthHeader());
       showToast(`Created category "${catData.name}"!`);
+      try { sessionStorage.removeItem('quickfit_cached_categories'); } catch (e) {}
+      if (typeof fetchCategories === 'function') await fetchCategories();
+      await fetchProducts();
       await loadAllAdminData();
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to create category', 'error');
@@ -619,6 +630,9 @@ export const AdminDashboardModal = () => {
     try {
       await axios.put(`${API_BASE_URL}/admin/categories/${id}`, catData, getAuthHeader());
       showToast(`Updated category.`);
+      try { sessionStorage.removeItem('quickfit_cached_categories'); } catch (e) {}
+      if (typeof fetchCategories === 'function') await fetchCategories();
+      await fetchProducts();
       await loadAllAdminData();
     } catch (err) {
       showToast('Failed to update category', 'error');
@@ -630,6 +644,9 @@ export const AdminDashboardModal = () => {
     try {
       await axios.delete(`${API_BASE_URL}/admin/categories/${id}`, getAuthHeader());
       showToast(`Deleted category.`);
+      try { sessionStorage.removeItem('quickfit_cached_categories'); } catch (e) {}
+      if (typeof fetchCategories === 'function') await fetchCategories();
+      await fetchProducts();
       await loadAllAdminData();
     } catch (err) {
       showToast('Failed to delete category', 'error');

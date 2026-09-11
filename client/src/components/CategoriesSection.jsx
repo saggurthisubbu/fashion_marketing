@@ -2,6 +2,7 @@ import React from 'react';
 import { useShop } from '../context/ShopContext';
 import { resolveImageUrl } from '../config/api';
 import { ArrowRight } from 'lucide-react';
+import { slugifyCategory } from '../pages/CategoryPage';
 
 // Static fallback used ONLY if the API returns nothing after all retries
 const FALLBACK_CATEGORIES = [
@@ -36,8 +37,10 @@ export const CategoriesSection = () => {
 
   const handleCategoryClick = (categoryName) => {
     setSelectedCategory(categoryName);
-    const el = document.getElementById('catalog-section');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
+    const slug = slugifyCategory(categoryName);
+    window.history.pushState({ modal: 'category', slug }, '', `/category/${slug}`);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   // Only show active categories from the DB
@@ -110,6 +113,7 @@ export const CategoriesSection = () => {
                   src={cat.image}
                   alt={cat.name}
                   loading="lazy"
+                  decoding="async"
                   onError={(e) => {
                     e.currentTarget.onerror = null;
                     e.currentTarget.src =

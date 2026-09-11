@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useShop } from '../context/ShopContext';
 import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 
-export const ProductCard = ({ product }) => {
+export const ProductCard = React.memo(({ product, priority = false }) => {
   const { addToCart, toggleWishlist, isInWishlist, openProductDetail } = useShop();
+  const [isHovered, setIsHovered] = useState(false);
 
   const isSaved = isInWishlist(product.id || product._id);
   const isOutOfStock = (product.stockQuantity !== undefined ? product.stockQuantity : 25) <= 0
@@ -25,16 +26,21 @@ export const ProductCard = ({ product }) => {
   return (
     <div
       onClick={() => openProductDetail(product)}
-      className="group bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200 hover:border-slate-400 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between cursor-pointer relative"
+      onMouseEnter={() => {
+        if (hasBackImage && !isHovered) setIsHovered(true);
+      }}
+      className="group bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200 hover:border-slate-400 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between cursor-pointer relative h-full w-full select-none"
     >
       {/* ── IMAGE (COMPLETELY CLEAN WITHOUT ANY OVERLAYS) ─────────────── */}
-      <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-100">
+      <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-100 shrink-0">
 
         {/* Front */}
         <img
           src={frontImage}
           alt={product.name || 'Product'}
-          loading="lazy"
+          loading={priority ? 'eager' : 'lazy'}
+          fetchpriority={priority ? 'high' : 'auto'}
+          decoding="async"
           onError={(e) => {
             e.currentTarget.onerror = null;
             e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
@@ -46,12 +52,13 @@ export const ProductCard = ({ product }) => {
           }`}
         />
 
-        {/* Back (hover reveal) */}
-        {hasBackImage && (
+        {/* Back (hover reveal - loaded on-demand on desktop hover) */}
+        {hasBackImage && isHovered && (
           <img
             src={backImage}
             alt={`${product.name} Back`}
             loading="lazy"
+            decoding="async"
             onError={(e) => {
               e.currentTarget.onerror = null;
               e.currentTarget.src = frontImage || DEFAULT_PLACEHOLDER_IMAGE;
@@ -63,31 +70,32 @@ export const ProductCard = ({ product }) => {
       </div>
 
       {/* ── CONTENT (ALL LABELS & ACTIONS BELOW IMAGE ONLY) ────────────── */}
-      <div className="p-3 sm:p-4 flex flex-col flex-1 justify-between gap-2.5">
+      <div className="p-2.5 sm:p-4 flex flex-col flex-1 justify-between min-w-0">
 
-        <div>
-          {/* Product name */}
-          <h3 className="text-xs sm:text-sm font-black text-slate-900 line-clamp-2 font-heading leading-snug">
+        {/* Product name container - fixed uniform height prevents layout shift */}
+        <div className="h-9 sm:h-10 flex items-start overflow-hidden">
+          <h3 className="text-xs sm:text-sm font-black text-slate-900 line-clamp-2 font-heading leading-snug break-words">
             {product.name}
           </h3>
         </div>
 
-        {/* Price + Actions */}
-        <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
-          <span className="text-base sm:text-lg font-black text-slate-900 font-heading">
+        {/* Price + Actions pinned to bottom */}
+        <div className="flex items-center justify-between gap-1 sm:gap-2 pt-2 border-t border-slate-100 mt-auto shrink-0 w-full">
+          <span className="text-sm sm:text-lg font-black text-slate-900 font-heading shrink-0">
             ₹{product.price}
           </span>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 toggleWishlist(product);
               }}
-              className="p-1.5 rounded-xl border border-slate-200 hover:border-slate-400 bg-white text-slate-700 hover:text-rose-500 transition-colors flex items-center justify-center !min-h-[34px] !min-w-[34px] cursor-pointer"
+              className="p-1 sm:p-1.5 rounded-xl border border-slate-200 hover:border-slate-400 bg-white text-slate-700 hover:text-rose-500 transition-colors flex items-center justify-center h-8 w-8 sm:h-[34px] sm:w-[34px] shrink-0 cursor-pointer"
               title={isSaved ? "Remove from Wishlist" : "Save to Wishlist"}
+              aria-label={isSaved ? "Remove from Wishlist" : "Save to Wishlist"}
             >
-              <span className={`text-sm leading-none ${isSaved ? 'text-rose-500 font-bold' : 'text-slate-500'}`}>
+              <span className={`text-xs sm:text-sm leading-none ${isSaved ? 'text-rose-500 font-bold' : 'text-slate-500'}`}>
                 {isSaved ? '♥' : '♡'}
               </span>
             </button>
@@ -99,7 +107,7 @@ export const ProductCard = ({ product }) => {
                 const defaultSize = sizesList[0] || 'M';
                 addToCart(product, defaultSize);
               }}
-              className={`py-1.5 px-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-colors flex-shrink-0 !min-h-[34px] cursor-pointer ${
+              className={`px-2 sm:px-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-colors flex items-center justify-center shrink-0 h-8 sm:h-[34px] whitespace-nowrap cursor-pointer ${
                 isOutOfStock
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   : 'bg-slate-900 hover:bg-black text-white active:scale-95'
@@ -113,6 +121,6 @@ export const ProductCard = ({ product }) => {
       </div>
     </div>
   );
-};
+});
 
 export default ProductCard;

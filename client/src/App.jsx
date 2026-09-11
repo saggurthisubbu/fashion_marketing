@@ -20,6 +20,7 @@ import { InstallPWA } from './components/InstallPWA';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { SearchResultsPage } from './pages/SearchResultsPage';
+import { CategoryPage } from './pages/CategoryPage';
 
 const ToastNotification = () => {
   const { toast } = useShop();
@@ -146,6 +147,8 @@ const MainApp = () => {
   const isRegisterPath = currentPath === '/register' || currentPath === '/register/';
   const isSearchPage   = currentPath.startsWith('/search');
   const searchQueryParam = new URLSearchParams(window.location.search).get('q') || '';
+  const isCategoryPage = currentPath.startsWith('/category');
+  const categorySlug   = currentPath.replace(/^\/category\/?/, '').replace(/\/$/, '') || 'shirts';
 
   // ─── FULL STOREFRONT (accessible to ALL users — guest & authenticated) ───────
   return (
@@ -164,10 +167,15 @@ const MainApp = () => {
       {/* PUBLIC STICKY NAVBAR WITH USER PROFILE */}
       <Navbar />
 
-      {/* RENDER DEDICATED SEARCH RESULTS PAGE OR HOMEPAGE COLLECTIONS */}
+      {/* RENDER DEDICATED SEARCH RESULTS PAGE, DEDICATED CATEGORY PAGE, OR HOMEPAGE COLLECTIONS */}
       {isSearchPage ? (
         <SearchResultsPage
           queryParam={searchQueryParam}
+          onNavigateHome={handleNavigateHome}
+        />
+      ) : isCategoryPage ? (
+        <CategoryPage
+          slug={categorySlug}
           onNavigateHome={handleNavigateHome}
         />
       ) : (

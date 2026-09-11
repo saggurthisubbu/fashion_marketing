@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
-import { Tags, Plus, Edit2, Trash2, Upload, X, ImageIcon, CheckCircle2 } from 'lucide-react';
+import { Tags, Plus, Edit2, Trash2, Upload, X, ImageIcon, CheckCircle2, Crop } from 'lucide-react';
+import { ProductImageCropperModal } from '../ProductImageCropperModal';
 
 export const AdminCategoriesTab = ({
   categories = [],
@@ -20,13 +21,20 @@ export const AdminCategoriesTab = ({
     isActive: true
   });
 
-  // --- Image Upload State (mirrors Product 4-angle uploader) ---
+  // --- Image Upload & Crop State ---
   const [categoryImageFile, setCategoryImageFile] = useState(null);
   const [categoryImagePreview, setCategoryImagePreview] = useState('');
   const [categoryImageError, setCategoryImageError] = useState('');
   const [isSavingCategory, setIsSavingCategory] = useState(false);
   const [uploadStatus, setUploadStatus] = useState(''); // 'uploading' | 'success' | 'error' | ''
   const categoryImageRef = useRef(null);
+
+  // Interactive Cropper Modal
+  const [cropperModal, setCropperModal] = useState({
+    isOpen: false,
+    imageSrc: '',
+    title: 'Category Banner'
+  });
 
   // ── Open Add Modal ──────────────────────────────────────────────────────────
   const handleOpenAdd = () => {
@@ -102,20 +110,46 @@ export const AdminCategoriesTab = ({
     try {
       const reader = new FileReader();
       reader.onload = (event) => {
+        const src = event.target.result;
         setCategoryImageFile(file);
-        setCategoryImagePreview(event.target.result);
-      };
-      reader.onerror = () => {
-        const objUrl = URL.createObjectURL(file);
-        setCategoryImageFile(file);
-        setCategoryImagePreview(objUrl);
+        setCategoryImagePreview(src);
+        setCropperModal({
+          isOpen: true,
+          imageSrc: src,
+          title: `${formData.name || 'Category'} Image Crop & Adjust`
+        });
       };
       reader.readAsDataURL(file);
     } catch {
       const objUrl = URL.createObjectURL(file);
       setCategoryImageFile(file);
       setCategoryImagePreview(objUrl);
+      setCropperModal({
+        isOpen: true,
+        imageSrc: objUrl,
+        title: `${formData.name || 'Category'} Image Crop & Adjust`
+      });
     }
+  };
+
+  // ── Open Cropper on Existing / Uploaded Preview ────────────────────────────
+  const handleOpenCropper = () => {
+    const src = categoryImagePreview || formData.image;
+    if (!src) return;
+    setCropperModal({
+      isOpen: true,
+      imageSrc: src,
+      title: `${formData.name || 'Category'} Image Crop & Adjust`
+    });
+  };
+
+  // ── Save Cropped Image from Cropper Modal ─────────────────────────────────
+  const handleSaveCroppedImage = (croppedFile, previewUrl) => {
+    setCategoryImageFile(croppedFile);
+    setCategoryImagePreview(previewUrl);
+    setFormData(prev => ({ ...prev, image: previewUrl }));
+    setCategoryImageError('');
+    setCropperModal(prev => ({ ...prev, isOpen: false }));
   };
 
   // ── Clear Image ─────────────────────────────────────────────────────────────
@@ -336,63 +370,101 @@ export const AdminCategoriesTab = ({
 
                 {previewSrc ? (
                   /* ── Image Preview State ───────────────────────────────── */
-                  <div className="relative rounded-2xl overflow-hidden bg-zinc-950 border border-zinc-800 group aspect-video w-full">
-                    <img
-                      src={previewSrc}
-                      alt="Banner preview"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
+                  <>
+                    <div className="relative rounded-2xl overflow-hidden bg-zinc-950 border border-zinc-800 group aspect-video w-full">
+                      <img
+                        src={previewSrc}
+                        alt="Banner preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
 
-                    {/* Upload-status badge */}
-                    {uploadStatus === 'uploading' && (
-                      <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-2">
-                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span className="text-white text-[11px] font-bold">Uploading to Cloudinary…</span>
-                      </div>
-                    )}
-                    {uploadStatus === 'success' && (
-                      <div className="absolute top-2 left-2 flex items-center gap-1 bg-emerald-900/90 border border-emerald-600 text-emerald-300 text-[10px] font-bold px-2 py-1 rounded-lg">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Uploaded
-                      </div>
-                    )}
+                      {/* Upload-status badge */}
+                      {uploadStatus === 'uploading' && (
+                        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-2">
+                          <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span className="text-white text-[11px] font-bold">Uploading to Cloudinary…</span>
+                        </div>
+                      )}
+                      {uploadStatus === 'success' && (
+                        <div className="absolute top-2 left-2 flex items-center gap-1 bg-emerald-900/90 border border-emerald-600 text-emerald-300 text-[10px] font-bold px-2 py-1 rounded-lg">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Uploaded
+                        </div>
+                      )}
 
-                    {/* Hover overlay with actions */}
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      {/* Hover overlay with actions */}
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleOpenCropper}
+                          className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-[11px] cursor-pointer shadow-md flex items-center gap-1.5 transition-colors"
+                        >
+                          <Crop className="w-3.5 h-3.5" />
+                          Crop / Adjust
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => categoryImageRef.current?.click()}
+                          className="px-3 py-1.5 rounded-xl bg-white text-zinc-950 font-bold text-[11px] hover:bg-zinc-200 cursor-pointer shadow-md flex items-center gap-1.5 transition-colors"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          Replace
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRemoveImage}
+                          className="px-3 py-1.5 rounded-xl bg-red-600 text-white font-bold text-[11px] hover:bg-red-700 cursor-pointer shadow-md flex items-center gap-1.5 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          Clear
+                        </button>
+                      </div>
+
+                      {/* File-selected indicator */}
+                      {categoryImageFile && uploadStatus !== 'uploading' && (
+                        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between bg-zinc-950/90 border border-zinc-700 rounded-lg px-2 py-1">
+                          <span className="text-zinc-300 text-[10px] font-medium truncate max-w-[70%]">
+                            {categoryImageFile.name}
+                          </span>
+                          <span className="text-zinc-500 text-[10px] font-mono shrink-0">
+                            {(categoryImageFile.size / (1024 * 1024)).toFixed(1)} MB
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Accessible action buttons below preview */}
+                    <div className="flex items-center gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={handleOpenCropper}
+                        className="flex-1 py-1.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-zinc-800 cursor-pointer"
+                      >
+                        <Crop className="w-3.5 h-3.5 text-amber-400" />
+                        Crop / Adjust Image
+                      </button>
                       <button
                         type="button"
                         onClick={() => categoryImageRef.current?.click()}
-                        className="px-3 py-1.5 rounded-xl bg-white text-zinc-950 font-bold text-[11px] hover:bg-zinc-200 cursor-pointer shadow-md flex items-center gap-1.5 transition-colors"
+                        className="py-1.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-zinc-800 cursor-pointer"
                       >
                         <Upload className="w-3.5 h-3.5" />
-                        Change Image
+                        Replace
                       </button>
                       <button
                         type="button"
                         onClick={handleRemoveImage}
-                        className="px-3 py-1.5 rounded-xl bg-red-600 text-white font-bold text-[11px] hover:bg-red-700 cursor-pointer shadow-md flex items-center gap-1.5 transition-colors"
+                        className="py-1.5 px-3 rounded-xl bg-red-950/40 hover:bg-red-900/60 text-red-400 hover:text-red-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-red-900/50 cursor-pointer"
+                        title="Remove image"
                       >
                         <X className="w-3.5 h-3.5" />
-                        Clear
                       </button>
                     </div>
-
-                    {/* File-selected indicator */}
-                    {categoryImageFile && uploadStatus !== 'uploading' && (
-                      <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between bg-zinc-950/90 border border-zinc-700 rounded-lg px-2 py-1">
-                        <span className="text-zinc-300 text-[10px] font-medium truncate max-w-[70%]">
-                          {categoryImageFile.name}
-                        </span>
-                        <span className="text-zinc-500 text-[10px] font-mono shrink-0">
-                          {(categoryImageFile.size / (1024 * 1024)).toFixed(1)} MB
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                  </>
                 ) : (
                   /* ── Empty / Drop-zone State ───────────────────────────── */
                   <div
@@ -536,6 +608,15 @@ export const AdminCategoriesTab = ({
         </div>
       )}
 
+      {/* Interactive Image Cropper Modal */}
+      <ProductImageCropperModal
+        isOpen={cropperModal.isOpen}
+        imageSrc={cropperModal.imageSrc}
+        angleKey="category"
+        angleLabel={cropperModal.title || 'Category Banner'}
+        onClose={() => setCropperModal((prev) => ({ ...prev, isOpen: false }))}
+        onSaveCroppedImage={handleSaveCroppedImage}
+      />
     </div>
   );
 };

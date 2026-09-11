@@ -222,13 +222,13 @@ router.post('/', protect, storeOwnerOrAdmin, async (req, res) => {
     if (!data.name || typeof data.name !== 'string' || !data.name.trim()) {
       return res.status(400).json({ message: 'Product name is required.' });
     }
-    if (!data.storeId || !data.storeName) {
+    if (!data.storeId || !mongoose.Types.ObjectId.isValid(data.storeId) || !data.storeName) {
       const defaultStore = await Store.findOne({ status: 'Active' }) || await Store.findOne();
       if (defaultStore) {
-        data.storeId = defaultStore._id.toString();
+        data.storeId = defaultStore._id;
         data.storeName = defaultStore.name;
       } else {
-        data.storeId = 'global-hub';
+        delete data.storeId;
         data.storeName = 'QuickFit Central, Vijayawada';
       }
     }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useShop } from '../context/ShopContext';
 import { ProductCard } from './ProductCard';
 
@@ -17,10 +17,11 @@ export const ProductCatalog = () => {
     setSortBy,
     user,
     nearbyStores,
-    locationStatus
+    locationStatus,
+    categories = []
   } = useShop();
 
-  const categoriesList = [
+  const baseCategories = [
     { label: 'All Men', slug: 'All' },
     { label: 'Oversized T-Shirts', slug: 'Oversized T-Shirts' },
     { label: 'Drop Shoulder T-Shirts', slug: 'Drop Shoulder T-Shirts' },
@@ -28,70 +29,83 @@ export const ProductCatalog = () => {
     { label: 'Shirts', slug: 'Shirts' }
   ];
 
-  // Filter products based on search and category
-  let filtered = products.filter((item) => {
-    // Search query filter
-    const query = searchQuery.trim().toLowerCase();
-    const matchesSearch =
-      query === '' ||
-      item.name?.toLowerCase().includes(query) ||
-      (item.category && item.category.toLowerCase().includes(query)) ||
-      (item.subcategory && item.subcategory.toLowerCase().includes(query)) ||
-      (item.description && item.description.toLowerCase().includes(query));
-
-    // Category filter
-    let matchesCategory = true;
-    if (selectedCategory !== 'All') {
-      const target = selectedCategory.trim().toLowerCase();
-      const sub = (item.subcategory || '').trim().toLowerCase();
-      const cat = (item.category || '').trim().toLowerCase();
-      const name = (item.name || '').trim().toLowerCase();
-
-      if (target === 'shirts' || target === 'linen shirts' || target === 'linen-shirts') {
-        if (sub.includes('t-shirt') || sub.includes('tshirt') || cat.includes('t-shirt') || cat.includes('tshirt')) {
-          matchesCategory = false;
-        } else {
-          matchesCategory = (
-            sub === 'shirts' ||
-            sub === 'linen shirts' ||
-            sub === 'formal shirts' ||
-            sub === 'pure linen' ||
-            cat === 'shirts' ||
-            (name.includes('shirt') && !name.includes('t-shirt') && !name.includes('tshirt'))
-          );
+  // Dynamic category list integrating live categories from DB
+  const categoriesList = useMemo(() => {
+    const list = [...baseCategories];
+    (categories || []).forEach((c) => {
+      if (c.isActive !== false && c.name) {
+        const alreadyExists = list.some((b) => b.slug.toLowerCase() === c.name.toLowerCase());
+        if (!alreadyExists) {
+          list.push({ label: c.name, slug: c.name });
         }
-      } else if (target.includes('oversized')) {
-        matchesCategory = sub.includes('oversized') || name.includes('oversized');
-      } else if (target.includes('drop shoulder') || target.includes('dropshoulder')) {
-        matchesCategory = sub.includes('drop shoulder') || sub.includes('dropshoulder') || name.includes('drop shoulder') || name.includes('dropshoulder');
-      } else if (target.includes('polo')) {
-        matchesCategory = sub.includes('polo') || name.includes('polo');
-      } else {
-        const normalize = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        const selectedNorm = normalize(selectedCategory);
-        const subNorm = normalize(item.subcategory);
-        const catNorm = normalize(item.category);
-        const nameNorm = normalize(item.name);
-
-        matchesCategory =
-          subNorm === selectedNorm ||
-          catNorm === selectedNorm ||
-          nameNorm === selectedNorm ||
-          subNorm.includes(selectedNorm) ||
-          nameNorm.includes(selectedNorm);
       }
-    }
+    });
+    return list;
+  }, [categories]);
 
-    return matchesSearch && matchesCategory;
-  });
+  // Memoized filter and sort so category switching and typing are instantaneous
+  const filtered = useMemo(() => {
+    const result = products.filter((item) => {
+      // Search query filter
+      const query = searchQuery.trim().toLowerCase();
+      const matchesSearch =
+        query === '' ||
+        item.name?.toLowerCase().includes(query) ||
+        (item.category && item.category.toLowerCase().includes(query)) ||
+        (item.subcategory && item.subcategory.toLowerCase().includes(query)) ||
+        (item.description && item.description.toLowerCase().includes(query));
 
-  // Sort logic
-  filtered = [...filtered].sort((a, b) => {
-    if (sortBy === 'price-low') return a.price - b.price;
-    if (sortBy === 'price-high') return b.price - a.price;
-    if (sortBy === 'rating') return (b.rating || 4.8) - (a.rating || 4.8);
-    return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); // Newest default
-  });
+      // Category filter
+      let matchesCategory = true;
+      if (selectedCategory !== 'All') {
+        const target = selectedCategory.trim().toLowerCase();
+        const sub = (item.subcategory || '').trim().toLowerCase();
+        const cat = (item.category || '').trim().toLowerCase();
+        const name = (item.name || '').trim().toLowerCase();
+
+        if (target === 'shirts' || target === 'linen shirts' || target === 'linen-shirts') {
+          if (sub.includes('t-shirt') || sub.includes('tshirt') || cat.includes('t-shirt') || cat.includes('tshirt')) {
+            matchesCategory = false;
+          } else {
+            matchesCategory = (
+              sub.includes('shirt') ||
+              cat.includes('shirt') ||
+              name.includes('shirt')
+            );
+          }
+        } else if (target.includes('oversized')) {
+          matchesCategory = sub.includes('oversized') || name.includes('oversized');
+        } else if (target.includes('drop shoulder') || target.includes('dropshoulder')) {
+          matchesCategory = sub.includes('drop shoulder') || sub.includes('dropshoulder') || name.includes('drop shoulder') || name.includes('dropshoulder');
+        } else if (target.includes('polo')) {
+          matchesCategory = sub.includes('polo') || name.includes('polo');
+        } else {
+          const normalize = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const selectedNorm = normalize(selectedCategory);
+          const subNorm = normalize(item.subcategory);
+          const catNorm = normalize(item.category);
+          const nameNorm = normalize(item.name);
+
+          matchesCategory =
+            subNorm === selectedNorm ||
+            catNorm === selectedNorm ||
+            nameNorm === selectedNorm ||
+            subNorm.includes(selectedNorm) ||
+            nameNorm.includes(selectedNorm);
+        }
+      }
+
+      return matchesSearch && matchesCategory;
+    });
+
+    // Sort logic
+    return [...result].sort((a, b) => {
+      if (sortBy === 'price-low') return a.price - b.price;
+      if (sortBy === 'price-high') return b.price - a.price;
+      if (sortBy === 'rating') return (b.rating || 4.8) - (a.rating || 4.8);
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); // Newest default
+    });
+  }, [products, searchQuery, selectedCategory, sortBy]);
 
   // Diagnostic logs
   console.log(`[CATALOG] Total products in context: ${products.length}`);
@@ -222,9 +236,9 @@ export const ProductCatalog = () => {
           </div>
         ) : filtered.length > 0 ? (
           /* 3. PRODUCT GRID — Clean flat luxury catalog grid */
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
-            {filtered.map((product) => (
-              <ProductCard key={product.id || product._id} product={product} />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 items-stretch">
+            {filtered.map((product, index) => (
+              <ProductCard key={product.id || product._id} product={product} priority={index < 4} />
             ))}
           </div>
         ) : (

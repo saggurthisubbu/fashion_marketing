@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useShop } from '../context/ShopContext';
 import { AppDownloadModal } from './AppDownloadModal';
 import { SearchOverlayModal } from './search/SearchOverlayModal';
+import { slugifyCategory } from '../pages/CategoryPage';
 
 // ─── Navigate to /login or /register (no react-router) ──────────────────────
 const navigateTo = (path) => {
@@ -71,10 +72,16 @@ export const Navbar = () => {
   const handleCategorySelect = (slug) => {
     setSelectedCategory(slug);
     setIsMobileMenuOpen(false);
-    const catalogElement = document.getElementById('catalog-section');
-    if (catalogElement) {
-      catalogElement.scrollIntoView({ behavior: 'smooth' });
+    if (slug === 'All') {
+      window.history.pushState({ modal: 'home' }, '', '/');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      return;
     }
+    const catSlug = slugifyCategory(slug);
+    window.history.pushState({ modal: 'category', slug: catSlug }, '', `/category/${catSlug}`);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   const handleSearchSubmit = (e) => {

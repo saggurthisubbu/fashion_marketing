@@ -7,11 +7,36 @@ const ShopContext = createContext();
 
 export const ShopProvider = ({ children }) => {
   // --- STATE MANAGEMENT ---
-  // MongoDB is the single source of truth. No static array defaults.
-  const [products, setProducts] = useState([]);
-  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  // MongoDB is the single source of truth.
+  // Cache in sessionStorage for instant (0ms) render on repeat visits / reloads.
+  const [products, setProducts] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('quickfit_cached_products');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+  const [isLoadingProducts, setIsLoadingProducts] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('quickfit_cached_products');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return false;
+      }
+    } catch (e) {}
+    return true;
+  });
   const [productsError, setProductsError] = useState(null);
   const [isBackendWaking, setIsBackendWaking] = useState(false); // Render cold-start indicator
+
+  // Ref to track current products array without stale closures
+  const productsRef = useRef(products);
+  useEffect(() => {
+    productsRef.current = products;
+  }, [products]);
 
   // --- LOCATION & MULTI-STORE STATE ---
   // locationStatus: 'idle' | 'detecting' | 'granted' | 'denied' | 'out_of_range'
@@ -29,9 +54,27 @@ export const ShopProvider = ({ children }) => {
   // Ref to avoid triggering location check more than once on initial mount
   const locationInitialized = useRef(false);
 
-  // Live categories from MongoDB (single source of truth for the whole app)
-  const [categories, setCategories] = useState([]);
-  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  // Live categories from MongoDB (cached for fast render)
+  const [categories, setCategories] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('quickfit_cached_categories');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+  const [isLoadingCategories, setIsLoadingCategories] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('quickfit_cached_categories');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return false;
+      }
+    } catch (e) {}
+    return true;
+  });
 
   const [cart, setCart] = useState(() => {
     try {
@@ -155,13 +198,16 @@ export const ShopProvider = ({ children }) => {
 
   // --- FETCH PRODUCTS DYNAMICALLY FROM MONGODB VIA BACKEND API ---
   const fetchProducts = useCallback(async (locationOverride) => {
-    setIsLoadingProducts(true);
+    // Only show skeleton if no products are currently in state / cache
+    if (productsRef.current.length === 0) {
+      setIsLoadingProducts(true);
+    }
     setProductsError(null);
     setIsBackendWaking(false);
 
     const MAX_RETRIES = 3;
-    const TIMEOUT_MS = 30000;
-    const RETRY_DELAYS = [3000, 7000, 15000];
+    const TIMEOUT_MS = 25000;
+    const RETRY_DELAYS = [2000, 5000, 10000];
 
     // Resolve location: use override if provided (pass null explicitly for global catalog)
     // or fall back to active session location (userLocationRef)
@@ -174,100 +220,99 @@ export const ShopProvider = ({ children }) => {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-        let res;
+        console.log(`[PRODUCT FETCH] Attempt ${attempt}/${MAX_RETRIES} → /products`);
+        const allRes = await axios.get(`${API_BASE_URL}/products`, {
+          signal: controller.signal,
+          timeout: TIMEOUT_MS
+        });
+        clearTimeout(timer);
+        setIsBackendWaking(false);
+
+        const rawAll = Array.isArray(allRes.data) ? allRes.data : [];
+        let allNormalized = rawAll.map(normalizeProduct);
+
+        // ── IF LOCATION IS AVAILABLE, ENRICH PRODUCTS WITH DISTANCE/STORE INFO ──
         if (loc?.lat && loc?.lng) {
-          // ── LOCATION-AWARE: use /nearby endpoint ──────────────────────────
-          console.log(`[PRODUCT FETCH] Attempt ${attempt}/${MAX_RETRIES} → /products/nearby lat=${loc.lat} lng=${loc.lng}`);
-          res = await axios.get(`${API_BASE_URL}/products/nearby`, {
-            params: { lat: loc.lat, lng: loc.lng, _t: Date.now() },
-            signal: controller.signal,
-            timeout: TIMEOUT_MS
-          });
-          clearTimeout(timer);
-          setIsBackendWaking(false);
-
-          const data = res.data;
-          if (!data.inZone) {
-            // Customer is outside 60-min express delivery zone — show banner but DO NOT hide catalog!
-            setLocationStatus('out_of_range');
-            setNearbyStores([]);
-            setProductsError(null);
-
-            const closest = data.closestStore || null;
-            const verifiedData = {
-              lat: loc.lat,
-              lng: loc.lng,
-              nearestStore: closest,
-              inZone: false,
-              verificationStatus: 'out_of_range',
-              areaName: closest?.name || 'Outside Delivery Zone',
-              allNearbyStores: []
-            };
-            try {
-              sessionStorage.setItem('quickfit_session_verified_location', JSON.stringify(verifiedData));
-              sessionStorage.setItem('quickfit_session_location', JSON.stringify({ lat: loc.lat, lng: loc.lng }));
-            } catch (e) {}
-            setVerifiedLocation(verifiedData);
-
-            console.log('[PRODUCT FETCH] Outside express zone. Loading complete product catalog for browsing & standard delivery...');
-            const fallbackRes = await axios.get(`${API_BASE_URL}/products`, {
-              params: { _t: Date.now() },
-              timeout: TIMEOUT_MS
-            });
-            const rawData = Array.isArray(fallbackRes.data) ? fallbackRes.data : [];
-            const normalized = rawData.map(normalizeProduct);
-            setProducts(normalized);
-            setIsLoadingProducts(false);
-            console.log(`[PRODUCT FETCH] ✅ /products fallback: ${normalized.length} products loaded`);
-            return;
-          }
-
-          const normalized = (data.products || []).map(normalizeProduct);
-          const nearbyList = data.nearbyStores || [];
-          setNearbyStores(nearbyList);
-          setProducts(normalized);
-          setIsLoadingProducts(false);
-
-          const nearest = nearbyList[0] || null;
-          const areaName = nearest?.address?.split(',')?.[0]?.trim() || nearest?.name || 'Vijayawada';
-          const verifiedData = {
-            lat: loc.lat,
-            lng: loc.lng,
-            nearestStore: nearest,
-            inZone: true,
-            verificationStatus: 'verified',
-            areaName,
-            allNearbyStores: nearbyList
-          };
           try {
-            sessionStorage.setItem('quickfit_session_verified_location', JSON.stringify(verifiedData));
-            sessionStorage.setItem('quickfit_session_location', JSON.stringify({ lat: loc.lat, lng: loc.lng }));
-          } catch (e) {}
-          setVerifiedLocation(verifiedData);
-          setLocationStatus('granted');
+            console.log(`[GEO ENRICH] Fetching /products/nearby for lat=${loc.lat} lng=${loc.lng}`);
+            const nearbyRes = await axios.get(`${API_BASE_URL}/products/nearby`, {
+              params: { lat: loc.lat, lng: loc.lng },
+              timeout: 8000
+            });
+            const nearbyData = nearbyRes.data;
+            if (nearbyData) {
+              const nearbyStoresList = nearbyData.nearbyStores || [];
+              setNearbyStores(nearbyStoresList);
 
-          console.log(`[PRODUCT FETCH] ✅ /nearby: ${normalized.length} products from ${nearbyList.length} stores (Area: ${areaName})`);
-          return;
+              if (nearbyData.inZone) {
+                setLocationStatus('granted');
+                const nearest = nearbyStoresList[0] || null;
+                const areaName = nearest?.address?.split(',')?.[0]?.trim() || nearest?.name || 'Vijayawada';
+                const verifiedData = {
+                  lat: loc.lat,
+                  lng: loc.lng,
+                  nearestStore: nearest,
+                  inZone: true,
+                  verificationStatus: 'verified',
+                  areaName,
+                  allNearbyStores: nearbyStoresList
+                };
+                setVerifiedLocation(verifiedData);
+                try {
+                  sessionStorage.setItem('quickfit_session_verified_location', JSON.stringify(verifiedData));
+                  sessionStorage.setItem('quickfit_session_location', JSON.stringify({ lat: loc.lat, lng: loc.lng }));
+                } catch (e) {}
 
+                // Build lookup map of nearby products for enrichment
+                const nearbyMap = new Map();
+                (nearbyData.products || []).forEach(np => {
+                  const pid = (np._id || np.id)?.toString();
+                  if (pid) nearbyMap.set(pid, np);
+                });
+
+                // Enrich full catalog without omitting any products
+                allNormalized = allNormalized.map(p => {
+                  const pid = (p._id || p.id)?.toString();
+                  const matchedNearby = nearbyMap.get(pid);
+                  if (matchedNearby) {
+                    return {
+                      ...p,
+                      distanceKm: matchedNearby.distanceKm ?? p.distanceKm,
+                      estimatedMinutes: matchedNearby.estimatedMinutes ?? p.estimatedMinutes,
+                      storeName: matchedNearby.storeName || p.storeName,
+                      storeAddress: matchedNearby.storeAddress || p.storeAddress
+                    };
+                  }
+                  return p;
+                });
+              } else {
+                setLocationStatus('out_of_range');
+                const closest = nearbyData.closestStore || null;
+                setVerifiedLocation({
+                  lat: loc.lat,
+                  lng: loc.lng,
+                  nearestStore: closest,
+                  inZone: false,
+                  verificationStatus: 'out_of_range',
+                  areaName: closest?.name || 'Outside Delivery Zone',
+                  allNearbyStores: []
+                });
+              }
+            }
+          } catch (geoErr) {
+            console.warn('[GEO ENRICH ERROR] Non-critical, using full catalog:', geoErr.message);
+          }
         } else {
-          // ── NO LOCATION: fetch all products (global catalog) ───────────────
-          console.log(`[PRODUCT FETCH] Attempt ${attempt}/${MAX_RETRIES} → /products (no location)`);
-          res = await axios.get(`${API_BASE_URL}/products`, {
-            params: { _t: Date.now() },
-            signal: controller.signal,
-            timeout: TIMEOUT_MS
-          });
-          clearTimeout(timer);
-          setIsBackendWaking(false);
-
-          const rawData = Array.isArray(res.data) ? res.data : [];
-          const normalized = rawData.map(normalizeProduct);
           setNearbyStores([]);
-          setProducts(normalized);
-          setIsLoadingProducts(false);
-          console.log(`[PRODUCT FETCH] ✅ /products: ${normalized.length} products (no location filter)`);
-          return;
         }
+
+        setProducts(allNormalized);
+        try {
+          sessionStorage.setItem('quickfit_cached_products', JSON.stringify(allNormalized));
+        } catch (e) {}
+        setIsLoadingProducts(false);
+        console.log(`[PRODUCT FETCH] ✅ Loaded ${allNormalized.length} products from MongoDB Atlas`);
+        return;
 
       } catch (err) {
         const isLastAttempt = attempt === MAX_RETRIES;
@@ -276,7 +321,7 @@ export const ShopProvider = ({ children }) => {
         console.warn(`[PRODUCT FETCH] ❌ Attempt ${attempt} failed:`, err.message);
 
         if (!isLastAttempt) {
-          const delay = RETRY_DELAYS[attempt - 1] || 5000;
+          const delay = RETRY_DELAYS[attempt - 1] || 3000;
           console.log(`[PRODUCT FETCH] Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
@@ -296,15 +341,17 @@ export const ShopProvider = ({ children }) => {
           errorMsg = err.response?.data?.message || err.message || 'Unable to load products. Please tap Retry.';
         }
         console.error('[PRODUCT FETCH ERROR] All retries failed:', errorMsg);
-        setProductsError(errorMsg);
-        setProducts([]);
+        if (productsRef.current.length === 0) {
+          setProductsError(errorMsg);
+          setProducts([]);
+        }
       }
     }
     setIsLoadingProducts(false);
   }, [normalizeProduct]);
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Geolocation detection — asks permission on visit/session via standard popup
+  // Geolocation detection — runs in parallel without blocking product catalog display
   // ─────────────────────────────────────────────────────────────────────────────
   const detectUserLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -313,7 +360,9 @@ export const ShopProvider = ({ children }) => {
       setUserLocation(null);
       setVerifiedLocation(null);
       setNearbyStores([]);
-      fetchProducts(null);
+      if (productsRef.current.length === 0) {
+        fetchProducts(null);
+      }
       return;
     }
 
@@ -344,15 +393,14 @@ export const ShopProvider = ({ children }) => {
         localStorage.removeItem('quickfit_location');
         localStorage.removeItem('quickfit_verified_location');
       } catch (e) {}
-      // Seamless fallback to global product catalog
-      fetchProducts(null);
+      // Fallback: only fetch if products haven't loaded yet
+      if (productsRef.current.length === 0) {
+        fetchProducts(null);
+      }
     };
 
-    // Mobile & Desktop Geolocation Request:
-    // First attempt high accuracy (7s timeout).
-    // If it fails with TIMEOUT or POSITION_UNAVAILABLE (typical on laptops/desktops without GPS hardware),
-    // automatically fallback to standard network accuracy (8s timeout) for fast WiFi/IP location.
-    // If the user explicitly blocked / denied permission (PERMISSION_DENIED), fail immediately without retry.
+    // Fast Geolocation Request:
+    // First attempt with 4s timeout. If unavailable, fallback to network accuracy.
     navigator.geolocation.getCurrentPosition(
       handleSuccess,
       (err) => {
@@ -360,14 +408,13 @@ export const ShopProvider = ({ children }) => {
           handleFailure(err);
           return;
         }
-        console.warn('[GEO] High accuracy failed or timed out, retrying with standard network accuracy...');
         navigator.geolocation.getCurrentPosition(
           handleSuccess,
           handleFailure,
-          { enableHighAccuracy: false, timeout: 8000, maximumAge: 0 }
+          { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
         );
       },
-      { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 4000, maximumAge: 60000 }
     );
   }, [fetchProducts]);
 
@@ -390,59 +437,44 @@ export const ShopProvider = ({ children }) => {
 
   // --- FETCH CATEGORIES FROM MONGODB ---
   const fetchCategories = useCallback(async () => {
-    const MAX_RETRIES = 3;
-    const RETRY_DELAYS = [2000, 5000, 10000];
-    setIsLoadingCategories(true);
+    const MAX_RETRIES = 2;
+    const RETRY_DELAYS = [2000, 5000];
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        console.log(`[CATEGORIES] Attempt ${attempt}/${MAX_RETRIES} → ${API_BASE_URL}/admin/categories`);
         const res = await axios.get(`${API_BASE_URL}/admin/categories`, {
-          params: { _t: Date.now() }, // Cache-bust — forces fresh data past CDN/SW cache
-          timeout: 20000
+          timeout: 10000
         });
         const data = Array.isArray(res.data) ? res.data : [];
         if (data.length > 0) {
           setCategories(data);
-          console.log(`[CATEGORIES] ✅ Loaded ${data.length} categories from MongoDB (attempt ${attempt}).`);
+          try {
+            sessionStorage.setItem('quickfit_cached_categories', JSON.stringify(data));
+          } catch (e) {}
           setIsLoadingCategories(false);
-          return; // Success — stop retrying
-        } else {
-          console.warn(`[CATEGORIES] ⚠️ API returned empty array (attempt ${attempt}).`);
+          return;
         }
       } catch (err) {
         const isLast = attempt === MAX_RETRIES;
-        console.warn(`[CATEGORIES] ❌ Attempt ${attempt} failed: ${err.message}`);
         if (!isLast) {
           await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt - 1]));
-        } else {
-          console.error('[CATEGORIES] All retries failed. Static fallback will be used.');
         }
       }
     }
-    setIsLoadingCategories(false); // Settled (success or all retries exhausted)
+    setIsLoadingCategories(false);
   }, []);
 
-  // Fetch categories on mount AND whenever the tab regains focus
+  // Fetch categories on mount and periodic refresh every 3 minutes
   useEffect(() => {
     fetchCategories();
 
-    const handleVisibilityChange = () => {
+    const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         fetchCategories();
       }
-    };
-    const handleFocus = () => fetchCategories();
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-
-    // Periodic sync every 60 seconds so admin edits appear automatically
-    const interval = setInterval(fetchCategories, 60000);
+    }, 180000);
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
       clearInterval(interval);
     };
   }, [fetchCategories]);
@@ -451,35 +483,32 @@ export const ShopProvider = ({ children }) => {
     if (locationInitialized.current) return;
     locationInitialized.current = true;
 
-    // Clear legacy persistent location so returning visitors are never silently tracked
+    // Clear legacy persistent location
     try {
       localStorage.removeItem('quickfit_verified_location');
       localStorage.removeItem('quickfit_location');
     } catch (e) {}
 
-    // Ask for location permission on every new website visit/session
+    let sessionLoc = null;
+    try {
+      const saved = sessionStorage.getItem('quickfit_session_location');
+      if (saved) sessionLoc = JSON.parse(saved);
+    } catch (e) {}
+
+    // 1. Immediately fetch products! Products start loading at 0ms in parallel
+    fetchProducts(sessionLoc);
+
+    // 2. In parallel, detect user location without delaying the catalog
     detectUserLocation();
 
-    // Auto-refresh products when tab regains focus (using current active session location)
-    const handleVisibilityChange = () => {
+    // 3. Periodic refresh every 2 minutes when tab is active
+    const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         fetchProducts(userLocationRef.current);
       }
-    };
-    const handleFocus = () => {
-      fetchProducts(userLocationRef.current);
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-
-    // Periodic sync every 60 seconds
-    const interval = setInterval(() => {
-      fetchProducts(userLocationRef.current);
-    }, 60000);
+    }, 120000);
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
       clearInterval(interval);
     };
   }, [fetchProducts, detectUserLocation]);
@@ -799,6 +828,8 @@ export const ShopProvider = ({ children }) => {
         openProductDetail,
         toast,
         showToast,
+        fetchCategories,
+        fetchProducts,
         API_BASE_URL,
         API_ORIGIN,
         resolveImageUrl

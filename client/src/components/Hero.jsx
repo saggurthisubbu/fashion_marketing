@@ -100,7 +100,9 @@ export const Hero = () => {
                 <img
                   src={heroImageSrc}
                   alt={featuredProduct?.name || "QuickFit Men's Streetwear"}
-                  loading="lazy"
+                  loading="eager"
+                  fetchpriority="high"
+                  decoding="async"
                   onError={(e) => {
                     e.currentTarget.onerror = null;
                     e.currentTarget.src = '/placeholder-product.jpg';

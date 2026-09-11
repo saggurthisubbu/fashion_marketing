@@ -1,27 +1,27 @@
-/* QuickFit Custom Stylesheet - Luxury Monochrome Fashion Edition */
+/* QuickFit Custom Stylesheet - Premium Men's Fashion Edition */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap');
 
 @import "tailwindcss";
 
 @theme {
-  --color-brandPrimary: #000000;
-  --color-brandSecondary: #171717;
-  --color-brandAccent: #000000;
-  --color-brandBg: #FAFAFA;
-  --color-brandText: #0A0A0A;
+  --color-brandPrimary: #0F172A;
+  --color-brandSecondary: #2563EB;
+  --color-brandAccent: #F97316;
+  --color-brandBg: #F8FAFC;
+  --color-brandText: #0F172A;
   
   --font-sans: "Inter", sans-serif;
   --font-heading: "Outfit", sans-serif;
 }
 
 :root {
-  --primary: #000000;
-  --secondary: #171717;
-  --accent: #262626;
-  --bg-slate: #ffffff;
-  --text-slate: #0a0a0a;
+  --primary: #0f172a;
+  --secondary: #2563eb;
+  --accent: #f97316;
+  --bg-slate: #f8fafc;
+  --text-slate: #0f172a;
   --glass-blur: 20px;
-  --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 *, *::before, *::after {
@@ -30,15 +30,14 @@
 
 html, body, #root {
   max-width: 100vw;
-  overflow-x: hidden !important;
+  overflow-x: hidden;
   scroll-behavior: smooth;
-  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   font-family: 'Inter', sans-serif;
-  background-color: #ffffff;
-  color: #0a0a0a;
+  background-color: #f8fafc;
+  color: #0f172a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -47,75 +46,78 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   font-family: 'Outfit', sans-serif;
 }
 
-button, a, input, select {
-  touch-action: manipulation;
-}
-
 /* ==============================
    CUSTOM SCROLLBAR
-============================= */
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: #fafafa; }
-::-webkit-scrollbar-thumb { background: #d4d4d4; border-radius: 9999px; }
-::-webkit-scrollbar-thumb:hover { background: #a3a3a3; }
+============================== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
 /* ==============================
    GLASSMORPHISM
-============================= */
+============================== */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.06);
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.98);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.06);
 }
 
 .glass-dark {
-  background: rgba(0, 0, 0, 0.95);
+  background: rgba(15, 23, 42, 0.92);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* ==============================
    INPUTS
-============================= */
+============================== */
 .input-field {
   width: 100%;
   padding: 10px 14px;
-  border: 1px solid #e5e5e5;
+  border: 1.5px solid #e2e8f0;
   border-radius: 12px;
   font-size: 13px;
   font-weight: 600;
-  color: #0a0a0a;
+  color: #1e293b;
   background: #fff;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.25s, box-shadow 0.25s;
   outline: none;
 }
 .input-field:focus {
-  border-color: #000000;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1);
 }
-.input-field::placeholder { color: #a3a3a3; font-weight: 400; }
+.input-field::placeholder { color: #94a3b8; font-weight: 400; }
 
 /* ==============================
-   HELPERS & TRUNCATION
-============================= */
+   HELPERS
+============================== */
 .line-clamp-1 { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
 .line-clamp-2 { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .line-clamp-3 { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 
 /* ==============================
    MOBILE OPTIMIZATIONS
-============================= */
+============================== */
 @media (max-width: 640px) {
   body {
-    font-size: 13px;
+    font-size: 14px;
+  }
+  
+  .glass-card, .glass-panel {
+    backdrop-filter: none;
+    background: #ffffff;
   }
 }

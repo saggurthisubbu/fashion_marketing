@@ -174,94 +174,100 @@ export const ShopProvider = ({ children }) => {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-        // ── ALWAYS FETCH ALL PRODUCTS FROM MONGODB (SINGLE SOURCE OF TRUTH) ──
-        console.log(`[PRODUCT FETCH] Attempt ${attempt}/${MAX_RETRIES} → /products (all items)`);
-        const allRes = await axios.get(`${API_BASE_URL}/products`, {
-          params: { _t: Date.now() },
-          signal: controller.signal,
-          timeout: TIMEOUT_MS
-        });
-        clearTimeout(timer);
-        setIsBackendWaking(false);
-
-        const rawAll = Array.isArray(allRes.data) ? allRes.data : [];
-        let allNormalized = rawAll.map(normalizeProduct);
-
-        // ── IF LOCATION IS AVAILABLE, ENRICH PRODUCTS WITH DISTANCE/STORE INFO ──
+        let res;
         if (loc?.lat && loc?.lng) {
-          try {
-            console.log(`[GEO ENRICH] Fetching /products/nearby for lat=${loc.lat} lng=${loc.lng}`);
-            const nearbyRes = await axios.get(`${API_BASE_URL}/products/nearby`, {
-              params: { lat: loc.lat, lng: loc.lng, _t: Date.now() },
-              timeout: 10000
+          // ── LOCATION-AWARE: use /nearby endpoint ──────────────────────────
+          console.log(`[PRODUCT FETCH] Attempt ${attempt}/${MAX_RETRIES} → /products/nearby lat=${loc.lat} lng=${loc.lng}`);
+          res = await axios.get(`${API_BASE_URL}/products/nearby`, {
+            params: { lat: loc.lat, lng: loc.lng, _t: Date.now() },
+            signal: controller.signal,
+            timeout: TIMEOUT_MS
+          });
+          clearTimeout(timer);
+          setIsBackendWaking(false);
+
+          const data = res.data;
+          if (!data.inZone) {
+            // Customer is outside 60-min express delivery zone — show banner but DO NOT hide catalog!
+            setLocationStatus('out_of_range');
+            setNearbyStores([]);
+            setProductsError(null);
+
+            const closest = data.closestStore || null;
+            const verifiedData = {
+              lat: loc.lat,
+              lng: loc.lng,
+              nearestStore: closest,
+              inZone: false,
+              verificationStatus: 'out_of_range',
+              areaName: closest?.name || 'Outside Delivery Zone',
+              allNearbyStores: []
+            };
+            try {
+              sessionStorage.setItem('quickfit_session_verified_location', JSON.stringify(verifiedData));
+              sessionStorage.setItem('quickfit_session_location', JSON.stringify({ lat: loc.lat, lng: loc.lng }));
+            } catch (e) {}
+            setVerifiedLocation(verifiedData);
+
+            console.log('[PRODUCT FETCH] Outside express zone. Loading complete product catalog for browsing & standard delivery...');
+            const fallbackRes = await axios.get(`${API_BASE_URL}/products`, {
+              params: { _t: Date.now() },
+              timeout: TIMEOUT_MS
             });
-            const nearbyData = nearbyRes.data;
-            if (nearbyData) {
-              const nearbyStoresList = nearbyData.nearbyStores || [];
-              setNearbyStores(nearbyStoresList);
-
-              if (nearbyData.inZone) {
-                setLocationStatus('granted');
-                const nearest = nearbyStoresList[0] || null;
-                const areaName = nearest?.address?.split(',')?.[0]?.trim() || nearest?.name || 'Vijayawada';
-                const verifiedData = {
-                  lat: loc.lat,
-                  lng: loc.lng,
-                  nearestStore: nearest,
-                  inZone: true,
-                  verificationStatus: 'verified',
-                  areaName,
-                  allNearbyStores: nearbyStoresList
-                };
-                setVerifiedLocation(verifiedData);
-
-                // Build lookup map of nearby products for enrichment
-                const nearbyMap = new Map();
-                (nearbyData.products || []).forEach(np => {
-                  const pid = (np._id || np.id)?.toString();
-                  if (pid) nearbyMap.set(pid, np);
-                });
-
-                // Enrich full catalog without omitting any products
-                allNormalized = allNormalized.map(p => {
-                  const pid = (p._id || p.id)?.toString();
-                  const matchedNearby = nearbyMap.get(pid);
-                  if (matchedNearby) {
-                    return {
-                      ...p,
-                      distanceKm: matchedNearby.distanceKm ?? p.distanceKm,
-                      estimatedMinutes: matchedNearby.estimatedMinutes ?? p.estimatedMinutes,
-                      storeName: matchedNearby.storeName || p.storeName,
-                      storeAddress: matchedNearby.storeAddress || p.storeAddress
-                    };
-                  }
-                  return p;
-                });
-              } else {
-                setLocationStatus('out_of_range');
-                const closest = nearbyData.closestStore || null;
-                setVerifiedLocation({
-                  lat: loc.lat,
-                  lng: loc.lng,
-                  nearestStore: closest,
-                  inZone: false,
-                  verificationStatus: 'out_of_range',
-                  areaName: closest?.name || 'Outside Delivery Zone',
-                  allNearbyStores: []
-                });
-              }
-            }
-          } catch (geoErr) {
-            console.warn('[GEO ENRICH ERROR] Non-critical, using full catalog:', geoErr.message);
+            const rawData = Array.isArray(fallbackRes.data) ? fallbackRes.data : [];
+            const normalized = rawData.map(normalizeProduct);
+            setProducts(normalized);
+            setIsLoadingProducts(false);
+            console.log(`[PRODUCT FETCH] ✅ /products fallback: ${normalized.length} products loaded`);
+            return;
           }
-        } else {
-          setNearbyStores([]);
-        }
 
-        setProducts(allNormalized);
-        setIsLoadingProducts(false);
-        console.log(`[PRODUCT FETCH] ✅ Loaded ${allNormalized.length} products from MongoDB Atlas`);
-        return;
+          const normalized = (data.products || []).map(normalizeProduct);
+          const nearbyList = data.nearbyStores || [];
+          setNearbyStores(nearbyList);
+          setProducts(normalized);
+          setIsLoadingProducts(false);
+
+          const nearest = nearbyList[0] || null;
+          const areaName = nearest?.address?.split(',')?.[0]?.trim() || nearest?.name || 'Vijayawada';
+          const verifiedData = {
+            lat: loc.lat,
+            lng: loc.lng,
+            nearestStore: nearest,
+            inZone: true,
+            verificationStatus: 'verified',
+            areaName,
+            allNearbyStores: nearbyList
+          };
+          try {
+            sessionStorage.setItem('quickfit_session_verified_location', JSON.stringify(verifiedData));
+            sessionStorage.setItem('quickfit_session_location', JSON.stringify({ lat: loc.lat, lng: loc.lng }));
+          } catch (e) {}
+          setVerifiedLocation(verifiedData);
+          setLocationStatus('granted');
+
+          console.log(`[PRODUCT FETCH] ✅ /nearby: ${normalized.length} products from ${nearbyList.length} stores (Area: ${areaName})`);
+          return;
+
+        } else {
+          // ── NO LOCATION: fetch all products (global catalog) ───────────────
+          console.log(`[PRODUCT FETCH] Attempt ${attempt}/${MAX_RETRIES} → /products (no location)`);
+          res = await axios.get(`${API_BASE_URL}/products`, {
+            params: { _t: Date.now() },
+            signal: controller.signal,
+            timeout: TIMEOUT_MS
+          });
+          clearTimeout(timer);
+          setIsBackendWaking(false);
+
+          const rawData = Array.isArray(res.data) ? res.data : [];
+          const normalized = rawData.map(normalizeProduct);
+          setNearbyStores([]);
+          setProducts(normalized);
+          setIsLoadingProducts(false);
+          console.log(`[PRODUCT FETCH] ✅ /products: ${normalized.length} products (no location filter)`);
+          return;
+        }
 
       } catch (err) {
         const isLastAttempt = attempt === MAX_RETRIES;

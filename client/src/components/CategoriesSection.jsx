@@ -3,87 +3,109 @@ import { useShop } from '../context/ShopContext';
 import { resolveImageUrl } from '../config/api';
 import { ArrowRight } from 'lucide-react';
 
-const PRIMARY_CATEGORIES = [
+// Static fallback used ONLY if the API returns nothing after all retries
+const FALLBACK_CATEGORIES = [
   {
-    id: 'cat-oversized',
+    id: 'fallback-oversized',
     name: 'Oversized T-Shirts',
-    slug: 'Oversized T-Shirts',
-    description: '240+ GSM heavyweight cotton with relaxed boxy streetwear drape.',
+    description: '240+ GSM French Terry & Boxy Cuts',
     image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
   },
   {
-    id: 'cat-dropshoulder',
+    id: 'fallback-dropshoulder',
     name: 'Drop Shoulder T-Shirts',
-    slug: 'Drop Shoulder T-Shirts',
-    description: 'Extended shoulders and clean bio-washed minimal silhouette.',
+    description: 'Relaxed Silhouettes & Bio-Washed Cotton',
     image: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=800&auto=format&fit=crop',
   },
   {
-    id: 'cat-polo',
+    id: 'fallback-polo',
     name: 'Polo T-Shirts',
-    slug: 'Polo T-Shirts',
-    description: 'Double-mercerized fine cotton knit with structured collar.',
+    description: 'Double-Mercerized Luxury Pique Knits',
     image: 'https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=80&w=800&auto=format&fit=crop',
   },
   {
-    id: 'cat-shirts',
+    id: 'fallback-shirts',
     name: 'Shirts',
-    slug: 'Shirts',
-    description: '100% pure linen and structured casual streetwear button-downs.',
+    description: '100% Pure European Linen & Formals',
     image: 'https://images.unsplash.com/photo-1621072156002-e2fccdc0b176?q=80&w=800&auto=format&fit=crop',
   },
 ];
 
 export const CategoriesSection = () => {
-  const { setSelectedCategory, categories } = useShop();
+  const { setSelectedCategory, categories, isLoadingCategories } = useShop();
 
-  const handleCategoryClick = (categorySlug) => {
-    setSelectedCategory(categorySlug);
+  const handleCategoryClick = (categoryName) => {
+    setSelectedCategory(categoryName);
     const el = document.getElementById('catalog-section');
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Map image from database category if available, while strictly preserving the 4 target categories
-  const displayCategories = PRIMARY_CATEGORIES.map((base) => {
-    const matchedDb = (categories || []).find(
-      (c) => c.name?.toLowerCase().includes(base.slug.toLowerCase().split(' ')[0]) ||
-             base.slug.toLowerCase().includes(c.name?.toLowerCase() || '')
-    );
-    return {
-      ...base,
-      image: matchedDb?.image ? resolveImageUrl(matchedDb.image) : base.image,
-    };
-  });
+  // Only show active categories from the DB
+  const activeApiCategories = categories.filter((c) => c.isActive !== false);
 
-  return (
-    <section id="categories-section" className="py-12 sm:py-16 bg-white border-b border-neutral-100">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-        
-        {/* SECTION HEADER */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 sm:mb-12 gap-3 pb-4 border-b border-neutral-200">
-          <div>
-            <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-neutral-400 block mb-1">
-              CURATED COLLECTIONS
-            </span>
-            <h2 className="text-2xl sm:text-4xl font-black font-heading text-neutral-950 tracking-tight">
-              Men's Fits by Category
-            </h2>
+  console.log(
+    `[CATEGORIES] isLoading=${isLoadingCategories} | DB categories=${activeApiCategories.length}`,
+    activeApiCategories.map((c) => ({ name: c.name, image: c.image }))
+  );
+
+  /* ── SKELETON — shown while the first DB fetch is in-flight ─────────── */
+  if (isLoadingCategories && activeApiCategories.length === 0) {
+    return (
+      <section id="categories-section" className="py-14 sm:py-20 bg-white border-b border-slate-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <SectionHeader />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm flex flex-col animate-pulse"
+              >
+                <div className="bg-slate-100 aspect-[3/4]" />
+                <div className="p-4 sm:p-5 flex flex-col gap-3">
+                  <div className="h-4 w-28 bg-slate-200 rounded-full" />
+                  <div className="h-3 w-full bg-slate-100 rounded-full" />
+                  <div className="h-3 w-3/4 bg-slate-100 rounded-full" />
+                </div>
+              </div>
+            ))}
           </div>
-          <p className="text-neutral-500 text-xs sm:text-sm max-w-sm leading-relaxed">
-            Everyday heavyweight essentials engineered for structured drape and comfort.
-          </p>
         </div>
+      </section>
+    );
+  }
 
-        {/* 4 CATEGORIES GRID */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+  /* ── DISPLAY LIST — DB data if available, clean fallback otherwise ───── */
+  const displayCategories =
+    activeApiCategories.length > 0
+      ? activeApiCategories.map((cat) => ({
+          id: cat._id || cat.slug || cat.name,
+          name: cat.name,
+          slug: cat.name,
+          description:
+            cat.description && cat.description.trim()
+              ? cat.description
+              : 'Premium curated collection.',
+          image: resolveImageUrl(cat.image),
+        }))
+      : FALLBACK_CATEGORIES;
+
+  /* ── RENDER ──────────────────────────────────────────────────────────── */
+  return (
+    <section id="categories-section" className="py-14 sm:py-20 bg-white border-b border-slate-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <SectionHeader />
+
+        {/* CARDS GRID */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {displayCategories.map((cat) => (
             <div
               key={cat.id}
               onClick={() => handleCategoryClick(cat.slug)}
-              className="group cursor-pointer bg-white border border-neutral-200/80 hover:border-black rounded-2xl sm:rounded-3xl overflow-hidden shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
+              className="group cursor-pointer bg-white border border-slate-200 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col"
             >
               {/* IMAGE */}
-              <div className="overflow-hidden bg-neutral-100 aspect-[3/4] relative">
+              <div className="overflow-hidden bg-slate-100 aspect-[3/4]">
                 <img
                   src={cat.image}
                   alt={cat.name}
@@ -95,24 +117,29 @@ export const CategoriesSection = () => {
                   }}
                   className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
-                <span className="absolute bottom-2.5 left-2.5 right-2.5 text-white font-black text-xs sm:text-sm tracking-tight truncate drop-shadow-sm">
-                  {cat.name}
-                </span>
               </div>
 
               {/* CONTENT */}
-              <div className="p-3 sm:p-4 flex flex-col justify-between gap-2 flex-1">
-                <p className="text-[11px] text-neutral-500 leading-snug line-clamp-2">
+              <div className="p-4 sm:p-5 flex flex-col gap-2 flex-1">
+
+                {/* Category name */}
+                <h3 className="text-sm sm:text-base font-black font-heading text-slate-900 leading-snug">
+                  {cat.name}
+                </h3>
+
+                {/* Description */}
+                <p className="text-[11px] sm:text-xs text-slate-500 leading-relaxed line-clamp-2 flex-1">
                   {cat.description}
                 </p>
 
+                {/* Explore button */}
                 <div className="pt-1">
-                  <div className="inline-flex items-center gap-1.5 text-xs font-black text-black group-hover:underline">
-                    <span>Shop {cat.name}</span>
-                    <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+                  <div className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-black text-slate-900 group-hover:text-orange-500 transition-colors duration-200">
+                    <span>Explore Now</span>
+                    <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                   </div>
                 </div>
+
               </div>
             </div>
           ))}
@@ -122,5 +149,19 @@ export const CategoriesSection = () => {
     </section>
   );
 };
+
+/* ── Section header (shared between skeleton & live render) ─────────────── */
+const SectionHeader = () => (
+  <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 sm:mb-14 gap-3">
+    <div>
+      <h2 className="text-2xl sm:text-4xl font-black font-heading text-slate-900 tracking-tight leading-tight">
+        Shop by Collection
+      </h2>
+    </div>
+    <p className="text-slate-400 text-xs sm:text-sm max-w-xs leading-relaxed">
+      Engineered heavyweight fabrics and modern streetwear fits crafted for everyday luxury.
+    </p>
+  </div>
+);
 
 export default CategoriesSection;

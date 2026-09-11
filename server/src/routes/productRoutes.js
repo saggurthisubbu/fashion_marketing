@@ -223,7 +223,14 @@ router.post('/', protect, storeOwnerOrAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Product name is required.' });
     }
     if (!data.storeId || !data.storeName) {
-      return res.status(400).json({ message: 'Store assignment is required.' });
+      const defaultStore = await Store.findOne({ status: 'Active' }) || await Store.findOne();
+      if (defaultStore) {
+        data.storeId = defaultStore._id.toString();
+        data.storeName = defaultStore.name;
+      } else {
+        data.storeId = 'global-hub';
+        data.storeName = 'QuickFit Central, Vijayawada';
+      }
     }
     if (data.price === undefined || data.price === null || isNaN(Number(data.price)) || Number(data.price) < 0) {
       return res.status(400).json({ message: 'A valid product price is required.' });

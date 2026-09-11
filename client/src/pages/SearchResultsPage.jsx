@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { useShop } from '../context/ShopContext';
+import { ProductCard } from '../components/ProductCard';
 
 export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
   const {
@@ -585,96 +586,11 @@ export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
                 </button>
               </div>
             ) : products.length > 0 ? (
-              /* PRODUCTS FOUND (AMAZON / MYNTRA CARDS) */
+              /* PRODUCTS FOUND (UNIFIED LUXURY PRODUCT CARDS) */
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
-                {products.map((product) => {
-                  const img = resolveImageUrl(product.image || product.images?.front);
-                  const discountPct = product.discount || (
-                    product.originalPrice && product.originalPrice > product.price
-                      ? `${Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF`
-                      : null
-                  );
-
-                  return (
-                    <div
-                      key={product._id || product.id}
-                      className="group relative bg-white rounded-3xl p-2.5 sm:p-3.5 border border-slate-200/80 hover:border-slate-900 hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
-                    >
-                      {/* PRODUCT IMAGE CONTAINER (COMPLETELY CLEAN WITHOUT OVERLAYS) */}
-                      <div className="relative w-full aspect-[4/5] rounded-2xl bg-slate-100 overflow-hidden mb-3">
-                        <img
-                          src={img}
-                          alt={product.name}
-                          onClick={() => openProductDetail(product)}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 cursor-pointer"
-                          onError={(e) => {
-                            e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600';
-                          }}
-                        />
-                      </div>
-
-                      {/* PRODUCT INFO */}
-                      <div className="space-y-1.5 flex-1 flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-center justify-between text-[10px] text-slate-400">
-                            <span className="truncate max-w-[120px] font-bold">
-                              {product.storeName || 'QuickFit Hub'}
-                            </span>
-                            <span className="text-amber-500 font-black">★ {product.rating || 4.9}</span>
-                          </div>
-
-                          <h3
-                            onClick={() => openProductDetail(product)}
-                            className="text-xs sm:text-sm font-black text-slate-900 line-clamp-1 group-hover:text-amber-600 transition-colors cursor-pointer mt-0.5"
-                          >
-                            {product.name}
-                          </h3>
-
-                          <p className="text-[10px] text-slate-500 truncate">
-                            {product.subcategory || product.category}
-                          </p>
-                        </div>
-
-                        {/* PRICING */}
-                        <div className="pt-2">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-sm sm:text-base font-black text-slate-900">
-                              ₹{product.price}
-                            </span>
-                            {product.originalPrice && product.originalPrice > product.price && (
-                              <span className="text-xs text-slate-400 line-through">
-                                ₹{product.originalPrice}
-                              </span>
-                            )}
-                            {discountPct && (
-                              <span className="text-[10px] font-black text-rose-600">
-                                {discountPct}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* ACTION BUTTONS (ADD TO BAG & BUY NOW) */}
-                          <div className="grid grid-cols-2 gap-1.5 mt-2.5">
-                            <button
-                              onClick={() => addToCart(product, product.sizes?.[0] || 'M')}
-                              className="py-2 px-2 rounded-xl border border-slate-200 hover:border-slate-900 bg-slate-50 hover:bg-white text-slate-900 text-[10px] sm:text-xs font-black transition-all text-center truncate cursor-pointer active:scale-95"
-                            >
-                              Add to Bag
-                            </button>
-                            <button
-                              onClick={() => buyNow(product, product.sizes?.[0] || 'M')}
-                              className="py-2 px-2 rounded-xl bg-slate-900 hover:bg-black text-white text-[10px] sm:text-xs font-black transition-all text-center truncate cursor-pointer active:scale-95"
-                            >
-                              Buy Now
-                            </button>
-                          </div>
-                        </div>
-
-                      </div>
-
-                    </div>
-                  );
-                })}
+                {products.map((product) => (
+                  <ProductCard key={product._id || product.id} product={product} />
+                ))}
               </div>
             ) : (
               /* ───────────────────────────────────────────────────────── */

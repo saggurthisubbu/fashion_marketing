@@ -26,38 +26,37 @@ export const Hero = () => {
   );
 
   return (
-    <section className="relative overflow-hidden pt-8 pb-16 lg:pt-16 lg:pb-24 bg-gradient-to-b from-slate-50 via-slate-100/60 to-white">
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+    <section className="relative overflow-hidden pt-6 pb-12 lg:pt-14 lg:pb-20 bg-white">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           
           {/* LEFT COLUMN - CONTENT & CTAs */}
-          <div className="lg:col-span-7 space-y-5 sm:space-y-6 text-center lg:text-left">
+          <div className="lg:col-span-7 space-y-4 sm:space-y-6 text-center lg:text-left">
             
             {/* BADGE */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900 text-white text-[11px] font-black uppercase tracking-wider shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse"></span>
-              <span>QUICKFIT FASHION · MEN'S STREETWEAR ARCHIVE</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black text-white text-[10px] sm:text-xs font-black uppercase tracking-wider shadow-xs">
+              <span>●</span>
+              <span>QUICKFIT · PREMIUM MEN'S WEAR</span>
             </div>
 
             {/* MAIN HEADLINE */}
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-[1.08] font-heading uppercase">
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-black tracking-tight leading-[1.08] font-heading uppercase">
               PREMIUM MEN'S <br />
-              <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-slate-900 bg-clip-text text-transparent">
+              <span className="text-neutral-900">
                 FASHION & FITS.
               </span>
             </h1>
 
             {/* SUBHEADLINE */}
-            <p className="text-sm sm:text-lg text-slate-600 max-w-2xl mx-auto lg:mx-0 font-normal leading-relaxed">
-              Welcome to <strong className="font-semibold text-slate-800">QuickFit Fashion</strong>. Discover premium men's clothing, luxury oversized t-shirts, drop shoulder fits, and polo t-shirts crafted with 240+ GSM heavyweight cotton for modern drape and durability.
+            <p className="text-xs sm:text-base text-neutral-600 max-w-xl mx-auto lg:mx-0 font-normal leading-relaxed">
+              Luxury oversized t-shirts, drop shoulder silhouettes, polo knits, and pure linen shirts crafted with heavyweight 240+ GSM cotton for modern streetwear drape.
             </p>
 
             {/* CTAs BUTTONS */}
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-2.5 pt-2">
               <button
                 onClick={handleShopNow}
-                className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-slate-900 hover:bg-black text-white font-extrabold text-sm shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center gap-2.5 !min-h-[48px]"
+                className="w-full sm:w-auto px-8 py-3 rounded-full bg-black hover:bg-neutral-800 text-white font-black text-xs sm:text-sm tracking-wider uppercase shadow-xs transition-all duration-200 flex items-center justify-center gap-2 !min-h-[46px] cursor-pointer active:scale-98"
               >
                 <span>Shop Collection</span>
                 <span>➔</span>
@@ -65,26 +64,26 @@ export const Hero = () => {
 
               <button
                 onClick={handleExplore}
-                className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-white border border-slate-300 text-slate-800 font-bold text-sm shadow-xs hover:bg-slate-50 transition-all duration-300 flex items-center justify-center gap-2 !min-h-[48px]"
+                className="w-full sm:w-auto px-8 py-3 rounded-full bg-white border border-neutral-300 hover:border-black text-black font-black text-xs sm:text-sm tracking-wider uppercase shadow-xs hover:bg-neutral-50 transition-all duration-200 flex items-center justify-center gap-2 !min-h-[46px] cursor-pointer active:scale-98"
               >
-                <span>Explore Men's Wear</span>
+                <span>Explore Categories</span>
                 <span>↓</span>
               </button>
             </div>
 
             {/* SPECS */}
-            <div className="pt-6 border-t border-slate-200 grid grid-cols-3 gap-3 text-center lg:text-left max-w-md mx-auto lg:mx-0">
+            <div className="pt-6 border-t border-neutral-200 grid grid-cols-3 gap-2 sm:gap-4 text-center lg:text-left max-w-md mx-auto lg:mx-0">
               <div>
-                <div className="text-xl sm:text-2xl font-black text-slate-900 font-heading">240+ GSM</div>
-                <div className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Heavy Cotton</div>
+                <div className="text-lg sm:text-2xl font-black text-black font-heading">240+ GSM</div>
+                <div className="text-[10px] sm:text-xs text-neutral-400 font-bold uppercase tracking-wider">Heavy Cotton</div>
               </div>
               <div>
-                <div className="text-xl sm:text-2xl font-black text-slate-900 font-heading">BOXY</div>
-                <div className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Modern Drape</div>
+                <div className="text-lg sm:text-2xl font-black text-black font-heading">BOXY</div>
+                <div className="text-[10px] sm:text-xs text-neutral-400 font-bold uppercase tracking-wider">Modern Drape</div>
               </div>
               <div>
-                <div className="text-xl sm:text-2xl font-black text-slate-900 font-heading">EXPRESS</div>
-                <div className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Vijayawada Hub</div>
+                <div className="text-lg sm:text-2xl font-black text-black font-heading">FAST</div>
+                <div className="text-[10px] sm:text-xs text-neutral-400 font-bold uppercase tracking-wider">Express Dispatch</div>
               </div>
             </div>
 
@@ -94,32 +93,32 @@ export const Hero = () => {
           <div className="lg:col-span-5 flex justify-center">
             <div
               onClick={() => featuredProduct && openProductDetail(featuredProduct)}
-              className="w-full max-w-sm sm:max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-200 group cursor-pointer p-3 sm:p-4 flex flex-col justify-between"
+              className="w-full max-w-xs sm:max-w-sm bg-white rounded-3xl overflow-hidden shadow-xl border border-neutral-200 group cursor-pointer p-3 flex flex-col justify-between"
             >
-              <div className="relative aspect-[3/4] w-full rounded-2xl overflow-hidden bg-slate-100 mb-3">
+              <div className="relative aspect-[3/4] w-full rounded-2xl overflow-hidden bg-neutral-100 mb-2.5">
                 <img
                   src={heroImageSrc}
                   alt={featuredProduct?.name || "QuickFit Men's Streetwear"}
                   loading="lazy"
                   onError={(e) => {
                     e.currentTarget.onerror = null;
-                    e.currentTarget.src = '/placeholder-product.jpg';
+                    e.currentTarget.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000';
                   }}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
               </div>
 
-              <div className="flex items-center justify-between text-slate-900 px-1 pt-1">
+              <div className="flex items-center justify-between text-black px-1">
                 <div className="min-w-0 pr-2">
-                  <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
-                    {featuredProduct?.subcategory || "Heavy French Terry"}
+                  <span className="text-[10px] font-bold uppercase text-neutral-400 tracking-wider">
+                    {featuredProduct?.subcategory || "Streetwear Edition"}
                   </span>
                   <h3 className="text-xs sm:text-sm font-black uppercase line-clamp-1">
-                    {featuredProduct?.name || "Monochrome Boxy Oversized Tee"}
+                    {featuredProduct?.name || "Oversized Heavyweight Tee"}
                   </h3>
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="text-sm sm:text-base font-black text-slate-900">
+                  <div className="text-sm sm:text-base font-black text-black">
                     ₹{featuredProduct?.price || 1499}
                   </div>
                 </div>
@@ -132,3 +131,5 @@ export const Hero = () => {
     </section>
   );
 };
+
+export default Hero;

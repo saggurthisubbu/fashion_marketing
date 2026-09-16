@@ -376,6 +376,78 @@ export const AdminProductsTab = ({
         </div>
       )}
 
+      {/* Internal Admin Audit Section — strictly visible inside Admin Dashboard */}
+      <div className="mt-8 pt-6 border-t border-zinc-800 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">🛡️</span>
+            <h3 className="text-xs font-black uppercase tracking-wider text-zinc-300 font-mono">
+              Database Records & Visibility Audit (Admin Only)
+            </h3>
+          </div>
+          <span className="text-[10px] font-mono text-zinc-500">
+            Total Records: {productsList.length}
+          </span>
+        </div>
+
+        <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[11px] font-mono whitespace-nowrap">
+              <thead className="bg-zinc-900 border-b border-zinc-800 text-zinc-400">
+                <tr>
+                  <th className="p-2.5">Product Title</th>
+                  <th className="p-2.5">MongoDB _id</th>
+                  <th className="p-2.5">Store ID / Name</th>
+                  <th className="p-2.5">Category</th>
+                  <th className="p-2.5">Stock</th>
+                  <th className="p-2.5">Active</th>
+                  <th className="p-2.5 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-900">
+                {productsList.map((p) => {
+                  const pid = p._id || p.id;
+                  const isAvailable = p.inStock !== false && (p.stockQuantity !== undefined ? p.stockQuantity : 25) > 0;
+                  return (
+                    <tr key={pid} className="hover:bg-zinc-900/40">
+                      <td className="p-2.5 text-white font-sans font-bold max-w-[160px] truncate">
+                        {p.name}
+                      </td>
+                      <td className="p-2.5 text-zinc-400 select-all">{pid}</td>
+                      <td className="p-2.5 text-zinc-400 max-w-[140px] truncate">
+                        {p.storeName || p.storeId || 'QuickFit Central'}
+                      </td>
+                      <td className="p-2.5 text-zinc-300">{p.subcategory || p.category || 'Men'}</td>
+                      <td className={`p-2.5 font-bold ${p.stockQuantity > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {p.stockQuantity}
+                      </td>
+                      <td className="p-2.5">
+                        {p.inStock ? (
+                          <span className="text-emerald-400">Yes</span>
+                        ) : (
+                          <span className="text-red-400">No</span>
+                        )}
+                      </td>
+                      <td className="p-2.5 text-center">
+                        {isAvailable ? (
+                          <span className="px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-800 text-emerald-400 text-[10px]">
+                            Live on Storefront
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded bg-red-950/60 border border-red-800 text-red-400 text-[10px]">
+                            Out of Stock / Disabled
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 };

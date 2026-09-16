@@ -462,6 +462,9 @@ export const AdminDashboardModal = () => {
         price: Number(productForm.price),
         originalPrice: productForm.originalPrice ? Number(productForm.originalPrice) : undefined,
         stockQuantity: Number(productForm.stockQuantity || 25),
+        inStock: Number(productForm.stockQuantity || 25) > 0,
+        isActive: true,
+        published: true,
         boutique: productForm.boutique || fallbackStoreName,
         description: productForm.description || '',
         sizes: typeof productForm.sizes === 'string'
@@ -488,11 +491,17 @@ export const AdminDashboardModal = () => {
           addOrUpdateProductLocally(savedProd);
         }
 
+        // Dispatch live browser event for instant storefront sync
+        try {
+          window.dispatchEvent(new CustomEvent('quickfit_products_updated', { detail: savedProd }));
+        } catch (e) {}
+
         setProductsList(prev => {
           const list = Array.isArray(prev) ? prev : [];
-          const exists = list.some(p => (p._id || p.id) === (savedProd._id || savedProd.id));
+          const newId = String(savedProd._id || savedProd.id);
+          const exists = list.some(p => String(p._id || p.id) === newId);
           if (exists) {
-            return list.map(p => (p._id || p.id) === (savedProd._id || savedProd.id) ? savedProd : p);
+            return list.map(p => String(p._id || p.id) === newId ? savedProd : p);
           }
           return [savedProd, ...list];
         });
@@ -1044,14 +1053,29 @@ export const AdminDashboardModal = () => {
                 </div>
               </div>
 
-              {/* Product Title */}
+              {/* Product Title with Smart Category Auto-Detection */}
               <div>
                 <label className="font-bold text-zinc-300 uppercase tracking-wider block mb-1">Product Title *</label>
                 <input
                   type="text"
                   required
                   value={productForm.name}
-                  onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                  onChange={(e) => {
+                    const newName = e.target.value;
+                    const lower = newName.toLowerCase();
+                    let detectedSub = productForm.subcategory;
+                    // Auto-suggest category if user hasn't explicitly picked a non-default
+                    if (lower.includes('drop shoulder') || lower.includes('dropshoulder') || lower.includes('drop-shoulder')) {
+                      detectedSub = 'Drop Shoulder T-Shirts';
+                    } else if (lower.includes('polo')) {
+                      detectedSub = 'Polo T-Shirts';
+                    } else if (lower.includes('oversized') || lower.includes('boxy')) {
+                      detectedSub = 'Oversized T-Shirts';
+                    } else if (lower.includes('shirt') && !lower.includes('t-shirt') && !lower.includes('tshirt')) {
+                      detectedSub = 'Shirts';
+                    }
+                    setProductForm({ ...productForm, name: newName, subcategory: detectedSub });
+                  }}
                   placeholder="e.g. Monochrome Heavyweight Oversized Tee"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-medium focus:outline-none focus:border-white"
                 />
@@ -1096,6 +1120,11 @@ export const AdminDashboardModal = () => {
                     <option value="Drop Shoulder T-Shirts">Drop Shoulder T-Shirts</option>
                     <option value="Polo T-Shirts">Polo T-Shirts</option>
                     <option value="Shirts">Shirts</option>
+                    {categories
+                      .filter(c => c.name && !['Oversized T-Shirts', 'Drop Shoulder T-Shirts', 'Polo T-Shirts', 'Shirts'].includes(c.name))
+                      .map(c => (
+                        <option key={c._id || c.name} value={c.name}>{c.name}</option>
+                      ))}
                   </select>
                 </div>
 

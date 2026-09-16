@@ -14,6 +14,8 @@ const productSchema = new mongoose.Schema({
   expressDelivery: { type: String, default: 'Express Delivery' },
   boutique: { type: String, default: 'QuickFit Central, Vijayawada' },
   inStock: { type: Boolean, default: true },
+  isActive: { type: Boolean, default: true },
+  published: { type: Boolean, default: true },
   stockQuantity: { type: Number, required: true, default: 25 },
   featured: { type: Boolean, default: true },
   badge: { type: String, default: 'Bestseller' },
@@ -61,13 +63,15 @@ productSchema.pre('save', function (next) {
     ].filter(Boolean);
   }
 
-  // Stock controller
+  // Stock & visibility controller
   if (this.stockQuantity <= 0) {
     this.inStock = false;
     this.stockQuantity = 0;
   } else {
     this.inStock = true;
   }
+  if (this.isActive === undefined) this.isActive = true;
+  if (this.published === undefined) this.published = true;
   next();
 });
 

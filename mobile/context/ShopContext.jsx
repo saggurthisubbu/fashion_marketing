@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
@@ -129,6 +129,8 @@ export const ShopProvider = ({ children }) => {
       boutique: p.boutique || 'QuickFit Central, Vijayawada',
       stockQuantity: stockQty,
       inStock: p.inStock !== undefined ? p.inStock : stockQty > 0,
+      isActive: p.isActive !== false,
+      published: p.published !== false,
       featured: p.featured !== undefined ? p.featured : true,
       badge: p.badge || 'Bestseller',
       description: p.description || 'Premium heavyweight cotton streetwear.',
@@ -201,10 +203,22 @@ export const ShopProvider = ({ children }) => {
             setIsLoadingProducts(false);
             return;
           }
-          const normalized = (data.products || []).map(normalizeProduct);
+          // Fetch full catalog and enrich with nearby store distances
+          const fullRes = await axios.get(`${API_BASE_URL}/products`, { params: { _t: Date.now() }, timeout: TIMEOUT_MS });
+          const fullRaw = Array.isArray(fullRes.data) ? fullRes.data : [];
+          const nearbyMap = new Map();
+          (data.products || []).forEach(np => {
+            const pid = (np._id || np.id)?.toString();
+            if (pid) nearbyMap.set(pid, np);
+          });
+          const allNormalized = fullRaw.map(p => {
+            const pid = (p._id || p.id)?.toString();
+            const matched = nearbyMap.get(pid);
+            return normalizeProduct(matched ? { ...p, ...matched } : p);
+          });
           const nearbyList = data.nearbyStores || [];
           setNearbyStores(nearbyList);
-          setProducts(normalized);
+          setProducts(allNormalized);
           setIsLoadingProducts(false);
           const nearest = nearbyList[0] || null;
           const areaName = nearest?.address?.split(',')?.[0]?.trim() || nearest?.name || 'Vijayawada';

@@ -96,7 +96,14 @@ export const CategoryPage = ({ slug, onNavigateHome }) => {
       const name = (item.name || '').toLowerCase();
 
       // Shirts matching: any shirt category/name, strictly excluding t-shirts and tees
-      if (catSlug === 'shirts' || catName === 'shirts') {
+      const isShirtCategory =
+        catSlug === 'shirts' ||
+        catSlug === 'shirt' ||
+        catSlug === 'linen-shirts' ||
+        catName === 'shirts' ||
+        catName === 'shirt';
+
+      if (isShirtCategory) {
         const isTShirt = (
           sub.includes('t-shirt') ||
           sub.includes('tshirt') ||
@@ -120,7 +127,13 @@ export const CategoryPage = ({ slug, onNavigateHome }) => {
       }
 
       // Oversized T-Shirts
-      if (catSlug === 'oversized-t-shirts' || catName.includes('oversized')) {
+      const isOversizedCategory =
+        catSlug === 'oversized-t-shirts' ||
+        catSlug === 'oversized' ||
+        catSlug === 'oversized-tshirts' ||
+        catName.includes('oversized');
+
+      if (isOversizedCategory) {
         return (
           sub.includes('oversized') ||
           cat.includes('oversized') ||
@@ -129,18 +142,34 @@ export const CategoryPage = ({ slug, onNavigateHome }) => {
       }
 
       // Drop Shoulder T-Shirts
-      if (catSlug === 'drop-shoulder-t-shirts' || catName.includes('drop shoulder')) {
+      const isDropShoulderCategory =
+        catSlug === 'drop-shoulder-t-shirts' ||
+        catSlug === 'drop-shoulder' ||
+        catSlug === 'dropshoulder' ||
+        catSlug === 'drop-shoulder-tshirts' ||
+        catName.includes('drop shoulder');
+
+      if (isDropShoulderCategory) {
         return (
           sub.includes('drop shoulder') ||
           sub.includes('drop-shoulder') ||
+          sub.includes('dropshoulder') ||
           cat.includes('drop shoulder') ||
           name.includes('drop shoulder') ||
-          name.includes('drop-shoulder')
+          name.includes('drop-shoulder') ||
+          name.includes('dropshoulder')
         );
       }
 
       // Polo T-Shirts
-      if (catSlug === 'polo-t-shirts' || catName.includes('polo')) {
+      const isPoloCategory =
+        catSlug === 'polo-t-shirts' ||
+        catSlug === 'polo' ||
+        catSlug === 'polos' ||
+        catSlug === 'polo-tshirts' ||
+        catName.includes('polo');
+
+      if (isPoloCategory) {
         return (
           sub.includes('polo') ||
           cat.includes('polo') ||

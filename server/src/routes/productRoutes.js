@@ -36,6 +36,12 @@ router.get('/', async (req, res) => {
       ];
     }
 
+    // Customer Storefront: exclude soft-disabled or unpublished products (admin can pass includeInactive=true)
+    if (req.query.includeInactive !== 'true') {
+      filter.isActive = { $ne: false };
+      filter.published = { $ne: false };
+    }
+
     // --- MIGRATION LOGIC: Assign legacy products to first active store ---
     const legacyCount = await Product.countDocuments({ storeId: { $exists: false } });
     if (legacyCount > 0) {
@@ -250,7 +256,9 @@ router.post('/', protect, storeOwnerOrAdmin, async (req, res) => {
     data.stockQuantity = data.stockQuantity !== undefined && !isNaN(Number(data.stockQuantity))
       ? Math.max(0, Number(data.stockQuantity))
       : 25;
-    data.inStock = data.stockQuantity > 0;
+    data.inStock = data.inStock !== undefined ? Boolean(data.inStock) : (data.stockQuantity > 0);
+    data.isActive = data.isActive !== undefined ? Boolean(data.isActive) : true;
+    data.published = data.published !== undefined ? Boolean(data.published) : true;
 
     // Default category to Men
     if (!data.category) data.category = 'Men';
@@ -346,6 +354,9 @@ router.put('/:id', protect, storeOwnerOrAdmin, async (req, res) => {
       product.stockQuantity = Math.max(0, Number(data.stockQuantity));
       product.inStock = product.stockQuantity > 0;
     }
+    if (data.inStock !== undefined) product.inStock = Boolean(data.inStock);
+    if (data.isActive !== undefined) product.isActive = Boolean(data.isActive);
+    if (data.published !== undefined) product.published = Boolean(data.published);
     if (data.boutique) product.boutique = data.boutique;
     if (data.description) product.description = data.description;
 

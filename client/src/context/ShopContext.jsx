@@ -178,6 +178,8 @@ export const ShopProvider = ({ children }) => {
       boutique: p.boutique || 'QuickFit Central, Vijayawada',
       stockQuantity: stockQty,
       inStock: p.inStock !== undefined ? p.inStock : stockQty > 0,
+      isActive: p.isActive !== false,
+      published: p.published !== false,
       featured: p.featured !== undefined ? p.featured : true,
       badge: p.badge || 'Bestseller',
       description: p.description || 'Premium heavyweight cotton streetwear.',
@@ -222,6 +224,11 @@ export const ShopProvider = ({ children }) => {
 
         console.log(`[PRODUCT FETCH] Attempt ${attempt}/${MAX_RETRIES} → /products`);
         const allRes = await axios.get(`${API_BASE_URL}/products`, {
+          params: { _t: Date.now() },
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          },
           signal: controller.signal,
           timeout: TIMEOUT_MS
         });
@@ -749,12 +756,13 @@ export const ShopProvider = ({ children }) => {
     const normalized = normalizeProduct(newOrUpdatedProduct);
     setProducts((prev) => {
       const list = Array.isArray(prev) ? prev : [];
-      const id = normalized._id || normalized.id;
-      const exists = list.some((p) => (p._id || p.id) === id);
+      const newId = String(normalized._id || normalized.id);
+      const exists = list.some((p) => String(p._id || p.id) === newId);
       let updated;
       if (exists) {
-        updated = list.map((p) => (p._id || p.id) === id ? normalized : p);
+        updated = list.map((p) => String(p._id || p.id) === newId ? normalized : p);
       } else {
+        // Place newly added products right at the top for instant visibility
         updated = [normalized, ...list];
       }
       try {
@@ -763,6 +771,19 @@ export const ShopProvider = ({ children }) => {
       return updated;
     });
   }, [normalizeProduct]);
+
+  // Listen for global custom events fired when admin adds/edits products
+  useEffect(() => {
+    const handleProductUpdateEvent = (event) => {
+      if (event?.detail) {
+        addOrUpdateProductLocally(event.detail);
+      }
+    };
+    window.addEventListener('quickfit_products_updated', handleProductUpdateEvent);
+    return () => {
+      window.removeEventListener('quickfit_products_updated', handleProductUpdateEvent);
+    };
+  }, [addOrUpdateProductLocally]);
 
   return (
     <ShopContext.Provider

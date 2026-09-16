@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useShop } from '../context/ShopContext';
 import { formatQuickFitWhatsAppOrder } from '../utils/whatsapp';
-import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
+import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE, handleImageError } from '../config/api';
 
 export const ProductDetailModal = () => {
   const { selectedProduct, isDetailModalOpen, setIsDetailModalOpen, addToCart, buyNow, showToast, verifiedLocation, userLocation } = useShop();
@@ -221,11 +221,7 @@ export const ProductDetailModal = () => {
               src={currentAngle.url}
               alt={`${selectedProduct.name} - ${currentAngle.label}`}
               loading="lazy"
-              onError={(e) => {
-                console.warn('[IMAGE ERROR] Failed to load detail modal image for:', selectedProduct.name);
-                e.currentTarget.onerror = null;
-                e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
-              }}
+              onError={(e) => handleImageError(e, DEFAULT_PLACEHOLDER_IMAGE)}
               className="w-full h-full object-cover transition-transform duration-200 ease-out pointer-events-none"
               style={
                 isZoomed
@@ -308,10 +304,7 @@ export const ProductDetailModal = () => {
                           src={angle.url}
                           alt={angle.label}
                           loading="lazy"
-                          onError={(e) => {
-                            e.currentTarget.onerror = null;
-                            e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
-                          }}
+                          onError={(e) => handleImageError(e, DEFAULT_PLACEHOLDER_IMAGE)}
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -488,10 +481,7 @@ export const ProductDetailModal = () => {
                 src={resolveImageUrl(selectedProduct.images?.front || selectedProduct.image)}
                 alt={selectedProduct.name}
                 loading="lazy"
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = '/placeholder-shirt.jpg';
-                }}
+                onError={(e) => handleImageError(e, '/placeholder-shirt.jpg')}
                 className="w-12 h-14 object-cover rounded-lg border border-slate-200"
               />
               <div className="min-w-0 flex-1">

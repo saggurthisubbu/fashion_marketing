@@ -1,6 +1,6 @@
 import React from 'react';
 import { useShop } from '../context/ShopContext';
-import { resolveImageUrl } from '../config/api';
+import { resolveImageUrl, handleImageError } from '../config/api';
 
 export const Hero = () => {
   const { setSelectedCategory, products, openProductDetail } = useShop();
@@ -105,10 +105,7 @@ export const Hero = () => {
                   decoding="async"
                   width="480"
                   height="640"
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = '/placeholder-shirt.jpg';
-                  }}
+                  onError={(e) => handleImageError(e, '/placeholder-shirt.jpg')}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />
               </div>

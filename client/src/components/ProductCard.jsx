@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useShop } from '../context/ShopContext';
-import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
+import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE, handleImageError } from '../config/api';
 
 export const ProductCard = React.memo(({ product, priority = false }) => {
   const { addToCart, toggleWishlist, isInWishlist, openProductDetail } = useShop();
@@ -47,11 +47,7 @@ export const ProductCard = React.memo(({ product, priority = false }) => {
           decoding="async"
           width="400"
           height="533"
-          onError={(e) => {
-            console.warn('[IMAGE LOAD ERROR] Failed to load product image:', product.name, e.currentTarget.src);
-            e.currentTarget.onerror = null;
-            e.currentTarget.src = '/placeholder-shirt.jpg';
-          }}
+          onError={(e) => handleImageError(e, '/placeholder-shirt.jpg')}
           className={`w-full h-full object-cover transition-all duration-500 ease-out ${
             hasBackImage
               ? 'group-hover:opacity-0 group-hover:scale-105'
@@ -68,10 +64,7 @@ export const ProductCard = React.memo(({ product, priority = false }) => {
             decoding="async"
             width="400"
             height="533"
-            onError={(e) => {
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = frontImage || '/placeholder-shirt.jpg';
-            }}
+            onError={(e) => handleImageError(e, frontImage || '/placeholder-shirt.jpg')}
             className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500 ease-out"
           />
         )}

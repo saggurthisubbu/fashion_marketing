@@ -67,12 +67,8 @@ app.use('/uploads', express.static(uploadsDir, {
   }
 }));
 
-// Fallback for missing uploads: return placeholder instead of 404
+// Missing uploads return 404 so client knows the file is not on disk
 app.get('/uploads/*', (req, res) => {
-  const shirtPlaceholder = path.join(uploadsDir, 'placeholder-shirt.jpg');
-  if (fs.existsSync(shirtPlaceholder)) {
-    return res.sendFile(shirtPlaceholder);
-  }
   res.status(404).send('Not Found');
 });
 

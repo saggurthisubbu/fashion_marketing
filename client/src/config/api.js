@@ -104,3 +104,29 @@ export const resolveImageUrl = (imgUrl) => {
   const origin = API_ORIGIN || (typeof window !== 'undefined' ? window.location.origin : '');
   return origin ? `${origin}/uploads/${trimmed}` : `/uploads/${trimmed}`;
 };
+
+/**
+ * Resilient image error handler:
+ * If loading from backend (Render) fails or times out,
+ * it immediately fails over to the frontend CDN/host (/uploads/fileName).
+ * Prevents premature placeholder replacement for valid uploaded images.
+ */
+export const handleImageError = (e, fallback = DEFAULT_PLACEHOLDER_IMAGE) => {
+  const target = e.currentTarget;
+  const currentSrc = target.src;
+
+  if (currentSrc && currentSrc.includes('/uploads/')) {
+    const parts = currentSrc.split('/uploads/');
+    const fileName = parts[1]?.split('?')[0];
+    if (fileName && typeof window !== 'undefined' && !currentSrc.startsWith(window.location.origin)) {
+      target.src = `/uploads/${fileName}`;
+      return;
+    }
+  }
+
+  target.onerror = null;
+  if (fallback) {
+    target.src = fallback;
+  }
+};
+

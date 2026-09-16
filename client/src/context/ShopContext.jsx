@@ -743,6 +743,27 @@ export const ShopProvider = ({ children }) => {
     setIsDetailModalOpen(true);
   };
 
+  // Instant local product sync for admin additions/edits without page refresh
+  const addOrUpdateProductLocally = useCallback((newOrUpdatedProduct) => {
+    if (!newOrUpdatedProduct) return;
+    const normalized = normalizeProduct(newOrUpdatedProduct);
+    setProducts((prev) => {
+      const list = Array.isArray(prev) ? prev : [];
+      const id = normalized._id || normalized.id;
+      const exists = list.some((p) => (p._id || p.id) === id);
+      let updated;
+      if (exists) {
+        updated = list.map((p) => (p._id || p.id) === id ? normalized : p);
+      } else {
+        updated = [normalized, ...list];
+      }
+      try {
+        sessionStorage.setItem('quickfit_cached_products', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  }, [normalizeProduct]);
+
   return (
     <ShopContext.Provider
       value={{
@@ -750,6 +771,7 @@ export const ShopProvider = ({ children }) => {
         setCheckoutRedirectPending,
         products,
         setProducts,
+        addOrUpdateProductLocally,
         isLoadingProducts,
         categories,
         fetchCategories,

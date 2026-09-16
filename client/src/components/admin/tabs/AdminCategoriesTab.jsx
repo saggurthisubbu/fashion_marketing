@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import axios from 'axios';
 import { Tags, Plus, Edit2, Trash2, Upload, X, ImageIcon, CheckCircle2, Crop } from 'lucide-react';
 import { ProductImageCropperModal } from '../ProductImageCropperModal';
+import { resolveImageUrl } from '../../../config/api';
 
 export const AdminCategoriesTab = ({
   categories = [],
@@ -253,12 +254,14 @@ export const AdminCategoriesTab = ({
             {/* Banner Image */}
             <div className="relative h-44 w-full bg-zinc-950 overflow-hidden">
               <img
-                src={cat.image || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop'}
+                src={resolveImageUrl(cat.image)}
                 alt={cat.name}
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   e.currentTarget.onerror = null;
-                  e.currentTarget.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop';
+                  e.currentTarget.src = '/placeholder-shirt.jpg';
                 }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
@@ -373,12 +376,12 @@ export const AdminCategoriesTab = ({
                   <>
                     <div className="relative rounded-2xl overflow-hidden bg-zinc-950 border border-zinc-800 group aspect-video w-full">
                       <img
-                        src={previewSrc}
+                        src={resolveImageUrl(previewSrc)}
                         alt="Banner preview"
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
-                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.src = '/placeholder-shirt.jpg';
                         }}
                       />
 

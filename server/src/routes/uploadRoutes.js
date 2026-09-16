@@ -109,6 +109,17 @@ router.post('/', (req, res) => {
       const relativePath = `/uploads/${req.file.filename}`;
       console.log(`[UPLOAD] Image saved successfully on local disk: ${req.file.filename} (${(req.file.size / 1024).toFixed(1)} KB) -> ${relativePath}`);
 
+      // Also mirror to client/public/uploads for seamless local Vite dev server access
+      try {
+        const clientPublicUploads = path.join(__dirname, '../../../client/public/uploads');
+        if (fs.existsSync(clientPublicUploads)) {
+          const clientDest = path.join(clientPublicUploads, req.file.filename);
+          fs.copyFileSync(req.file.path, clientDest);
+        }
+      } catch (mirrorErr) {
+        console.warn('[UPLOAD MIRROR WARNING]:', mirrorErr.message);
+      }
+
       res.status(200).json({
         success: true,
         message: 'Image uploaded successfully!',

@@ -22,7 +22,7 @@ export const Hero = () => {
   };
 
   const heroImageSrc = resolveImageUrl(
-    featuredProduct?.images?.front || featuredProduct?.image || "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop"
+    featuredProduct?.images?.front || featuredProduct?.image || '/uploads/quickfit-product-front-4x5-final-1789044286288-437978021.jpg'
   );
 
   return (
@@ -103,9 +103,11 @@ export const Hero = () => {
                   loading="eager"
                   fetchpriority="high"
                   decoding="async"
+                  width="480"
+                  height="640"
                   onError={(e) => {
                     e.currentTarget.onerror = null;
-                    e.currentTarget.src = '/placeholder-product.jpg';
+                    e.currentTarget.src = '/placeholder-shirt.jpg';
                   }}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />

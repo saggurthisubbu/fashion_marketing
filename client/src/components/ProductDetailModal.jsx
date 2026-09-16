@@ -485,8 +485,13 @@ export const ProductDetailModal = () => {
 
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3">
               <img
-                src={selectedProduct.images?.front || selectedProduct.image}
+                src={resolveImageUrl(selectedProduct.images?.front || selectedProduct.image)}
                 alt={selectedProduct.name}
+                loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = '/placeholder-shirt.jpg';
+                }}
                 className="w-12 h-14 object-cover rounded-lg border border-slate-200"
               />
               <div className="min-w-0 flex-1">

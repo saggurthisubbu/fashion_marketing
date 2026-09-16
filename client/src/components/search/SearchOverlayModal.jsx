@@ -223,9 +223,12 @@ export const SearchOverlayModal = ({ isOpen, onClose, initialQuery = '' }) => {
                       <img
                         src={img}
                         alt={product.name}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         onError={(e) => {
-                          e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600';
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = '/placeholder-shirt.jpg';
                         }}
                       />
                     </div>

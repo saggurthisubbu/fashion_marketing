@@ -54,12 +54,44 @@ app.use(async (req, res, next) => {
   }
 });
 
-// Ensure and serve uploaded static files
+// Ensure and serve uploaded static files with CORS and caching
 const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
-app.use('/uploads', express.static(uploadsDir));
+app.use('/uploads', express.static(uploadsDir, {
+  maxAge: '7d',
+  setHeaders: (res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
+
+// Fallback for missing uploads: return placeholder instead of 404
+app.get('/uploads/*', (req, res) => {
+  const shirtPlaceholder = path.join(uploadsDir, 'placeholder-shirt.jpg');
+  if (fs.existsSync(shirtPlaceholder)) {
+    return res.sendFile(shirtPlaceholder);
+  }
+  res.status(404).send('Not Found');
+});
+
+// Serve root placeholders
+app.get('/placeholder-shirt.jpg', (req, res) => {
+  const shirtPlaceholder = path.join(uploadsDir, 'placeholder-shirt.jpg');
+  if (fs.existsSync(shirtPlaceholder)) {
+    return res.sendFile(shirtPlaceholder);
+  }
+  res.status(404).send('Not Found');
+});
+
+app.get('/placeholder-product.jpg', (req, res) => {
+  const prodPlaceholder = path.join(uploadsDir, 'placeholder-product.jpg');
+  if (fs.existsSync(prodPlaceholder)) {
+    return res.sendFile(prodPlaceholder);
+  }
+  res.status(404).send('Not Found');
+});
 
 // API Routes
 app.use('/api/auth', authRoutes);

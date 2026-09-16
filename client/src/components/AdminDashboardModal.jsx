@@ -32,6 +32,7 @@ export const AdminDashboardModal = () => {
     setToken,
     fetchProducts,
     fetchCategories,
+    addOrUpdateProductLocally,
     products = []
   } = useShop();
 
@@ -482,6 +483,11 @@ export const AdminDashboardModal = () => {
       }
 
       if (savedProd) {
+        // Instantly update global catalog in ShopContext for zero-delay display on Homepage and Categories
+        if (typeof addOrUpdateProductLocally === 'function') {
+          addOrUpdateProductLocally(savedProd);
+        }
+
         setProductsList(prev => {
           const list = Array.isArray(prev) ? prev : [];
           const exists = list.some(p => (p._id || p.id) === (savedProd._id || savedProd.id));

@@ -16,6 +16,10 @@ export const ProductCard = React.memo(({ product, priority = false }) => {
   const backImage  = rawBack ? resolveImageUrl(rawBack) : frontImage;
   const hasBackImage = Boolean(rawBack && rawBack !== rawFront);
 
+  if (process.env.NODE_ENV !== 'production') {
+    console.log("Product Image:", product.name, frontImage);
+  }
+
   // Available Sizes
   const sizesList = Array.isArray(product.sizes) && product.sizes.length > 0
     ? product.sizes
@@ -41,9 +45,12 @@ export const ProductCard = React.memo(({ product, priority = false }) => {
           loading={priority ? 'eager' : 'lazy'}
           fetchpriority={priority ? 'high' : 'auto'}
           decoding="async"
+          width="400"
+          height="533"
           onError={(e) => {
+            console.warn('[IMAGE LOAD ERROR] Failed to load product image:', product.name, e.currentTarget.src);
             e.currentTarget.onerror = null;
-            e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
+            e.currentTarget.src = '/placeholder-shirt.jpg';
           }}
           className={`w-full h-full object-cover transition-all duration-500 ease-out ${
             hasBackImage
@@ -59,9 +66,11 @@ export const ProductCard = React.memo(({ product, priority = false }) => {
             alt={`${product.name} Back`}
             loading="lazy"
             decoding="async"
+            width="400"
+            height="533"
             onError={(e) => {
               e.currentTarget.onerror = null;
-              e.currentTarget.src = frontImage || DEFAULT_PLACEHOLDER_IMAGE;
+              e.currentTarget.src = frontImage || '/placeholder-shirt.jpg';
             }}
             className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500 ease-out"
           />

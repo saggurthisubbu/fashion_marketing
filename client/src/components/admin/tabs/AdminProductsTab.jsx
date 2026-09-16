@@ -182,9 +182,9 @@ export const AdminProductsTab = ({
                             loading="lazy"
                             onError={(e) => {
                               e.currentTarget.onerror = null;
-                              e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
+                              e.currentTarget.src = '/placeholder-shirt.jpg';
                             }}
-                            className="w-12 h-16 object-cover rounded-xl border border-zinc-800 bg-zinc-950 shadow-sm"
+                            className="w-12 h-16 object-cover rounded-xl border border-zinc-800 bg-zinc-900 shadow-sm"
                           />
                         </td>
 
@@ -308,14 +308,14 @@ export const AdminProductsTab = ({
                 key={prod._id || prod.id}
                 className="bg-zinc-900/90 border border-zinc-800 rounded-2xl overflow-hidden shadow-lg flex flex-col justify-between group hover:border-zinc-700 transition-colors"
               >
-                <div className="relative aspect-[3/4] w-full bg-zinc-950 overflow-hidden">
+                <div className="relative aspect-[3/4] w-full bg-zinc-900 overflow-hidden">
                   <img
                     src={resolveImageUrl(prod.images?.front || prod.image)}
                     alt={prod.name}
                     loading="lazy"
                     onError={(e) => {
                       e.currentTarget.onerror = null;
-                      e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
+                      e.currentTarget.src = '/placeholder-shirt.jpg';
                     }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />

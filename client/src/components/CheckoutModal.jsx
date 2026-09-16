@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useShop } from '../context/ShopContext';
 import { formatFullOrderWhatsApp } from '../utils/whatsapp';
 import { checkDeliveryAvailability } from '../utils/deliveryRadius';
+import { resolveImageUrl } from '../config/api';
 
 // ─── Delivery status constants ────────────────────────────────────────────────
 // 'idle'     — location not yet shared
@@ -393,8 +394,13 @@ export const CheckoutModal = () => {
                   <div className="flex items-center gap-2.5 min-w-0">
                     {item.image && (
                       <img
-                        src={item.image}
+                        src={resolveImageUrl(item.image)}
                         alt={item.name}
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = '/placeholder-shirt.jpg';
+                        }}
                         className="w-10 h-12 object-cover rounded-xl border border-slate-200 shrink-0 bg-white"
                       />
                     )}

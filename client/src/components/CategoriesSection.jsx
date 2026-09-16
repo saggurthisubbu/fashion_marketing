@@ -7,28 +7,28 @@ import { slugifyCategory } from '../pages/CategoryPage';
 // Static fallback used ONLY if the API returns nothing after all retries
 const FALLBACK_CATEGORIES = [
   {
+    id: 'fallback-shirts',
+    name: 'Shirts',
+    description: '100% Pure European Linen & Luxury Cuban Collars',
+    image: '/uploads/quickfit-shirts-product-1-f-1787389109323-791186258.jpg',
+  },
+  {
     id: 'fallback-oversized',
     name: 'Oversized T-Shirts',
     description: '240+ GSM French Terry & Boxy Cuts',
-    image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
+    image: '/uploads/quickfit-drop-shoulder-product-1-back-1787386700503-621644177.jpg',
   },
   {
     id: 'fallback-dropshoulder',
     name: 'Drop Shoulder T-Shirts',
     description: 'Relaxed Silhouettes & Bio-Washed Cotton',
-    image: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=800&auto=format&fit=crop',
+    image: '/uploads/quickfit-drop-shoulder-product-1-front-1787078076710-233382103.jpg',
   },
   {
     id: 'fallback-polo',
     name: 'Polo T-Shirts',
     description: 'Double-Mercerized Luxury Pique Knits',
-    image: 'https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=80&w=800&auto=format&fit=crop',
-  },
-  {
-    id: 'fallback-shirts',
-    name: 'Shirts',
-    description: '100% Pure European Linen & Formals',
-    image: 'https://images.unsplash.com/photo-1621072156002-e2fccdc0b176?q=80&w=800&auto=format&fit=crop',
+    image: '/uploads/quickfit-polo-t-shirts-1-front-1786369177869-286899166.jpg',
   },
 ];
 
@@ -114,10 +114,11 @@ export const CategoriesSection = () => {
                   alt={cat.name}
                   loading="lazy"
                   decoding="async"
+                  width="400"
+                  height="533"
                   onError={(e) => {
                     e.currentTarget.onerror = null;
-                    e.currentTarget.src =
-                      'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop';
+                    e.currentTarget.src = '/placeholder-shirt.jpg';
                   }}
                   className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
                 />

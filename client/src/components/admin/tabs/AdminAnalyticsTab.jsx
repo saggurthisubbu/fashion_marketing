@@ -1,4 +1,5 @@
 import React from 'react';
+import { resolveImageUrl } from '../../../config/api';
 import { TrendingUp, DollarSign, Package, ShoppingBag, Award, BarChart3, PieChart } from 'lucide-react';
 import {
   AreaChart,
@@ -184,8 +185,13 @@ export const AdminAnalyticsTab = ({
                 #{idx + 1}
               </span>
               <img
-                src={prod.images?.front || prod.image}
+                src={resolveImageUrl(prod.images?.front || prod.image)}
                 alt={prod.name}
+                loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = '/placeholder-shirt.jpg';
+                }}
                 className="w-12 h-16 object-cover rounded-xl border border-zinc-800 bg-zinc-900 shrink-0"
               />
               <div className="min-w-0">

@@ -607,10 +607,13 @@ export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
                           alt={product.name}
                           loading="lazy"
                           decoding="async"
+                          width="400"
+                          height="500"
                           onClick={() => openProductDetail(product)}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 cursor-pointer"
                           onError={(e) => {
-                            e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600';
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = '/placeholder-shirt.jpg';
                           }}
                         />
                       </div>
@@ -727,6 +730,14 @@ export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
                               <img
                                 src={recImg}
                                 alt={rec.name}
+                                loading="lazy"
+                                decoding="async"
+                                width="300"
+                                height="375"
+                                onError={(e) => {
+                                  e.currentTarget.onerror = null;
+                                  e.currentTarget.src = '/placeholder-shirt.jpg';
+                                }}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                               />
                             </div>

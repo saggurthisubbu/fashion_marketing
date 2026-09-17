@@ -114,10 +114,7 @@ export const ProductCatalog = () => {
     });
   }, [products, searchQuery, selectedCategory, sortBy]);
 
-  // Diagnostic logs
-  console.log(`[CATALOG] Total products in context: ${products.length}`);
-  console.log(`[CATALOG] After filter (category="${selectedCategory}", search="${searchQuery}"): ${filtered.length} products`);
-  console.log(`[CATALOG] Rendering ${filtered.length} product cards`);
+  // Diagnostic logs are suppressed in production to avoid render overhead
 
   // ── Build store-grouped view when location is active ──────────────────────
   const isLocationActive = locationStatus === 'granted' && nearbyStores.length > 0;

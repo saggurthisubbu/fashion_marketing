@@ -1,5 +1,5 @@
 import React from 'react';
-import { resolveImageUrl } from '../../../config/api';
+import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../../../config/api';
 import { TrendingUp, DollarSign, Package, ShoppingBag, Award, BarChart3, PieChart } from 'lucide-react';
 import {
   AreaChart,
@@ -190,7 +190,7 @@ export const AdminAnalyticsTab = ({
                 loading="lazy"
                 onError={(e) => {
                   e.currentTarget.onerror = null;
-                  e.currentTarget.src = '/placeholder-shirt.jpg';
+                  e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
                 }}
                 className="w-12 h-16 object-cover rounded-xl border border-zinc-800 bg-zinc-900 shrink-0"
               />

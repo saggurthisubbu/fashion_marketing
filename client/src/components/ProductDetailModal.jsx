@@ -481,7 +481,7 @@ export const ProductDetailModal = () => {
                 src={resolveImageUrl(selectedProduct.images?.front || selectedProduct.image)}
                 alt={selectedProduct.name}
                 loading="lazy"
-                onError={(e) => handleImageError(e, '/placeholder-shirt.jpg')}
+                onError={(e) => handleImageError(e, DEFAULT_PLACEHOLDER_IMAGE)}
                 className="w-12 h-14 object-cover rounded-lg border border-slate-200"
               />
               <div className="min-w-0 flex-1">

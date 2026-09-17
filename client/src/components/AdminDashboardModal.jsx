@@ -280,6 +280,12 @@ export const AdminDashboardModal = () => {
     const angleObj = angleConfig.find(a => a.key === angleKey);
     const angleLabel = angleObj ? angleObj.label : `${angleKey.toUpperCase()} View`;
 
+    // Immediately stage this file and generate preview so the product ALWAYS receives this exact uploaded image
+    const objectUrl = URL.createObjectURL(file);
+    setImageFiles(prev => ({ ...prev, [angleKey]: file }));
+    setImagePreviews(prev => ({ ...prev, [angleKey]: objectUrl }));
+    setImagesData(prev => ({ ...prev, [angleKey]: objectUrl }));
+
     try {
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -292,20 +298,18 @@ export const AdminDashboardModal = () => {
         });
       };
       reader.onerror = () => {
-        const objUrl = URL.createObjectURL(file);
         setCropperModal({
           isOpen: true,
-          imageSrc: objUrl,
+          imageSrc: objectUrl,
           angleKey,
           angleLabel
         });
       };
       reader.readAsDataURL(file);
     } catch (err) {
-      const objUrl = URL.createObjectURL(file);
       setCropperModal({
         isOpen: true,
-        imageSrc: objUrl,
+        imageSrc: objectUrl,
         angleKey,
         angleLabel
       });
@@ -356,13 +360,18 @@ export const AdminDashboardModal = () => {
   const isStoreOwner = user?.role === 'store_owner';
   const storeOwnerId = user?.assignedStoreId;
 
-  // Open Add / Edit Product Modals
-  const handleOpenAddProduct = () => {
+  // Complete clean reset of product modal and form states
+  const resetProductModalState = () => {
+    setIsProductModalOpen(false);
     setEditingProduct(null);
     setImagesData({ front: '', back: '', left: '', right: '' });
     setImageFiles({ front: null, back: null, left: null, right: null });
     setImagePreviews({ front: '', back: '', left: '', right: '' });
     setFileErrors({});
+
+    Object.keys(fileInputRefs).forEach((k) => {
+      if (fileInputRefs[k]?.current) fileInputRefs[k].current.value = '';
+    });
 
     const defaultStoreId = isStoreOwner && storeOwnerId
       ? storeOwnerId
@@ -383,6 +392,11 @@ export const AdminDashboardModal = () => {
       description: 'Heavyweight 240+ GSM organic cotton tailored for clean modern streetwear drape.',
       sizes: 'S, M, L, XL, XXL'
     });
+  };
+
+  // Open Add Product Modal with guaranteed clean state
+  const handleOpenAddProduct = () => {
+    resetProductModalState();
     setIsProductModalOpen(true);
   };
 
@@ -420,7 +434,18 @@ export const AdminDashboardModal = () => {
     setFileErrors({});
 
     try {
-      const finalImages = { ...imagesData };
+      // When creating a new product, NEVER inherit old/stale imagesData from previous products
+      const finalImages = editingProduct ? {
+        front: editingProduct.images?.front || editingProduct.image || '',
+        back: editingProduct.images?.back || '',
+        left: editingProduct.images?.left || '',
+        right: editingProduct.images?.right || ''
+      } : {
+        front: '',
+        back: '',
+        left: '',
+        right: ''
+      };
 
       // Upload newly selected files
       for (const angleKey of ['front', 'back', 'left', 'right']) {
@@ -442,11 +467,21 @@ export const AdminDashboardModal = () => {
           if (uploadedUrl) {
             finalImages[angleKey] = uploadedUrl;
           }
+        } else if (editingProduct && imagesData[angleKey] && !imagesData[angleKey].startsWith('blob:') && !imagesData[angleKey].startsWith('data:')) {
+          finalImages[angleKey] = imagesData[angleKey];
         }
       }
 
+      // If front view was not uploaded, check if any other angle was uploaded for this product
       if (!finalImages.front) {
-        finalImages.front = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop';
+        finalImages.front = finalImages.back || finalImages.left || finalImages.right || '';
+      }
+
+      // Validate: Every product must have its own uploaded image. Never fall back to a default shirt.
+      if (!finalImages.front) {
+        showToast('Please upload an image for the product.', 'error');
+        setIsSavingProduct(false);
+        return;
       }
 
       const fallbackStoreId = productForm.storeId || (storesList.length > 0 ? storesList[0]._id : undefined);
@@ -508,8 +543,7 @@ export const AdminDashboardModal = () => {
       }
 
       try { sessionStorage.removeItem('quickfit_cached_products'); } catch (e) {}
-      setIsProductModalOpen(false);
-      setEditingProduct(null);
+      resetProductModalState();
       await fetchProducts();
       await loadAllAdminData();
     } catch (err) {
@@ -921,7 +955,7 @@ export const AdminDashboardModal = () => {
                 <span>{editingProduct ? 'Edit Product & 4-Angle Images' : 'Add Men\'s Apparel (4 Image Views)'}</span>
               </h3>
               <button
-                onClick={() => setIsProductModalOpen(false)}
+                onClick={resetProductModalState}
                 className="w-8 h-8 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white flex items-center justify-center cursor-pointer"
               >
                 ✕
@@ -1197,7 +1231,7 @@ export const AdminDashboardModal = () => {
               <div className="pt-2 flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsProductModalOpen(false)}
+                  onClick={resetProductModalState}
                   className="flex-1 py-3 rounded-xl bg-zinc-800 text-zinc-300 font-bold hover:bg-zinc-700"
                 >
                   Cancel

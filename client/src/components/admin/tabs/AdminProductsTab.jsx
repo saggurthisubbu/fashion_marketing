@@ -182,7 +182,7 @@ export const AdminProductsTab = ({
                             loading="lazy"
                             onError={(e) => {
                               e.currentTarget.onerror = null;
-                              e.currentTarget.src = '/placeholder-shirt.jpg';
+                              e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
                             }}
                             className="w-12 h-16 object-cover rounded-xl border border-zinc-800 bg-zinc-900 shadow-sm"
                           />
@@ -315,7 +315,7 @@ export const AdminProductsTab = ({
                     loading="lazy"
                     onError={(e) => {
                       e.currentTarget.onerror = null;
-                      e.currentTarget.src = '/placeholder-shirt.jpg';
+                      e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
                     }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />

@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useShop } from '../context/ShopContext';
 import { formatFullOrderWhatsApp } from '../utils/whatsapp';
 import { checkDeliveryAvailability } from '../utils/deliveryRadius';
-import { resolveImageUrl } from '../config/api';
+import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 
 // ─── Delivery status constants ────────────────────────────────────────────────
 // 'idle'     — location not yet shared
@@ -399,7 +399,7 @@ export const CheckoutModal = () => {
                         loading="lazy"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
-                          e.currentTarget.src = '/placeholder-shirt.jpg';
+                          e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
                         }}
                         className="w-10 h-12 object-cover rounded-xl border border-slate-200 shrink-0 bg-white"
                       />

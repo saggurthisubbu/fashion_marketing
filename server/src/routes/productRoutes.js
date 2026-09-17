@@ -286,10 +286,11 @@ router.post('/', protect, storeOwnerOrAdmin, async (req, res) => {
       }
     }
 
-    // Fallback primary image
-    data.image = data.images.front || data.image || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop';
-    if (!data.images.front) {
-      data.images.front = data.image;
+    // Primary image from product's own images
+    const primaryImg = data.images?.front || data.image || data.images?.back || data.images?.left || data.images?.right || '';
+    data.image = primaryImg;
+    if (data.images && !data.images.front && primaryImg) {
+      data.images.front = primaryImg;
     }
 
     const product = new Product(data);

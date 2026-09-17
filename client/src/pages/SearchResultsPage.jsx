@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { useShop } from '../context/ShopContext';
+import { DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 
 export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
   const {
@@ -613,7 +614,7 @@ export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 cursor-pointer"
                           onError={(e) => {
                             e.currentTarget.onerror = null;
-                            e.currentTarget.src = '/placeholder-shirt.jpg';
+                            e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
                           }}
                         />
                       </div>
@@ -736,7 +737,7 @@ export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
                                 height="375"
                                 onError={(e) => {
                                   e.currentTarget.onerror = null;
-                                  e.currentTarget.src = '/placeholder-shirt.jpg';
+                                  e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
                                 }}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                               />

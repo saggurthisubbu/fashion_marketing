@@ -215,6 +215,23 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    sourcemap: false, // No sourcemaps in production — reduces bundle size
+    rollupOptions: {
+      output: {
+        // Split large vendor libraries into separate chunks for better browser caching
+        manualChunks(id) {
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+            return 'react-vendor';
+          }
+          if (id.includes('node_modules/axios/')) {
+            return 'utils-vendor';
+          }
+          if (id.includes('node_modules/lucide-react/')) {
+            return 'icons-vendor';
+          }
+        }
+      }
+    }
   },
   server: {
     host: true, // Listen on 0.0.0.0 for mobile / LAN testing

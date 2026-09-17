@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useShop } from '../../context/ShopContext';
+import { DEFAULT_PLACEHOLDER_IMAGE } from '../../config/api';
 
 export const SearchOverlayModal = ({ isOpen, onClose, initialQuery = '' }) => {
   const { API_BASE_URL, resolveImageUrl, openProductDetail, addToCart, buyNow, products: globalProducts } = useShop();
@@ -228,7 +229,7 @@ export const SearchOverlayModal = ({ isOpen, onClose, initialQuery = '' }) => {
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
-                          e.currentTarget.src = '/placeholder-shirt.jpg';
+                          e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
                         }}
                       />
                     </div>

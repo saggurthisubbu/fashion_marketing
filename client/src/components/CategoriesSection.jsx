@@ -46,10 +46,6 @@ export const CategoriesSection = () => {
   // Only show active categories from the DB
   const activeApiCategories = categories.filter((c) => c.isActive !== false);
 
-  console.log(
-    `[CATEGORIES] isLoading=${isLoadingCategories} | DB categories=${activeApiCategories.length}`,
-    activeApiCategories.map((c) => ({ name: c.name, image: c.image }))
-  );
 
   /* ── SKELETON — shown while the first DB fetch is in-flight ─────────── */
   if (isLoadingCategories && activeApiCategories.length === 0) {

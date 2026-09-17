@@ -16,9 +16,6 @@ export const ProductCard = React.memo(({ product, priority = false }) => {
   const backImage  = rawBack ? resolveImageUrl(rawBack) : frontImage;
   const hasBackImage = Boolean(rawBack && rawBack !== rawFront);
 
-  if (process.env.NODE_ENV !== 'production') {
-    console.log("Product Image:", product.name, frontImage);
-  }
 
   // Available Sizes
   const sizesList = Array.isArray(product.sizes) && product.sizes.length > 0
@@ -47,7 +44,7 @@ export const ProductCard = React.memo(({ product, priority = false }) => {
           decoding="async"
           width="400"
           height="533"
-          onError={(e) => handleImageError(e, '/placeholder-shirt.jpg')}
+          onError={(e) => handleImageError(e, DEFAULT_PLACEHOLDER_IMAGE)}
           className={`w-full h-full object-cover transition-all duration-500 ease-out ${
             hasBackImage
               ? 'group-hover:opacity-0 group-hover:scale-105'
@@ -64,7 +61,7 @@ export const ProductCard = React.memo(({ product, priority = false }) => {
             decoding="async"
             width="400"
             height="533"
-            onError={(e) => handleImageError(e, frontImage || '/placeholder-shirt.jpg')}
+            onError={(e) => handleImageError(e, frontImage || DEFAULT_PLACEHOLDER_IMAGE)}
             className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500 ease-out"
           />
         )}

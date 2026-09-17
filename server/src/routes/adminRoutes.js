@@ -993,4 +993,25 @@ router.delete('/store-owners/:id', protect, adminOnly, async (req, res) => {
   }
 });
 
+// ==========================================
+// GET /api/admin/stores — All stores for admin product form dropdown
+// Admin: returns all stores. Store owner: returns only their assigned store.
+// ==========================================
+router.get('/stores', protect, storeOwnerOrAdmin, async (req, res) => {
+  try {
+    if (req.user.role === 'store_owner') {
+      if (!req.user.assignedStoreId) {
+        return res.json([]);
+      }
+      const store = await Store.findById(req.user.assignedStoreId);
+      return res.json(store ? [store] : []);
+    }
+    // Admin: return all stores sorted by name
+    const stores = await Store.find().sort({ name: 1 });
+    res.json(stores);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 export default router;

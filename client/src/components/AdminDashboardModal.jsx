@@ -33,6 +33,7 @@ export const AdminDashboardModal = () => {
     fetchProducts,
     fetchCategories,
     addOrUpdateProductLocally,
+    removeProductLocally,
     products = []
   } = useShop();
 
@@ -447,25 +448,33 @@ export const AdminDashboardModal = () => {
         right: ''
       };
 
-      // Upload newly selected files
+      // Upload newly selected files to permanent cloud storage
       for (const angleKey of ['front', 'back', 'left', 'right']) {
         if (imageFiles[angleKey]) {
           console.log(`[IMAGE UPLOAD START] Uploading ${angleKey} file:`, imageFiles[angleKey].name);
           const formData = new FormData();
           formData.append('image', imageFiles[angleKey]);
 
-          const uploadRes = await axios.post(`${API_BASE_URL}/upload`, formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-              ...getAuthHeader().headers
+          try {
+            const uploadRes = await axios.post(`${API_BASE_URL}/upload`, formData, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+                ...getAuthHeader().headers
+              }
+            });
+
+            const uploadedUrl = uploadRes.data?.imageUrl || uploadRes.data?.url || uploadRes.data?.path;
+            console.log(`[IMAGE UPLOAD COMPLETE] Angle: ${angleKey}`, "Permanent Cloud URL:", uploadedUrl);
+
+            if (uploadedUrl) {
+              finalImages[angleKey] = uploadedUrl;
             }
-          });
-
-          const uploadedUrl = uploadRes.data?.imageUrl || uploadRes.data?.url || uploadRes.data?.path;
-          console.log(`[IMAGE UPLOAD COMPLETE] Angle: ${angleKey}`, "Uploaded URL:", uploadedUrl);
-
-          if (uploadedUrl) {
-            finalImages[angleKey] = uploadedUrl;
+          } catch (uploadErr) {
+            const errDetail = uploadErr.response?.data?.message || uploadErr.message || 'Network upload error';
+            console.error(`[IMAGE UPLOAD ERROR] Angle: ${angleKey}:`, errDetail);
+            showToast(`Failed to upload ${angleKey.toUpperCase()} image: ${errDetail}`, 'error');
+            setIsSavingProduct(false);
+            return;
           }
         } else if (editingProduct && imagesData[angleKey] && !imagesData[angleKey].startsWith('blob:') && !imagesData[angleKey].startsWith('data:')) {
           finalImages[angleKey] = imagesData[angleKey];
@@ -559,6 +568,9 @@ export const AdminDashboardModal = () => {
       await axios.delete(`${API_BASE_URL}/products/${id}`, getAuthHeader());
       showToast(`Deleted "${name}".`);
       try { sessionStorage.removeItem('quickfit_cached_products'); } catch (e) {}
+      if (typeof removeProductLocally === 'function') {
+        removeProductLocally(id);
+      }
       setProductsList(prev => (Array.isArray(prev) ? prev.filter(p => (p._id || p.id) !== id) : []));
       await fetchProducts();
       await loadAllAdminData();

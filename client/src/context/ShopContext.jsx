@@ -772,6 +772,20 @@ export const ShopProvider = ({ children }) => {
     });
   }, [normalizeProduct]);
 
+  // Remove a product locally upon admin deletion
+  const removeProductLocally = useCallback((productId) => {
+    if (!productId) return;
+    const targetId = String(productId);
+    setProducts((prev) => {
+      const list = Array.isArray(prev) ? prev : [];
+      const updated = list.filter((p) => String(p._id || p.id) !== targetId);
+      try {
+        sessionStorage.setItem('quickfit_cached_products', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  }, []);
+
   // Listen for global custom events fired when admin adds/edits products
   useEffect(() => {
     const handleProductUpdateEvent = (event) => {
@@ -873,6 +887,8 @@ export const ShopProvider = ({ children }) => {
         showToast,
         fetchCategories,
         fetchProducts,
+        addOrUpdateProductLocally,
+        removeProductLocally,
         API_BASE_URL,
         API_ORIGIN,
         resolveImageUrl

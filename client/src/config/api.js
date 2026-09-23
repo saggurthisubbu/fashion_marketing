@@ -38,15 +38,13 @@ const computeApiUrl = () => {
 export const API_BASE_URL = computeApiUrl();
 export const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '');
 
-
 export const PLACEHOLDER_SHIRT_IMAGE = '/placeholder-shirt.jpg';
 export const PLACEHOLDER_PRODUCT_IMAGE = '/placeholder-product.svg';
 export const DEFAULT_PLACEHOLDER_IMAGE = '/placeholder-product.svg';
 
 /**
  * Normalizes image URLs for cross-device compatibility across Localhost, Mobile, Cloudinary, Vercel, and Render.
- * Converts relative upload paths (e.g., 'uploads/shirt1.jpg' or '/uploads/shirt1.jpg') to full URLs (${API_ORIGIN}/uploads/...).
- * Handles null, undefined, missing slash, blob URLs, Base64 data URIs, and fallback placeholders.
+ * Handles Cloudinary URLs, MongoDB Atlas Cloud Media URLs, Base64 Data URIs, Blob previews, and fallbacks.
  */
 export const resolveImageUrl = (imgUrl) => {
   // 1. Validation for null, undefined, or empty fields
@@ -72,8 +70,21 @@ export const resolveImageUrl = (imgUrl) => {
     return trimmed;
   }
 
-  // 4. Absolute URL containing /uploads/ (e.g. from local server or remote backend)
+  // 4. Cloudinary permanent CDN URL
+  if (trimmed.includes('cloudinary.com') || trimmed.includes('res.cloudinary.com')) {
+    return trimmed;
+  }
+
+  // 5. Absolute URL handling
   if (/^https?:\/\//i.test(trimmed)) {
+    // If it's a permanent MongoDB Atlas Media URL with a different origin, normalize it
+    if (trimmed.includes('/api/upload/media/')) {
+      const mediaId = trimmed.split('/api/upload/media/')[1];
+      const origin = API_ORIGIN || (typeof window !== 'undefined' ? window.location.origin : '');
+      return origin ? `${origin}/api/upload/media/${mediaId}` : trimmed;
+    }
+
+    // If it's a legacy /uploads/ URL
     if (trimmed.includes('/uploads/')) {
       const fileName = trimmed.split('/uploads/')[1];
       if (fileName) {
@@ -81,37 +92,50 @@ export const resolveImageUrl = (imgUrl) => {
         return origin ? `${origin}/uploads/${fileName}` : `/uploads/${fileName}`;
       }
     }
-    // External CDN (Unsplash, Cloudinary, Imgur, etc.)
+
+    // External CDN (Unsplash, Imgur, etc.)
     return trimmed;
   }
 
-  // 5. Relative upload paths: e.g. "uploads/shirt1.jpg", "/uploads/shirt1.jpg", "uploads\\shirt1.jpg"
+  // 6. Relative MongoDB Atlas Cloud Media URL (e.g. "/api/upload/media/..." or "api/upload/media/...")
+  if (trimmed.includes('/api/upload/media/') || trimmed.startsWith('api/upload/media/')) {
+    const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    const origin = API_ORIGIN || (typeof window !== 'undefined' ? window.location.origin : '');
+    return origin ? `${origin}${cleanPath}` : cleanPath;
+  }
+
+  // 7. Relative upload paths: e.g. "uploads/shirt1.jpg", "/uploads/shirt1.jpg"
   if (trimmed.includes('uploads/')) {
     const fileName = trimmed.split('uploads/')[1].replace(/^\/+/, '');
     const origin = API_ORIGIN || (typeof window !== 'undefined' ? window.location.origin : '');
     return origin ? `${origin}/uploads/${fileName}` : `/uploads/${fileName}`;
   }
 
-  // 6. Root assets (e.g. /placeholder-shirt.jpg, /placeholder-product.jpg, /logo.png)
+  // 8. Root assets (e.g. /placeholder-shirt.jpg, /placeholder-product.svg, /logo.png)
   if (trimmed.startsWith('/')) {
     return trimmed;
   }
 
-  // 7. Generic relative filename fallback (e.g. "shirt1.jpg")
+  // 9. Generic relative filename fallback
   const origin = API_ORIGIN || (typeof window !== 'undefined' ? window.location.origin : '');
   return origin ? `${origin}/uploads/${trimmed}` : `/uploads/${trimmed}`;
 };
 
 /**
  * Resilient image error handler:
- * If loading from backend (Render) fails or times out,
- * it immediately fails over to the frontend CDN/host (/uploads/fileName).
- * Prevents premature placeholder replacement for valid uploaded images.
+ * If an image fails to load, gracefully falls back without breaking UI layout.
  */
 export const handleImageError = (e, fallback = DEFAULT_PLACEHOLDER_IMAGE) => {
   const target = e.currentTarget;
   const currentSrc = target.src;
 
+  // Prevent infinite loops
+  if (target.dataset.errorHandled === 'true') {
+    return;
+  }
+  target.dataset.errorHandled = 'true';
+
+  // If local /uploads failed on remote backend, try frontend static mirror
   if (currentSrc && currentSrc.includes('/uploads/')) {
     const parts = currentSrc.split('/uploads/');
     const fileName = parts[1]?.split('?')[0];
@@ -126,4 +150,3 @@ export const handleImageError = (e, fallback = DEFAULT_PLACEHOLDER_IMAGE) => {
     target.src = fallback;
   }
 };
-

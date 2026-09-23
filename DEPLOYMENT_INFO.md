@@ -78,6 +78,10 @@ The Admin Dashboard Home page provides instant real-time visibility into:
   - `ADMIN_EMAIL`: `saggurthisubbu9@gmail.com`
   - `ADMIN_PASSWORD`: `QuickFitAdmin@2026!`
   - `ADMIN_PHONE`: `+91 7396629821`
+  - `CLOUDINARY_CLOUD_NAME`: *(Optional)* Your Cloudinary cloud name for high-speed CDN
+  - `CLOUDINARY_API_KEY`: *(Optional)* Your Cloudinary API key
+  - `CLOUDINARY_API_SECRET`: *(Optional)* Your Cloudinary API secret
+  *(Note: If Cloudinary credentials are not provided, uploaded images are permanently stored in MongoDB Atlas Media collection and served via `/api/upload/media/:id`, guaranteeing zero image loss across restarts or redeploys).*
 
 ---
 

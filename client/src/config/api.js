@@ -45,8 +45,8 @@ export const API_BASE_URL = computeApiUrl();
 export const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '');
 
 export const PLACEHOLDER_SHIRT_IMAGE = '/placeholder-shirt.jpg';
-export const PLACEHOLDER_PRODUCT_IMAGE = '/placeholder-product.svg';
-export const DEFAULT_PLACEHOLDER_IMAGE = '/placeholder-product.svg';
+export const PLACEHOLDER_PRODUCT_IMAGE = '/placeholder-product.jpg';
+export const DEFAULT_PLACEHOLDER_IMAGE = '/placeholder-product.jpg';
 
 /**
  * Normalizes image URLs for cross-device compatibility across Localhost, Mobile, Cloudinary, Vercel, and Render.

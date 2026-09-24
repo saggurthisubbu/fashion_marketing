@@ -203,10 +203,13 @@ export const Navbar = () => {
             {/* MOBILE SEARCH TOGGLE */}
             <button
               onClick={() => setIsSearchModalOpen(true)}
-              className="md:hidden w-9 h-9 rounded-full hover:bg-slate-100 text-slate-700 flex items-center justify-center text-sm transition-colors cursor-pointer flex-shrink-0"
+              className="md:hidden w-8 h-8 rounded-full hover:bg-slate-100 text-slate-800 flex items-center justify-center transition-colors cursor-pointer shrink-0"
               aria-label="Search"
             >
-              🔍
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
             </button>
 
             {/* ADMIN PANEL BUTTON (Desktop) */}
@@ -331,7 +334,7 @@ export const Navbar = () => {
             {/* WISHLIST */}
             <button
               onClick={() => setIsWishlistOpen(true)}
-              className="relative group w-9 h-9 rounded-full border border-transparent hover:border-rose-200 hover:bg-rose-50 text-slate-600 hover:text-rose-500 flex items-center justify-center transition-all duration-200 cursor-pointer flex-shrink-0"
+              className="relative group w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-transparent hover:border-rose-200 hover:bg-rose-50 text-slate-700 hover:text-rose-500 flex items-center justify-center transition-all duration-200 cursor-pointer shrink-0 active:scale-90"
               aria-label="Wishlist"
               title="Wishlist"
             >
@@ -343,13 +346,13 @@ export const Navbar = () => {
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="w-5 h-5 transition-all duration-200 group-hover:scale-110 group-hover:stroke-rose-500"
-                style={{ fill: wishlist.length > 0 ? 'rgba(244,63,94,0.15)' : 'none', stroke: wishlist.length > 0 ? '#f43f5e' : 'currentColor' }}
+                className="w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200 group-hover:scale-110"
+                style={{ fill: wishlist.length > 0 ? '#0f172a' : 'none', stroke: wishlist.length > 0 ? '#0f172a' : 'currentColor' }}
               >
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
               </svg>
               {wishlist.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shadow-sm pointer-events-none">
+                <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-0.5 rounded-full bg-slate-900 text-white text-[9px] font-black flex items-center justify-center shadow-xs pointer-events-none">
                   {wishlist.length}
                 </span>
               )}
@@ -358,7 +361,7 @@ export const Navbar = () => {
             {/* CART / BAG */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-slate-900 hover:bg-black text-white text-xs font-black shadow-xs transition-all cursor-pointer flex-shrink-0"
+              className="flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full bg-slate-900 hover:bg-black text-white text-xs font-black shadow-xs transition-all cursor-pointer shrink-0 active:scale-95"
               aria-label="Cart"
             >
               <svg
@@ -369,14 +372,14 @@ export const Navbar = () => {
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="w-4 h-4 flex-shrink-0"
+                className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0"
               >
                 <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
                 <line x1="3" y1="6" x2="21" y2="6" />
                 <path d="M16 10a4 4 0 0 1-8 0" />
               </svg>
               <span className="hidden sm:inline">Bag</span>
-              <span className="min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-white text-slate-900 text-[10px] font-black flex items-center justify-center">
+              <span className="min-w-[1rem] h-[1rem] px-1 rounded-full bg-white text-slate-900 text-[10px] font-black flex items-center justify-center">
                 {totalCartCount}
               </span>
             </button>
@@ -384,31 +387,43 @@ export const Navbar = () => {
             {/* MOBILE MENU TOGGLE (Hamburger) */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden w-9 h-9 rounded-full hover:bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-base transition-colors cursor-pointer flex-shrink-0"
+              className="lg:hidden w-8 h-8 rounded-full hover:bg-slate-100 text-slate-800 flex items-center justify-center transition-colors cursor-pointer shrink-0"
               aria-label="Toggle navigation menu"
             >
-              {isMobileMenuOpen ? '✕' : '☰'}
+              {isMobileMenuOpen ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+              )}
             </button>
 
           </div>
         </div>
+      </div>
 
-        {/* MOBILE FULL-WIDTH SEARCH BAR (Flipkart/Amazon style) */}
-        <div className="md:hidden pb-2.5 pt-0.5">
+      {/* MOBILE EXPANDED MENU DRAWER */}
+      {isMobileMenuOpen && (
+        <div className="lg:hidden bg-white border-t border-slate-200 px-4 py-4 space-y-4 animate-in slide-in-from-top-2 shadow-xl">
+          {/* SEARCH IN DRAWER */}
           <form
-            onSubmit={handleSearchSubmit}
+            onSubmit={(e) => {
+              handleSearchSubmit(e);
+              setIsMobileMenuOpen(false);
+            }}
             className="relative flex items-center w-full"
           >
             <span className="absolute left-3 text-slate-400 text-xs pointer-events-none">
-              🔍
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
             </span>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => setIsSearchModalOpen(true)}
               placeholder="Search shirts, oversized, polo..."
-              className="w-full pl-8 pr-8 py-2 rounded-full bg-slate-100 focus:bg-white border border-slate-200 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all shadow-inner"
+              className="w-full pl-8 pr-8 py-2 rounded-full bg-slate-100 focus:bg-white border border-slate-200 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all"
             />
             <button
               type="submit"
@@ -418,12 +433,6 @@ export const Navbar = () => {
               ➔
             </button>
           </form>
-        </div>
-      </div>
-
-      {/* MOBILE EXPANDED MENU DRAWER */}
-      {isMobileMenuOpen && (
-        <div className="lg:hidden bg-white border-t border-slate-200 px-4 py-4 space-y-4 animate-in slide-in-from-top-2 shadow-xl">
           
           {/* DOWNLOAD APP CTA */}
           <div>

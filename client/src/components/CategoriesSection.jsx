@@ -50,18 +50,18 @@ export const CategoriesSection = () => {
   /* ── SKELETON — shown while the first DB fetch is in-flight ─────────── */
   if (isLoadingCategories && activeApiCategories.length === 0) {
     return (
-      <section id="categories-section" className="py-14 sm:py-20 bg-white border-b border-slate-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="categories-section" className="py-8 sm:py-20 bg-white border-b border-slate-100">
+        <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
           <SectionHeader />
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-6">
             {[1, 2, 3, 4].map((i) => (
               <div
                 key={i}
-                className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm flex flex-col animate-pulse"
+                className="bg-white border border-slate-200 rounded-xl sm:rounded-2xl overflow-hidden shadow-xs flex flex-col animate-pulse"
               >
                 <div className="bg-slate-100 aspect-[3/4]" />
-                <div className="p-4 sm:p-5 flex flex-col gap-3">
-                  <div className="h-4 w-28 bg-slate-200 rounded-full" />
+                <div className="p-3 sm:p-5 flex flex-col gap-2.5">
+                  <div className="h-3.5 w-24 bg-slate-200 rounded-full" />
                   <div className="h-3 w-full bg-slate-100 rounded-full" />
                   <div className="h-3 w-3/4 bg-slate-100 rounded-full" />
                 </div>
@@ -90,18 +90,18 @@ export const CategoriesSection = () => {
 
   /* ── RENDER ──────────────────────────────────────────────────────────── */
   return (
-    <section id="categories-section" className="py-14 sm:py-20 bg-white border-b border-slate-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="categories-section" className="py-8 sm:py-20 bg-white border-b border-slate-100">
+      <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
 
         <SectionHeader />
 
         {/* CARDS GRID */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-6">
           {displayCategories.map((cat) => (
             <div
               key={cat.id}
               onClick={() => handleCategoryClick(cat.slug)}
-              className="group cursor-pointer bg-white border border-slate-200 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col"
+              className="group cursor-pointer bg-white border border-slate-200/90 rounded-xl sm:rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between"
             >
               {/* IMAGE */}
               <div className="overflow-hidden bg-slate-100 aspect-[3/4]">
@@ -121,23 +121,24 @@ export const CategoriesSection = () => {
               </div>
 
               {/* CONTENT */}
-              <div className="p-4 sm:p-5 flex flex-col gap-2 flex-1">
+              <div className="p-3 sm:p-5 flex flex-col gap-1.5 sm:gap-2 flex-1 justify-between">
+                <div>
+                  {/* Category name */}
+                  <h3 className="text-xs sm:text-base font-black font-heading text-slate-900 leading-snug line-clamp-1">
+                    {cat.name}
+                  </h3>
 
-                {/* Category name */}
-                <h3 className="text-sm sm:text-base font-black font-heading text-slate-900 leading-snug">
-                  {cat.name}
-                </h3>
-
-                {/* Description */}
-                <p className="text-[11px] sm:text-xs text-slate-500 leading-relaxed line-clamp-2 flex-1">
-                  {cat.description}
-                </p>
+                  {/* Description */}
+                  <p className="text-[10px] sm:text-xs text-slate-500 leading-relaxed line-clamp-2 mt-0.5">
+                    {cat.description}
+                  </p>
+                </div>
 
                 {/* Explore button */}
-                <div className="pt-1">
-                  <div className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-black text-slate-900 group-hover:text-orange-500 transition-colors duration-200">
-                    <span>Explore Now</span>
-                    <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                <div className="pt-1.5 sm:pt-2">
+                  <div className="inline-flex items-center gap-1.5 text-[10px] sm:text-xs font-black text-slate-900 group-hover:text-neutral-600 transition-colors duration-200">
+                    <span>Explore</span>
+                    <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                   </div>
                 </div>
 
@@ -153,9 +154,9 @@ export const CategoriesSection = () => {
 
 /* ── Section header (shared between skeleton & live render) ─────────────── */
 const SectionHeader = () => (
-  <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 sm:mb-14 gap-3">
+  <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-6 sm:mb-12 gap-2 sm:gap-3">
     <div>
-      <h2 className="text-2xl sm:text-4xl font-black font-heading text-slate-900 tracking-tight leading-tight">
+      <h2 className="text-xl sm:text-4xl font-black font-heading text-slate-900 tracking-tight leading-tight">
         Shop by Collection
       </h2>
     </div>

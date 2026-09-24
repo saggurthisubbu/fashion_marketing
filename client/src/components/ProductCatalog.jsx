@@ -131,16 +131,16 @@ export const ProductCatalog = () => {
 
 
   return (
-    <section id="catalog-section" className="py-12 sm:py-16 bg-slate-100/60 min-h-screen">
+    <section id="catalog-section" className="py-8 sm:py-16 bg-slate-100/60 min-h-screen">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         
         {/* CATALOG HEADER */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4 pb-4 border-b border-slate-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-3 sm:gap-4 pb-4 border-b border-slate-200/80">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 text-white text-[10px] sm:text-xs font-black uppercase tracking-wider mb-1">
               QUICKFIT MEN'S FASHION & CLOTHING
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black font-heading text-slate-900 tracking-tight">
+            <h2 className="text-xl sm:text-3xl font-black font-heading text-slate-900 tracking-tight">
               {selectedCategory === 'All' ? "QuickFit Men's Fashion & Fits" : `${selectedCategory}`}
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
@@ -158,7 +158,7 @@ export const ProductCatalog = () => {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-4 py-2 rounded-full bg-white border border-slate-200 text-xs font-bold text-slate-800 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-slate-900 cursor-pointer !min-h-[40px]"
+              className="px-3.5 sm:px-4 py-2 rounded-full bg-white border border-slate-200 text-xs font-bold text-slate-800 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-slate-900 cursor-pointer min-h-[38px] sm:min-h-[40px]"
             >
               <option value="newest">🔥 Newest Arrivals</option>
               <option value="rating">⭐ Highest Rated</option>
@@ -168,35 +168,41 @@ export const ProductCatalog = () => {
           </div>
         </div>
 
-        {/* MAIN CATEGORY TABS */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-6 scrollbar-none">
+        {/* MAIN CATEGORY TABS - Smooth horizontal scroll, full-bleed touch drag, not cut off */}
+        <div className="-mx-3 px-3 sm:mx-0 sm:px-0 flex items-center gap-2 overflow-x-auto pb-3 pt-1 mb-6 no-scrollbar touch-pan-x scroll-smooth overscroll-x-contain">
           {categoriesList.map((cat) => {
             const isSelected = selectedCategory === cat.slug;
             return (
               <button
                 key={cat.slug}
                 onClick={() => setSelectedCategory(cat.slug)}
-                className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-full text-xs font-black whitespace-nowrap transition-all duration-200 !min-h-[40px] ${
+                className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs font-black whitespace-nowrap transition-all duration-200 shrink-0 min-h-[38px] cursor-pointer ${
                   isSelected
                     ? 'bg-slate-900 text-white shadow-md shadow-slate-900/20'
-                    : 'bg-white text-slate-700 hover:bg-slate-200/80 border border-slate-200'
+                    : 'bg-white text-slate-700 hover:bg-slate-200/80 border border-slate-200/90'
                 }`}
               >
                 {cat.label}
               </button>
             );
           })}
+          <div className="shrink-0 w-2 sm:hidden" aria-hidden="true" />
         </div>
 
         {/* 1. LOADING STATE */}
         {isLoadingProducts ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-6 items-stretch">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-              <div key={n} className="bg-white rounded-2xl sm:rounded-3xl p-3 border border-slate-200 space-y-3 animate-pulse">
-                <div className="aspect-[3/4] bg-slate-200 rounded-xl w-full"></div>
-                <div className="h-4 bg-slate-200 rounded-md w-3/4"></div>
-                <div className="h-3 bg-slate-200 rounded-md w-1/2"></div>
-                <div className="h-8 bg-slate-200 rounded-xl w-full"></div>
+              <div key={n} className="bg-white rounded-xl sm:rounded-2xl overflow-hidden border border-slate-200 flex flex-col justify-between animate-pulse">
+                <div className="aspect-[3/4] bg-slate-200 w-full"></div>
+                <div className="p-2.5 sm:p-3.5 flex flex-col flex-1 justify-between gap-3">
+                  <div className="space-y-1.5">
+                    <div className="h-3 bg-slate-200 rounded w-1/3"></div>
+                    <div className="h-4 bg-slate-200 rounded w-4/5"></div>
+                    <div className="h-3.5 bg-slate-200 rounded w-1/4 mt-1"></div>
+                  </div>
+                  <div className="h-8 bg-slate-200 rounded-lg sm:rounded-xl w-full"></div>
+                </div>
               </div>
             ))}
           </div>
@@ -240,7 +246,7 @@ export const ProductCatalog = () => {
           </div>
         ) : filtered.length > 0 ? (
           /* 3. PRODUCT GRID — Clean flat luxury catalog grid */
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 items-stretch">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-6 items-stretch">
             {filtered.map((product, index) => (
               <ProductCard key={product.id || product._id} product={product} priority={index < 4} />
             ))}

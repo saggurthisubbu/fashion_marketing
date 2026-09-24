@@ -275,10 +275,10 @@ export const CategoryPage = ({ slug, onNavigateHome }) => {
         </div>
 
         {/* ── QUICK CATEGORY SWITCHER TABS ────────────────────────────── */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-6 scrollbar-none">
+        <div className="-mx-3 px-3 sm:mx-0 sm:px-0 flex items-center gap-2 overflow-x-auto pb-3 pt-1 mb-6 no-scrollbar touch-pan-x scroll-smooth overscroll-x-contain">
           <button
             onClick={() => handleSelectCategorySlug('all')}
-            className="px-4 sm:px-5 py-2 rounded-full text-xs font-black whitespace-nowrap transition-all duration-200 min-h-[38px] bg-white text-slate-700 hover:bg-slate-200/80 border border-slate-200 cursor-pointer"
+            className="px-4 sm:px-5 py-2 rounded-full text-xs font-black whitespace-nowrap transition-all duration-200 shrink-0 min-h-[38px] bg-white text-slate-700 hover:bg-slate-200/80 border border-slate-200/90 cursor-pointer"
           >
             All Men's Fits
           </button>
@@ -288,28 +288,34 @@ export const CategoryPage = ({ slug, onNavigateHome }) => {
               <button
                 key={cat.slug}
                 onClick={() => handleSelectCategorySlug(cat.slug)}
-                className={`px-4 sm:px-5 py-2 rounded-full text-xs font-black whitespace-nowrap transition-all duration-200 min-h-[38px] cursor-pointer ${
+                className={`px-4 sm:px-5 py-2 rounded-full text-xs font-black whitespace-nowrap transition-all duration-200 shrink-0 min-h-[38px] cursor-pointer ${
                   isActive
                     ? 'bg-slate-900 text-white shadow-md shadow-slate-900/20'
-                    : 'bg-white text-slate-700 hover:bg-slate-200/80 border border-slate-200'
+                    : 'bg-white text-slate-700 hover:bg-slate-200/80 border border-slate-200/90'
                 }`}
               >
                 {cat.label}
               </button>
             );
           })}
+          <div className="shrink-0 w-2 sm:hidden" aria-hidden="true" />
         </div>
 
         {/* ── PRODUCT GRID / STATES ───────────────────────────────────── */}
         {isLoadingProducts ? (
           /* 1. Loading Skeletons */
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-6 items-stretch">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-              <div key={n} className="bg-white rounded-2xl sm:rounded-3xl p-3 border border-slate-200 space-y-3 animate-pulse">
-                <div className="aspect-[3/4] bg-slate-200 rounded-xl w-full"></div>
-                <div className="h-4 bg-slate-200 rounded-md w-3/4"></div>
-                <div className="h-3 bg-slate-200 rounded-md w-1/2"></div>
-                <div className="h-8 bg-slate-200 rounded-xl w-full"></div>
+              <div key={n} className="bg-white rounded-xl sm:rounded-2xl overflow-hidden border border-slate-200 flex flex-col justify-between animate-pulse">
+                <div className="aspect-[3/4] bg-slate-200 w-full"></div>
+                <div className="p-2.5 sm:p-3.5 flex flex-col flex-1 justify-between gap-3">
+                  <div className="space-y-1.5">
+                    <div className="h-3 bg-slate-200 rounded w-1/3"></div>
+                    <div className="h-4 bg-slate-200 rounded w-4/5"></div>
+                    <div className="h-3.5 bg-slate-200 rounded w-1/4 mt-1"></div>
+                  </div>
+                  <div className="h-8 bg-slate-200 rounded-lg sm:rounded-xl w-full"></div>
+                </div>
               </div>
             ))}
           </div>
@@ -330,7 +336,7 @@ export const CategoryPage = ({ slug, onNavigateHome }) => {
           </div>
         ) : sortedProducts.length > 0 ? (
           /* 3. Product Grid */
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 items-stretch">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-6 items-stretch">
             {sortedProducts.map((product, index) => (
               <ProductCard
                 key={product.id || product._id}

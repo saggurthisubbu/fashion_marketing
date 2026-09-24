@@ -165,12 +165,8 @@ router.post('/', (req, res) => {
           uploadedBy: req.user?._id
         });
 
-        // Compute permanent URL pointing to our permanent MongoDB Atlas streaming route
-        // This route works everywhere: Render, Vercel, Localhost, Mobile
-        const host = req.get('host');
-        const protocol = req.protocol === 'http' && host && !host.includes('localhost') ? 'https' : req.protocol;
-        const baseUrl = host ? `${protocol}://${host}` : '';
-        permanentUrl = `${baseUrl}/api/upload/media/${mediaDoc._id}`;
+        // Return host-agnostic permanent path that works seamlessly across localhost, mobile LAN, and production
+        permanentUrl = `/api/upload/media/${mediaDoc._id}`;
         storageMethod = 'MongoDB Atlas Cloud Media';
 
         console.log(`✅ [UPLOAD] Saved permanently in MongoDB Atlas: /api/upload/media/${mediaDoc._id}`);
@@ -240,13 +236,14 @@ router.get('/media/:id', async (req, res) => {
 
     const imageBuffer = Buffer.from(media.dataBase64, 'base64');
 
-    res.setHeader('Content-Type', media.mimetype || 'image/jpeg');
-    res.setHeader('Content-Length', imageBuffer.length);
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.set({
+      'Content-Type': media.mimetype || 'image/jpeg',
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Access-Control-Allow-Origin': '*',
+      'Cross-Origin-Resource-Policy': 'cross-origin'
+    });
 
-    return res.status(200).end(imageBuffer);
+    return res.status(200).send(imageBuffer);
   } catch (error) {
     console.error('❌ [GET MEDIA ERROR]:', error.message);
     res.status(500).json({ message: 'Error retrieving cloud media' });

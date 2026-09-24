@@ -4,8 +4,9 @@
  */
 
 const PRODUCTION_RENDER_API = 'https://quickfit-backend-m1yl.onrender.com/api';
-const envApiUrl = import.meta.env.VITE_API_URL;
-const isProd = import.meta.env.PROD || process.env.NODE_ENV === 'production';
+const envApiUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || (typeof process !== 'undefined' && process.env?.VITE_API_URL) || '';
+const isProd = typeof import.meta !== 'undefined' && import.meta.env ? Boolean(import.meta.env.PROD) : (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production');
+
 
 const normalizeApiUrl = (url) => {
   if (!url) return '';
@@ -14,22 +15,27 @@ const normalizeApiUrl = (url) => {
 };
 
 const computeApiUrl = () => {
-  // 1. If explicit API URL is set via environment variable
-  if (envApiUrl && envApiUrl.trim() !== '') {
-    return normalizeApiUrl(envApiUrl);
-  }
-
-  // 2. In browser environment
+  // 1. In browser environment
   if (typeof window !== 'undefined') {
     const { hostname } = window.location;
 
-    // Local development/testing fallback
+    // Local development/testing fallback (covers localhost, 127.0.0.1, and local LAN IP for mobile testing)
     if (!isProd && (hostname === 'localhost' || hostname === '127.0.0.1' || /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname))) {
       return `http://${hostname}:5000/api`;
     }
 
+    // If explicit env variable is set and not in local dev
+    if (envApiUrl && envApiUrl.trim() !== '') {
+      return normalizeApiUrl(envApiUrl);
+    }
+
     // Default to Live Render MongoDB Atlas Backend
     return PRODUCTION_RENDER_API;
+  }
+
+  // Non-browser (Node.js/SSR/testing):
+  if (envApiUrl && envApiUrl.trim() !== '') {
+    return normalizeApiUrl(envApiUrl);
   }
 
   return PRODUCTION_RENDER_API;
@@ -75,15 +81,15 @@ export const resolveImageUrl = (imgUrl) => {
     return trimmed;
   }
 
-  // 5. Absolute URL handling
-  if (/^https?:\/\//i.test(trimmed)) {
-    // If it's a permanent MongoDB Atlas Media URL with a different origin, normalize it
-    if (trimmed.includes('/api/upload/media/')) {
-      const mediaId = trimmed.split('/api/upload/media/')[1];
-      const origin = API_ORIGIN || (typeof window !== 'undefined' ? window.location.origin : '');
-      return origin ? `${origin}/api/upload/media/${mediaId}` : trimmed;
-    }
+  // 5. MongoDB Atlas Cloud Media URL handling (both relative and absolute)
+  if (trimmed.includes('/api/upload/media/')) {
+    const mediaId = trimmed.split('/api/upload/media/')[1].split(/[?#]/)[0];
+    const origin = API_ORIGIN || (typeof window !== 'undefined' ? window.location.origin : '');
+    return origin ? `${origin}/api/upload/media/${mediaId}` : `/api/upload/media/${mediaId}`;
+  }
 
+  // 6. Absolute URL handling
+  if (/^https?:\/\//i.test(trimmed)) {
     // If it's a legacy /uploads/ URL
     if (trimmed.includes('/uploads/')) {
       const fileName = trimmed.split('/uploads/')[1];
@@ -95,13 +101,6 @@ export const resolveImageUrl = (imgUrl) => {
 
     // External CDN (Unsplash, Imgur, etc.)
     return trimmed;
-  }
-
-  // 6. Relative MongoDB Atlas Cloud Media URL (e.g. "/api/upload/media/..." or "api/upload/media/...")
-  if (trimmed.includes('/api/upload/media/') || trimmed.startsWith('api/upload/media/')) {
-    const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-    const origin = API_ORIGIN || (typeof window !== 'undefined' ? window.location.origin : '');
-    return origin ? `${origin}${cleanPath}` : cleanPath;
   }
 
   // 7. Relative upload paths: e.g. "uploads/shirt1.jpg", "/uploads/shirt1.jpg"
@@ -123,7 +122,7 @@ export const resolveImageUrl = (imgUrl) => {
 
 /**
  * Resilient image error handler:
- * If an image fails to load, gracefully falls back without breaking UI layout.
+ * If an image fails to load on one host, tries fallback host before any placeholder.
  */
 export const handleImageError = (e, fallback = DEFAULT_PLACEHOLDER_IMAGE) => {
   const target = e.currentTarget;
@@ -133,7 +132,40 @@ export const handleImageError = (e, fallback = DEFAULT_PLACEHOLDER_IMAGE) => {
   if (target.dataset.errorHandled === 'true') {
     return;
   }
-  target.dataset.errorHandled = 'true';
+
+  // If a MongoDB Atlas media URL failed on one origin, try alternate origins before falling back
+  if (currentSrc && currentSrc.includes('/api/upload/media/')) {
+    const mediaId = currentSrc.split('/api/upload/media/')[1]?.split(/[?#]/)[0];
+    if (mediaId) {
+      const step = parseInt(target.dataset.mediaRetryStep || '0', 10);
+      target.dataset.mediaRetryStep = String(step + 1);
+
+      // Attempt 1: Try via current window origin / Vite proxy
+      if (step === 0 && typeof window !== 'undefined') {
+        const localProxyUrl = `${window.location.origin}/api/upload/media/${mediaId}`;
+        if (currentSrc !== localProxyUrl) {
+          target.src = localProxyUrl;
+          return;
+        }
+      }
+      // Attempt 2: Try localhost:5000 directly
+      if (step <= 1) {
+        const local5000 = `http://localhost:5000/api/upload/media/${mediaId}`;
+        if (currentSrc !== local5000) {
+          target.src = local5000;
+          return;
+        }
+      }
+      // Attempt 3: Try Render backend
+      if (step <= 2) {
+        const renderUrl = `https://quickfit-backend-m1yl.onrender.com/api/upload/media/${mediaId}`;
+        if (currentSrc !== renderUrl) {
+          target.src = renderUrl;
+          return;
+        }
+      }
+    }
+  }
 
   // If local /uploads failed on remote backend, try frontend static mirror
   if (currentSrc && currentSrc.includes('/uploads/')) {
@@ -145,8 +177,10 @@ export const handleImageError = (e, fallback = DEFAULT_PLACEHOLDER_IMAGE) => {
     }
   }
 
+  target.dataset.errorHandled = 'true';
   target.onerror = null;
   if (fallback) {
     target.src = fallback;
   }
 };
+

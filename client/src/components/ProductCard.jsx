@@ -60,12 +60,10 @@ export const ProductCard = React.memo(({ product, priority = false }) => {
           src={frontImage}
           alt={product.name || 'Product'}
           loading={priority ? 'eager' : 'lazy'}
-          fetchpriority={priority ? 'high' : 'auto'}
+          {...(priority ? { fetchpriority: 'high' } : {})}
           decoding="async"
-          width="400"
-          height="533"
           onError={(e) => handleImageError(e, DEFAULT_PLACEHOLDER_IMAGE)}
-          className={`w-full h-full object-cover object-top transition-all duration-500 ease-out ${
+          className={`w-full h-full object-cover object-top product-image-hd transition-all duration-500 ease-out ${
             hasBackImage
               ? 'group-hover:opacity-0 group-hover:scale-105'
               : 'group-hover:scale-105'
@@ -79,10 +77,8 @@ export const ProductCard = React.memo(({ product, priority = false }) => {
             alt={`${product.name} Back`}
             loading="lazy"
             decoding="async"
-            width="400"
-            height="533"
             onError={(e) => handleImageError(e, frontImage || DEFAULT_PLACEHOLDER_IMAGE)}
-            className="absolute inset-0 w-full h-full object-cover object-top opacity-0 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500 ease-out"
+            className="absolute inset-0 w-full h-full object-cover object-top product-image-hd opacity-0 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500 ease-out"
           />
         )}
       </div>

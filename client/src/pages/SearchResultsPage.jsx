@@ -648,13 +648,11 @@ export const SearchResultsPage = ({ queryParam, onNavigateHome }) => {
                                 alt={rec.name}
                                 loading="lazy"
                                 decoding="async"
-                                width="300"
-                                height="375"
                                 onError={(e) => {
                                   e.currentTarget.onerror = null;
                                   e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
                                 }}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                className="w-full h-full object-cover object-top product-image-hd group-hover:scale-105 transition-transform duration-300"
                               />
                             </div>
                             <h4 className="text-xs font-black text-slate-900 truncate group-hover:text-amber-600 transition-colors">

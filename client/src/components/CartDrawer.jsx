@@ -75,8 +75,9 @@ export const CartDrawer = () => {
                     src={resolveImageUrl(item.image || item.images?.front)}
                     alt={item.name}
                     loading="lazy"
+                    decoding="async"
                     onError={(e) => handleImageError(e, DEFAULT_PLACEHOLDER_IMAGE)}
-                    className="w-20 h-24 rounded-xl object-cover bg-slate-100 flex-shrink-0"
+                    className="w-20 h-24 rounded-xl object-cover object-top bg-slate-100 flex-shrink-0 product-image-hd"
                   />
 
                   {/* DETAILS */}

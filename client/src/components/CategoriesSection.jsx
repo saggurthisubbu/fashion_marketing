@@ -110,13 +110,11 @@ export const CategoriesSection = () => {
                   alt={cat.name}
                   loading="lazy"
                   decoding="async"
-                  width="400"
-                  height="533"
                   onError={(e) => {
                     e.currentTarget.onerror = null;
                     e.currentTarget.src = '/placeholder-shirt.jpg';
                   }}
-                  className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                  className="w-full h-full object-cover object-top product-image-hd transition-transform duration-500 ease-out group-hover:scale-105"
                 />
               </div>
 

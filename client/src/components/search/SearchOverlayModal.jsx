@@ -226,7 +226,7 @@ export const SearchOverlayModal = ({ isOpen, onClose, initialQuery = '' }) => {
                         alt={product.name}
                         loading="lazy"
                         decoding="async"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        className="w-full h-full object-cover object-top product-image-hd group-hover:scale-105 transition-transform duration-300"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
                           e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;

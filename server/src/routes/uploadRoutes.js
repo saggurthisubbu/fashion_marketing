@@ -68,6 +68,7 @@ const uploadBufferToCloudinary = (buffer, options = {}) => {
       {
         folder: 'quickfit/products',
         resource_type: 'image',
+        quality: 'auto:best', // Disable aggressive compression - upload at maximum fidelity
         ...options
       },
       (error, result) => {
@@ -229,18 +230,25 @@ router.get('/media/:id', async (req, res) => {
       return res.status(404).json({ message: 'Media not found in cloud database' });
     }
 
-    // If Cloudinary URL is available, redirect directly to Cloudinary CDN
+    // If Cloudinary URL is available, redirect directly to Cloudinary CDN with high-res delivery
     if (media.cloudinaryUrl && media.cloudinaryUrl.startsWith('http')) {
-      return res.redirect(301, media.cloudinaryUrl);
+      let cloudUrl = media.cloudinaryUrl;
+      if (cloudUrl.includes('/upload/') && !cloudUrl.includes('q_auto:best')) {
+        cloudUrl = cloudUrl.replace(/\/upload\/(v\d+\/)?/, '/upload/f_auto,q_auto:best,dpr_auto/$1');
+      }
+      return res.redirect(301, cloudUrl);
     }
 
     const imageBuffer = Buffer.from(media.dataBase64, 'base64');
 
     res.set({
       'Content-Type': media.mimetype || 'image/jpeg',
+      'Content-Length': imageBuffer.length,
+      'Accept-Ranges': 'bytes',
       'Cache-Control': 'public, max-age=31536000, immutable',
       'Access-Control-Allow-Origin': '*',
-      'Cross-Origin-Resource-Policy': 'cross-origin'
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+      'X-Content-Type-Options': 'nosniff'
     });
 
     return res.status(200).send(imageBuffer);

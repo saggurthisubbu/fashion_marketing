@@ -133,11 +133,12 @@ export const OrderConfirmationModal = () => {
                         src={resolvedImg}
                         alt={`${item.name} — Size: ${item.selectedSize || item.size || 'M'}`}
                         loading="eager"
+                        decoding="async"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
                           e.currentTarget.src = fallbackImg;
                         }}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover object-top product-image-hd"
                       />
                     </div>
 

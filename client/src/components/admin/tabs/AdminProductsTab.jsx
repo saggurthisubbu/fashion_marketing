@@ -180,11 +180,12 @@ export const AdminProductsTab = ({
                             src={resolveImageUrl(prod.images?.front || prod.image)}
                             alt={prod.name}
                             loading="lazy"
+                            decoding="async"
                             onError={(e) => {
                               e.currentTarget.onerror = null;
                               e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
                             }}
-                            className="w-12 h-16 object-cover rounded-xl border border-zinc-800 bg-zinc-900 shadow-sm"
+                            className="w-12 h-16 object-cover object-top rounded-xl border border-zinc-800 bg-zinc-900 shadow-sm product-image-hd"
                           />
                         </td>
 
@@ -313,11 +314,12 @@ export const AdminProductsTab = ({
                     src={resolveImageUrl(prod.images?.front || prod.image)}
                     alt={prod.name}
                     loading="lazy"
+                    decoding="async"
                     onError={(e) => {
                       e.currentTarget.onerror = null;
                       e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
                     }}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover object-top product-image-hd group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute top-2.5 left-2.5 px-2 py-1 rounded-md bg-zinc-950/80 backdrop-blur-xs text-[10px] font-mono text-white font-bold border border-zinc-800">
                     {angleCount} / 4 Views

@@ -76,8 +76,24 @@ export const resolveImageUrl = (imgUrl) => {
     return trimmed;
   }
 
-  // 4. Cloudinary permanent CDN URL
+  // 4. Cloudinary permanent CDN URL - maximize quality, disable lossy compression, and enable retina DPR
   if (trimmed.includes('cloudinary.com') || trimmed.includes('res.cloudinary.com')) {
+    if (trimmed.includes('/upload/')) {
+      const parts = trimmed.split('/upload/');
+      const prefix = parts[0] + '/upload/';
+      let rest = parts[1];
+
+      // Remove aggressive compression or small width limitations
+      rest = rest.replace(/q_auto(?::[a-z0-9_-]+)?/g, 'q_auto:best');
+      rest = rest.replace(/w_\d+,?/g, ''); // strip forced downscaled widths
+
+      if (rest.startsWith('v') && /^v\d+\//.test(rest)) {
+        return `${prefix}f_auto,q_auto:best,dpr_auto/${rest}`;
+      } else if (!rest.includes('q_auto:best')) {
+        return `${prefix}f_auto,q_auto:best,dpr_auto/${rest}`;
+      }
+      return `${prefix}${rest}`;
+    }
     return trimmed;
   }
 
@@ -99,7 +115,13 @@ export const resolveImageUrl = (imgUrl) => {
       }
     }
 
-    // External CDN (Unsplash, Imgur, etc.)
+    // External CDN (Unsplash, etc.) - upgrade to high-resolution with max clarity
+    if (trimmed.includes('images.unsplash.com')) {
+      return trimmed
+        .replace(/([?&])q=\d+/i, '$1q=95')
+        .replace(/([?&])w=\d+/i, '$1w=1400');
+    }
+
     return trimmed;
   }
 

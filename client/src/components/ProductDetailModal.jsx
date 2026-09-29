@@ -220,14 +220,17 @@ export const ProductDetailModal = () => {
             <img
               src={currentAngle.url}
               alt={`${selectedProduct.name} - ${currentAngle.label}`}
-              loading="lazy"
+              loading="eager"
+              fetchpriority="high"
+              decoding="sync"
               onError={(e) => handleImageError(e, DEFAULT_PLACEHOLDER_IMAGE)}
-              className="w-full h-full object-cover transition-transform duration-200 ease-out pointer-events-none"
+              className="w-full h-full object-cover object-top product-image-hd product-image-zoom transition-transform duration-200 ease-out pointer-events-none"
               style={
                 isZoomed
                   ? {
                       transform: 'scale(2.2)',
-                      transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`
+                      transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`,
+                      willChange: 'transform'
                     }
                   : { transform: 'scale(1)' }
               }
@@ -304,8 +307,9 @@ export const ProductDetailModal = () => {
                           src={angle.url}
                           alt={angle.label}
                           loading="lazy"
+                          decoding="async"
                           onError={(e) => handleImageError(e, DEFAULT_PLACEHOLDER_IMAGE)}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover object-top product-image-hd"
                         />
                       </div>
                       <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-wider ${
@@ -481,8 +485,9 @@ export const ProductDetailModal = () => {
                 src={resolveImageUrl(selectedProduct.images?.front || selectedProduct.image)}
                 alt={selectedProduct.name}
                 loading="lazy"
+                decoding="async"
                 onError={(e) => handleImageError(e, DEFAULT_PLACEHOLDER_IMAGE)}
-                className="w-12 h-14 object-cover rounded-lg border border-slate-200"
+                className="w-12 h-14 object-cover object-top rounded-lg border border-slate-200 product-image-hd"
               />
               <div className="min-w-0 flex-1">
                 <div className="font-extrabold text-slate-900 truncate">{selectedProduct.name}</div>

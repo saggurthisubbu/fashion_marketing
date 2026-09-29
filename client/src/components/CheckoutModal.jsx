@@ -397,11 +397,12 @@ export const CheckoutModal = () => {
                         src={resolveImageUrl(item.image)}
                         alt={item.name}
                         loading="lazy"
+                        decoding="async"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
                           e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
                         }}
-                        className="w-10 h-12 object-cover rounded-xl border border-slate-200 shrink-0 bg-white"
+                        className="w-10 h-12 object-cover object-top rounded-xl border border-slate-200 shrink-0 bg-white product-image-hd"
                       />
                     )}
                     <div className="min-w-0">

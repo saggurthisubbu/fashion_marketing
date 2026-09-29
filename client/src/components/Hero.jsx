@@ -102,11 +102,9 @@ export const Hero = () => {
                   alt={featuredProduct?.name || "QuickFit Men's Streetwear"}
                   loading="eager"
                   fetchpriority="high"
-                  decoding="async"
-                  width="480"
-                  height="640"
+                  decoding="sync"
                   onError={(e) => handleImageError(e, DEFAULT_PLACEHOLDER_IMAGE)}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  className="w-full h-full object-cover object-top product-image-hd group-hover:scale-105 transition-transform duration-700"
                 />
               </div>
 

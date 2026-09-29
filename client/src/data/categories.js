@@ -4,7 +4,7 @@ export const categoriesData = [
     name: "Oversized T-Shirts",
     tagline: "240+ GSM French Terry & Boxy Cuts",
     itemCount: "Heavy Streetwear",
-    image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop",
+    image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=95&w=1400&auto=format&fit=crop",
     gradient: "from-slate-900 to-black",
     slug: "Oversized T-Shirts"
   },
@@ -13,7 +13,7 @@ export const categoriesData = [
     name: "Drop Shoulder T-Shirts",
     tagline: "Relaxed Silhouettes & Bio-Washed Cotton",
     itemCount: "Modern Streetwear",
-    image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=800&auto=format&fit=crop",
+    image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=95&w=1400&auto=format&fit=crop",
     gradient: "from-zinc-900 to-stone-950",
     slug: "Drop Shoulder T-Shirts"
   },
@@ -22,7 +22,7 @@ export const categoriesData = [
     name: "Polo T-Shirts",
     tagline: "Double-Mercerized Luxury Pique Knits",
     itemCount: "Structured Fit",
-    image: "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=80&w=800&auto=format&fit=crop",
+    image: "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=95&w=1400&auto=format&fit=crop",
     gradient: "from-neutral-900 to-zinc-900",
     slug: "Polo T-Shirts"
   },

@@ -135,3 +135,40 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   }
 }
 
+/* ==========================================================================
+   HIGH-DEFINITION PRODUCT IMAGE RENDERING SYSTEM
+   Delivers maximum sharpness, prevents blurry/pixelated scaling, and preserves
+   crisp fabric textures across mobile, retina, and desktop displays.
+   ========================================================================== */
+img {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: high-quality;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.product-image-hd,
+[data-product-image="true"] {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: high-quality;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* Micro-clarity boost: Enhances fabric weave, stitching, and dark/light depth */
+  filter: contrast(1.025) saturate(1.02);
+}
+
+/* Keep hover transformations razor-sharp without rasterization blur */
+.group:hover .product-image-hd {
+  transform: translateZ(0) scale(1.05);
+}
+
+/* Modal and Zoom high-res rendering */
+.product-image-zoom {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: high-quality;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+}
+

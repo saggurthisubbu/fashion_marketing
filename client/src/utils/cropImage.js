@@ -111,11 +111,11 @@ export async function getCroppedImg(
           }
           const file = new File([blob], fileName, { type: 'image/jpeg', lastModified: Date.now() });
           const url = URL.createObjectURL(blob);
-          const dataUrl = croppedCanvas.toDataURL('image/jpeg', 0.95);
+          const dataUrl = croppedCanvas.toDataURL('image/jpeg', 0.98);
           resolve({ file, url, dataUrl });
         },
         'image/jpeg',
-        0.95
+        0.98
       );
     });
   } catch (error) {

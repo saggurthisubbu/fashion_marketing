@@ -435,20 +435,15 @@ export const AdminDashboardModal = () => {
     setFileErrors({});
 
     try {
-      // When creating a new product, NEVER inherit old/stale imagesData from previous products
-      const finalImages = editingProduct ? {
-        front: editingProduct.images?.front || editingProduct.image || '',
-        back: editingProduct.images?.back || '',
-        left: editingProduct.images?.left || '',
-        right: editingProduct.images?.right || ''
-      } : {
+      // Build finalImages cleanly from current form state without resurrecting deleted images
+      const finalImages = {
         front: '',
         back: '',
         left: '',
         right: ''
       };
 
-      // Upload newly selected files to permanent cloud storage
+      // Upload newly selected files to permanent cloud storage or preserve existing non-deleted images
       for (const angleKey of ['front', 'back', 'left', 'right']) {
         if (imageFiles[angleKey]) {
           console.log(`[IMAGE UPLOAD START] Uploading ${angleKey} file:`, imageFiles[angleKey].name);
@@ -476,8 +471,10 @@ export const AdminDashboardModal = () => {
             setIsSavingProduct(false);
             return;
           }
-        } else if (editingProduct && imagesData[angleKey] && !imagesData[angleKey].startsWith('blob:') && !imagesData[angleKey].startsWith('data:')) {
+        } else if (imagesData[angleKey] && !imagesData[angleKey].startsWith('blob:') && !imagesData[angleKey].startsWith('data:')) {
           finalImages[angleKey] = imagesData[angleKey];
+        } else {
+          finalImages[angleKey] = '';
         }
       }
 

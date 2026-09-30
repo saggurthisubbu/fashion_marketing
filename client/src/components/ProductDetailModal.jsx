@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { ZoomIn, ZoomOut } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
 import { formatQuickFitWhatsAppOrder } from '../utils/whatsapp';
 import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE, handleImageError } from '../config/api';
@@ -18,9 +19,12 @@ export const ProductDetailModal = () => {
   const [gpsLocation, setGpsLocation] = useState('');
   const [isGettingGps, setIsGettingGps] = useState(false);
 
-  // Zoom state for desktop hover
+  // Zoom state (manual click toggle & mobile pinch-to-zoom)
   const [isZoomed, setIsZoomed] = useState(false);
+  const [zoomScale, setZoomScale] = useState(1);
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
+  const pinchStartDist = useRef(null);
+  const pinchStartScale = useRef(1);
 
   // Touch swipe state for mobile
   const touchStartX = useRef(0);
@@ -41,6 +45,8 @@ export const ProductDetailModal = () => {
       setSelectedSize(selectedProduct.sizes && selectedProduct.sizes.length > 0 ? selectedProduct.sizes[0] : 'M');
       setSelectedColor(selectedProduct.colors && selectedProduct.colors.length > 0 ? (selectedProduct.colors[0].name || '') : '');
       setIsZoomed(false);
+      setZoomScale(1);
+      setZoomPos({ x: 50, y: 50 });
       setIsQuickOrderOpen(false);
 
       const loc = verifiedLocation || userLocation;
@@ -62,8 +68,12 @@ export const ProductDetailModal = () => {
           setIsDetailModalOpen(false);
         }
       } else if (e.key === 'ArrowRight' && angleViews.length > 1) {
+        setIsZoomed(false);
+        setZoomScale(1);
         setCurrentIndex((prev) => (prev === angleViews.length - 1 ? 0 : prev + 1));
       } else if (e.key === 'ArrowLeft' && angleViews.length > 1) {
+        setIsZoomed(false);
+        setZoomScale(1);
         setCurrentIndex((prev) => (prev === 0 ? angleViews.length - 1 : prev - 1));
       }
     };
@@ -82,43 +92,101 @@ export const ProductDetailModal = () => {
 
   const handlePrev = () => {
     if (angleViews.length <= 1) return;
+    setIsZoomed(false);
+    setZoomScale(1);
     setCurrentIndex((prev) => (prev === 0 ? angleViews.length - 1 : prev - 1));
   };
 
   const handleNext = () => {
     if (angleViews.length <= 1) return;
+    setIsZoomed(false);
+    setZoomScale(1);
     setCurrentIndex((prev) => (prev === angleViews.length - 1 ? 0 : prev + 1));
   };
 
-  // Touch Swipe Handlers for Mobile
+  // Manual Zoom Toggle (button click only)
+  const handleToggleZoom = () => {
+    setIsZoomed((prev) => {
+      const next = !prev;
+      setZoomScale(next ? 2 : 1);
+      setZoomPos({ x: 50, y: 50 });
+      return next;
+    });
+  };
+
+  // Touch Swipe & Mobile Pinch-to-Zoom Handlers
   const handleTouchStart = (e) => {
-    touchStartX.current = e.touches[0].clientX;
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      pinchStartDist.current = dist;
+      pinchStartScale.current = zoomScale > 1 ? zoomScale : 1;
+    } else if (e.touches.length === 1) {
+      touchStartX.current = e.touches[0].clientX;
+    }
   };
 
   const handleTouchMove = (e) => {
-    touchEndX.current = e.touches[0].clientX;
-  };
+    if (e.touches.length === 2 && pinchStartDist.current) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const factor = dist / pinchStartDist.current;
+      const newScale = Math.min(Math.max(pinchStartScale.current * factor, 1), 3);
+      setZoomScale(newScale);
 
-  const handleTouchEnd = () => {
-    const diff = touchStartX.current - touchEndX.current;
-    const threshold = 40;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const midX = (((e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left) / rect.width) * 100;
+      const midY = (((e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top) / rect.height) * 100;
+      setZoomPos({
+        x: Math.min(Math.max(midX, 0), 100),
+        y: Math.min(Math.max(midY, 0), 100)
+      });
 
-    if (Math.abs(diff) > threshold && angleViews.length > 1) {
-      if (diff > 0) {
-        handleNext();
+      if (newScale > 1.05) {
+        setIsZoomed(true);
       } else {
-        handlePrev();
+        setIsZoomed(false);
       }
+    } else if (e.touches.length === 1 && !isZoomed) {
+      touchEndX.current = e.touches[0].clientX;
     }
-    touchStartX.current = 0;
-    touchEndX.current = 0;
   };
 
-  // Desktop Hover Zoom Handlers
+  const handleTouchEnd = (e) => {
+    if (e.touches.length < 2) {
+      pinchStartDist.current = null;
+    }
+    if (e.touches.length === 0) {
+      if (zoomScale <= 1.05) {
+        setZoomScale(1);
+        setIsZoomed(false);
+      }
+      if (!isZoomed && zoomScale <= 1.05 && touchStartX.current && touchEndX.current) {
+        const diff = touchStartX.current - touchEndX.current;
+        const threshold = 40;
+        if (Math.abs(diff) > threshold && angleViews.length > 1) {
+          if (diff > 0) {
+            handleNext();
+          } else {
+            handlePrev();
+          }
+        }
+      }
+      touchStartX.current = 0;
+      touchEndX.current = 0;
+    }
+  };
+
+  // Desktop Pan Handlers when Zoom is manually enabled
   const handleMouseMove = (e) => {
+    if (!isZoomed) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const x = Math.min(Math.max(((e.clientX - rect.left) / rect.width) * 100, 0), 100);
+    const y = Math.min(Math.max(((e.clientY - rect.top) / rect.height) * 100, 0), 100);
     setZoomPos({ x, y });
   };
 
@@ -206,17 +274,17 @@ export const ProductDetailModal = () => {
         {/* LEFT COLUMN: 4-ANGLE INTERACTIVE GALLERY (COL-SPAN-7) */}
         <div className="md:col-span-7 p-4 sm:p-6 bg-slate-50 flex flex-col justify-between space-y-4 border-b md:border-b-0 md:border-r border-slate-200">
           
-          {/* MAIN IMAGE DISPLAY WITH ARROWS, ZOOM & MOBILE SWIPE */}
+          {/* MAIN IMAGE DISPLAY WITH ARROWS, MANUAL ZOOM & MOBILE PINCH */}
           <div
-            className="relative aspect-[3/4] w-full rounded-2xl overflow-hidden bg-white shadow-xs border border-slate-200 select-none group cursor-crosshair"
+            className={`relative aspect-[3/4] w-full rounded-2xl overflow-hidden bg-white shadow-xs border border-slate-200 select-none ${
+              isZoomed ? 'cursor-move' : 'cursor-default'
+            }`}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            onMouseEnter={() => setIsZoomed(true)}
-            onMouseLeave={() => setIsZoomed(false)}
             onMouseMove={handleMouseMove}
           >
-            {/* ACTIVE ANGLE IMAGE WITH HOVER ZOOM EFFECT */}
+            {/* ACTIVE ANGLE IMAGE */}
             <img
               src={currentAngle.url}
               alt={`${selectedProduct.name} - ${currentAngle.label}`}
@@ -228,13 +296,35 @@ export const ProductDetailModal = () => {
               style={
                 isZoomed
                   ? {
-                      transform: 'scale(2.2)',
+                      transform: `scale(${zoomScale > 1 ? zoomScale : 2})`,
                       transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`,
                       willChange: 'transform'
                     }
                   : { transform: 'scale(1)' }
               }
             />
+
+            {/* MANUAL ZOOM BUTTON */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleZoom();
+              }}
+              className={`absolute top-3 right-3 w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all duration-200 shadow-md z-20 cursor-pointer ${
+                isZoomed
+                  ? 'bg-slate-900 text-white hover:bg-black scale-105'
+                  : 'bg-white/90 hover:bg-white text-slate-800 border border-slate-200 hover:scale-105'
+              }`}
+              title={isZoomed ? 'Zoom Out / Reset' : 'Zoom In'}
+              aria-label={isZoomed ? 'Zoom Out' : 'Zoom In'}
+            >
+              {isZoomed ? (
+                <ZoomOut className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              ) : (
+                <ZoomIn className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              )}
+            </button>
 
             {/* PREV ARROW */}
             {angleViews.length > 1 && (
@@ -295,7 +385,11 @@ export const ProductDetailModal = () => {
                   return (
                     <button
                       key={angle.key}
-                      onClick={() => setCurrentIndex(idx)}
+                      onClick={() => {
+                        setIsZoomed(false);
+                        setZoomScale(1);
+                        setCurrentIndex(idx);
+                      }}
                       className={`relative rounded-xl overflow-hidden border-2 transition-all p-1 bg-white flex flex-col items-center group shadow-xs ${
                         isActive
                           ? 'border-slate-900 ring-2 ring-slate-900/20 scale-102'

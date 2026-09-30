@@ -371,18 +371,18 @@ router.put('/:id', protect, storeOwnerOrAdmin, async (req, res) => {
     // Sync images
     if (data.images) {
       product.images = {
-        front: data.images.front !== undefined ? data.images.front : product.images?.front || '',
-        back: data.images.back !== undefined ? data.images.back : product.images?.back || '',
-        left: data.images.left !== undefined ? data.images.left : product.images?.left || '',
-        right: data.images.right !== undefined ? data.images.right : product.images?.right || ''
+        front: data.images.front !== undefined ? data.images.front : (product.images?.front || ''),
+        back: data.images.back !== undefined ? data.images.back : (product.images?.back || ''),
+        left: data.images.left !== undefined ? data.images.left : (product.images?.left || ''),
+        right: data.images.right !== undefined ? data.images.right : (product.images?.right || '')
       };
-      if (product.images.front) {
-        product.image = product.images.front;
-      }
-    } else if (data.image) {
+      product.markModified('images');
+      product.image = product.images.front || product.images.back || product.images.left || product.images.right || '';
+    } else if (data.image !== undefined) {
       product.image = data.image;
       if (!product.images) product.images = {};
       product.images.front = data.image;
+      product.markModified('images');
     }
 
     const updatedProduct = await product.save();

@@ -158,8 +158,8 @@ img {
   filter: contrast(1.025) saturate(1.02);
 }
 
-/* Keep hover transformations razor-sharp without rasterization blur */
-.group:hover .product-image-hd {
+/* Keep hover transformations razor-sharp without rasterization blur (exclude modal zoom image) */
+.group:hover .product-image-hd:not(.product-image-zoom) {
   transform: translateZ(0) scale(1.05);
 }
 
@@ -169,6 +169,5 @@ img {
   image-rendering: high-quality;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  transform: translateZ(0);
 }
 

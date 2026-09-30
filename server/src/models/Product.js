@@ -40,15 +40,20 @@ const productSchema = new mongoose.Schema({
 // Auto-sync image and gallery before save
 productSchema.pre('save', function (next) {
   // Sync primary image with product's own images only
-  if (this.images && this.images.front) {
-    this.image = this.images.front;
-  } else if (this.image && (!this.images || !this.images.front)) {
-    if (!this.images) this.images = {};
-    this.images.front = this.image;
-  } else if (this.images && (this.images.back || this.images.left || this.images.right)) {
-    const anyAngle = this.images.back || this.images.left || this.images.right;
-    this.image = anyAngle;
-    this.images.front = anyAngle;
+  if (this.images) {
+    const primaryImg = this.images.front || this.images.back || this.images.left || this.images.right || '';
+    if (primaryImg) {
+      this.image = primaryImg;
+      if (!this.images.front) {
+        this.images.front = primaryImg;
+      }
+    } else if (this.image) {
+      this.images.front = this.image;
+    } else {
+      this.image = '';
+    }
+  } else if (this.image) {
+    this.images = { front: this.image, back: '', left: '', right: '' };
   }
 
   // Populate gallery array

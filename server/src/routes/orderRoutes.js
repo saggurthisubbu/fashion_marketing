@@ -6,6 +6,7 @@ import { Store } from '../models/Store.js';
 import { Notification } from '../models/Notification.js';
 import { protect, adminOnly, storeOwnerOrAdmin } from '../middleware/auth.js';
 import { sendOrderConfirmationEmail, sendAdminOrderNotificationEmail } from '../services/emailService.js';
+import { sendFcmOrderNotification } from '../services/fcmService.js';
 
 const router = express.Router();
 
@@ -254,6 +255,11 @@ router.post('/', async (req, res) => {
     } catch (notifErr) {
       console.warn('[Notification Error]:', notifErr.message);
     }
+
+    // 10. Instant FCM Push Notification to Admin Phones (Android, iOS & Background WebPush)
+    sendFcmOrderNotification(createdOrder).catch((fcmErr) => {
+      console.error('[FCM Notification Error]:', fcmErr.message);
+    });
 
     return res.status(201).json(createdOrder);
   } catch (error) {

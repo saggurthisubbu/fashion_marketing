@@ -19,6 +19,11 @@ import { AdminStoreOwnersTab } from './admin/tabs/AdminStoreOwnersTab';
 import { Camera, X, Upload, Crop } from 'lucide-react';
 import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 import { ProductImageCropperModal } from './admin/ProductImageCropperModal';
+import {
+  registerAdminPushNotifications,
+  setupForegroundFcmListener,
+  playOrderNotificationSound
+} from '../config/firebase';
 
 export const AdminDashboardModal = () => {
   const {
@@ -57,6 +62,8 @@ export const AdminDashboardModal = () => {
   const [storeOwnersList, setStoreOwnersList] = useState([]);
   const [storeAnalytics, setStoreAnalytics] = useState({});
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isPushEnabled, setIsPushEnabled] = useState(() => localStorage.getItem('quickfit_notifications_enabled') === 'true');
+  const [isRegisteringPush, setIsRegisteringPush] = useState(false);
 
   // Add / Edit Product Modal State
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -203,6 +210,85 @@ export const AdminDashboardModal = () => {
       loadAllAdminData();
     }
   }, [isAdminOpen]);
+
+  // Firebase Cloud Messaging (FCM) Foreground Listener & Auto-Sync Token
+  useEffect(() => {
+    if (!isAdminOpen) return;
+    const isAuthed = Boolean(user && (user.role === 'admin' || user.role === 'store_owner'));
+    if (!isAuthed) return;
+
+    let unsubscribe = () => {};
+    setupForegroundFcmListener((payload) => {
+      // 1. Play order notification chime and vibrate
+      playOrderNotificationSound();
+      // 2. Refresh dashboard data
+      loadAllAdminData();
+      // 3. Show high-priority Toast
+      const title = payload.notification?.title || payload.data?.title || 'New Order Received!';
+      const body = payload.notification?.body || payload.data?.body || '';
+      showToast(`${title} • ${body}`, 'success');
+    }).then((unsub) => {
+      if (typeof unsub === 'function') unsubscribe = unsub;
+    });
+
+    // Auto-sync token if notification permission was already granted previously
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      const activeToken = user?.token || adminToken || localStorage.getItem('quickfit_token');
+      registerAdminPushNotifications(activeToken)
+        .then((res) => {
+          if (res?.success) setIsPushEnabled(true);
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [isAdminOpen, user, adminToken]);
+
+  // Handler: Enable Phone Push Notifications (FCM)
+  const handleEnablePushNotifications = async () => {
+    setIsRegisteringPush(true);
+    try {
+      const activeToken = user?.token || adminToken || localStorage.getItem('quickfit_token');
+      const res = await registerAdminPushNotifications(activeToken);
+      if (res.success) {
+        setIsPushEnabled(true);
+        playOrderNotificationSound();
+        showToast('Instant Phone Push Notifications (FCM) Enabled! 🔔', 'success');
+      } else {
+        showToast(res.error || 'Could not enable push notifications.', 'warning');
+      }
+    } catch (err) {
+      showToast('Notification permission error: ' + err.message, 'error');
+    } finally {
+      setIsRegisteringPush(false);
+    }
+  };
+
+  // Handler: Test FCM Push Notification to Phone Lockscreen
+  const handleTestPushNotification = async () => {
+    try {
+      playOrderNotificationSound();
+      const res = await axios.post(`${API_BASE_URL}/admin/notifications/test-fcm`, {}, getAuthHeader());
+      showToast('Test push notification sent! Check phone lockscreen. 📲', 'success');
+      await loadAllAdminData();
+    } catch (err) {
+      showToast('Test push error: ' + (err.response?.data?.message || err.message), 'error');
+    }
+  };
+
+  // Handler: Clear All Dummy/Test Orders and Reset Dashboard Statistics
+  const handleClearAllOrders = async () => {
+    try {
+      const res = await axios.post(`${API_BASE_URL}/admin/orders/clear-all`, {}, getAuthHeader());
+      setOrdersList([]);
+      showToast(res.data?.message || 'All test orders cleared and dashboard statistics reset! 🧹', 'success');
+      await loadAllAdminData();
+    } catch (err) {
+      showToast('Failed to clear orders: ' + (err.response?.data?.message || err.message), 'error');
+    }
+  };
 
   if (!isAdminOpen) return null;
 
@@ -845,6 +931,7 @@ export const AdminDashboardModal = () => {
               deliveryPartners={deliveryPartners}
               onUpdateOrderStatus={handleUpdateOrderStatus}
               onAssignDeliveryPartner={handleAssignDeliveryPartner}
+              onClearAllOrders={handleClearAllOrders}
             />
           )}
 
@@ -919,6 +1006,10 @@ export const AdminDashboardModal = () => {
               onMarkRead={handleMarkNotificationRead}
               onMarkAllRead={handleMarkAllNotificationsRead}
               onNavigateTab={(tab) => setActiveTab(tab)}
+              isPushEnabled={isPushEnabled}
+              isRegisteringPush={isRegisteringPush}
+              onEnablePush={handleEnablePushNotifications}
+              onTestPush={handleTestPushNotification}
             />
           )}
 

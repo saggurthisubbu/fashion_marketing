@@ -8,7 +8,9 @@ import { Category } from '../models/Category.js';
 import { Setting } from '../models/Setting.js';
 import { Notification } from '../models/Notification.js';
 import { Store } from '../models/Store.js';
+import { DeviceToken } from '../models/DeviceToken.js';
 import { protect, adminOnly, storeOwnerOrAdmin } from '../middleware/auth.js';
+import { sendFcmOrderNotification } from '../services/fcmService.js';
 
 const router = express.Router();
 
@@ -680,6 +682,110 @@ router.put('/notifications/read-all', protect, storeOwnerOrAdmin, async (req, re
     }
     await Notification.updateMany(query, { $set: { isRead: true } });
     res.json({ message: 'All notifications marked as read' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Register FCM Device Token for Push Notifications (Android, iOS & Web)
+router.post('/notifications/fcm-token', protect, storeOwnerOrAdmin, async (req, res) => {
+  try {
+    const { token, deviceType, userAgent, platform } = req.body;
+    if (!token) {
+      return res.status(400).json({ message: 'Device token is required' });
+    }
+
+    const detectedType = deviceType || (
+      /iphone|ipad|ipod/i.test(userAgent || '') ? 'ios' :
+      /android/i.test(userAgent || '') ? 'android' : 'web'
+    );
+
+    const updated = await DeviceToken.findOneAndUpdate(
+      { token },
+      {
+        userId: req.user._id,
+        role: req.user.role,
+        assignedStoreId: req.user.assignedStoreId || null,
+        token,
+        deviceType: detectedType,
+        userAgent: userAgent || '',
+        platform: platform || '',
+        lastActive: new Date()
+      },
+      { upsert: true, new: true }
+    );
+
+    console.log(`📱 [FCM REGISTER] Saved ${updated.deviceType.toUpperCase()} device token for ${req.user.role} (${req.user.name})`);
+    res.json({ success: true, message: 'FCM device token registered successfully', device: updated });
+  } catch (error) {
+    console.error('[FCM Token Register Error]:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Unregister FCM Device Token
+router.delete('/notifications/fcm-token', protect, storeOwnerOrAdmin, async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (token) {
+      await DeviceToken.deleteOne({ token });
+    } else {
+      await DeviceToken.deleteMany({ userId: req.user._id });
+    }
+    res.json({ success: true, message: 'Device token unregistered' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Send Test FCM Push Notification to Admin's Device
+router.post('/notifications/test-fcm', protect, storeOwnerOrAdmin, async (req, res) => {
+  try {
+    const mockOrder = {
+      orderId: `TEST-${Math.floor(100000 + Math.random() * 900000)}`,
+      totalAmount: 1999,
+      customer: {
+        name: 'QuickFit Live Test Customer',
+        phone: '+91 9876543210',
+        address: 'Benz Circle, MG Road, Vijayawada'
+      },
+      items: [{ name: 'Monochrome Heavyweight Oversized Tee', price: 1999, quantity: 1 }],
+      paymentMethod: 'COD',
+      paymentStatus: 'Pending',
+      deliveryStatus: 'Confirmed'
+    };
+
+    const result = await sendFcmOrderNotification(mockOrder);
+    res.json({
+      success: true,
+      message: 'Test FCM order notification triggered! Check your phone lockscreen and notification tray.',
+      result
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Clear All Dummy/Test Orders and Reset Dashboard Statistics
+router.post('/orders/clear-all', protect, adminOnly, async (req, res) => {
+  try {
+    const orderDeleteResult = await Order.deleteMany({});
+    const notifDeleteResult = await Notification.deleteMany({
+      $or: [
+        { type: 'order' },
+        { type: 'delivery' },
+        { orderId: { $exists: true } }
+      ]
+    });
+    await DeliveryPartner.updateMany({}, { $set: { status: 'Available', activeOrdersCount: 0 } });
+
+    console.log(`🧹 [ADMIN CLEAR] Admin cleared ${orderDeleteResult.deletedCount} orders and ${notifDeleteResult.deletedCount} notifications.`);
+    res.json({
+      success: true,
+      message: `Cleared all ${orderDeleteResult.deletedCount} test orders and reset dashboard statistics!`,
+      deletedOrders: orderDeleteResult.deletedCount,
+      deletedNotifications: notifDeleteResult.deletedCount
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

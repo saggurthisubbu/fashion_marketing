@@ -1,0 +1,120 @@
+// QuickFit - Firebase Cloud Messaging Service Worker
+// Supports background push notifications on Android phones, iOS 16.4+ (PWA), and Desktop browsers
+
+importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
+
+// Standard Firebase Client Configuration
+// This can be customized via VITE_FIREBASE_* environment variables during build
+const firebaseConfig = {
+  apiKey: "AIzaSyQuickFitAdminFCM2026DefaultKey",
+  authDomain: "quickfit-fashion.firebaseapp.com",
+  projectId: "quickfit-fashion",
+  storageBucket: "quickfit-fashion.appspot.com",
+  messagingSenderId: "108392847192",
+  appId: "1:108392847192:web:a1b2c3d4e5f6g7h8i9j0k"
+};
+
+try {
+  firebase.initializeApp(firebaseConfig);
+  const messaging = firebase.messaging();
+
+  messaging.onBackgroundMessage((payload) => {
+    console.log('[FCM-SW] Received background message:', payload);
+
+    const title = payload.notification?.title || payload.data?.title || '🛍️ New Order Received!';
+    const body = payload.notification?.body || payload.data?.body || 'A new order has been placed on QuickFit.';
+    const orderId = payload.data?.orderId || 'new';
+
+    const notificationOptions = {
+      body: body,
+      icon: payload.notification?.icon || '/icons/icon-192x192.png',
+      badge: payload.notification?.badge || '/icons/icon-192x192.png',
+      image: payload.notification?.image || undefined,
+      tag: `order_${orderId}`,
+      renotify: true,
+      requireInteraction: true,
+      vibrate: [300, 100, 300, 100, 300],
+      sound: '/audio/order_notification.mp3',
+      data: {
+        url: payload.data?.url || '/admin',
+        orderId: orderId,
+        click_action: payload.data?.click_action || '/admin'
+      },
+      actions: [
+        { action: 'open_order', title: '⚡ Open Admin' }
+      ]
+    };
+
+    return self.registration.showNotification(title, notificationOptions);
+  });
+} catch (e) {
+  console.warn('[FCM-SW] Firebase init in SW notice:', e.message);
+}
+
+// Fallback generic Push event listener (handles all direct push payloads)
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  try {
+    const rawData = event.data.json();
+    console.log('[FCM-SW] Raw push event data:', rawData);
+
+    const title = rawData.notification?.title || rawData.data?.title || rawData.title || '🛍️ New Order Placed!';
+    const body = rawData.notification?.body || rawData.data?.body || rawData.body || 'New order received on QuickFit Admin.';
+    const orderId = rawData.data?.orderId || rawData.orderId || 'new';
+
+    const options = {
+      body: body,
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/icon-192x192.png',
+      tag: `order_${orderId}`,
+      renotify: true,
+      requireInteraction: true,
+      vibrate: [300, 100, 300, 100, 300],
+      sound: '/audio/order_notification.mp3',
+      data: {
+        url: rawData.data?.url || '/admin',
+        orderId: orderId
+      },
+      actions: [
+        { action: 'open_admin', title: 'Open Dashboard' }
+      ]
+    };
+
+    event.waitUntil(self.registration.showNotification(title, options));
+  } catch (err) {
+    const textData = event.data.text();
+    event.waitUntil(
+      self.registration.showNotification('🛍️ New Order Received!', {
+        body: textData || 'Check your QuickFit Admin Dashboard.',
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/icon-192x192.png',
+        sound: '/audio/order_notification.mp3',
+        vibrate: [300, 100, 300, 100, 300],
+        data: { url: '/admin' }
+      })
+    );
+  }
+});
+
+// Handle notification click on phone (Android / iOS / Desktop)
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || '/admin';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // If admin window is already open, focus it
+      for (const client of windowClients) {
+        if (client.url.includes('/admin') && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Otherwise open a new window to the Admin Dashboard
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});

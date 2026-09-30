@@ -1,14 +1,49 @@
 import React, { useState } from 'react';
-import { Bell, CheckCircle2, AlertTriangle, Package, Truck, Info, CheckCheck, Trash2 } from 'lucide-react';
+import {
+  Bell,
+  CheckCircle2,
+  AlertTriangle,
+  Package,
+  Truck,
+  Info,
+  CheckCheck,
+  Trash2,
+  Smartphone,
+  Volume2,
+  ShieldCheck,
+  Radio,
+  Sparkles,
+  RefreshCw
+} from 'lucide-react';
+import { playOrderNotificationSound } from '../../../config/firebase';
 
 export const AdminNotificationsTab = ({
   notifications = [],
   unreadCount = 0,
   onMarkRead,
   onMarkAllRead,
-  onNavigateTab
+  onNavigateTab,
+  isPushEnabled = false,
+  isRegisteringPush = false,
+  onEnablePush,
+  onTestPush
 }) => {
   const [filterType, setFilterType] = useState('all');
+  const [isTestingPush, setIsTestingPush] = useState(false);
+
+  const handleTestNotificationSound = () => {
+    playOrderNotificationSound();
+  };
+
+  const handleTriggerTestPush = async () => {
+    if (!onTestPush) return;
+    setIsTestingPush(true);
+    try {
+      await onTestPush();
+    } finally {
+      setIsTestingPush(false);
+    }
+  };
 
   const filtered = notifications.filter((n) => {
     if (filterType === 'all') return true;
@@ -39,6 +74,91 @@ export const AdminNotificationsTab = ({
             <span>Mark All as Read ({unreadCount})</span>
           </button>
         )}
+      </div>
+
+      {/* ── FIREBASE CLOUD MESSAGING (FCM) PUSH NOTIFICATION CONTROLLER ── */}
+      <div className="p-5 rounded-2xl bg-gradient-to-r from-zinc-900 via-zinc-900/90 to-zinc-950 border border-zinc-800/90 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+              <Smartphone className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-heading font-black text-white text-sm">
+                  Firebase Phone Push Notifications (FCM)
+                </h3>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 ${
+                  isPushEnabled
+                    ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800'
+                    : 'bg-amber-950/80 text-amber-400 border border-amber-800'
+                }`}>
+                  <Radio className="w-2.5 h-2.5 animate-pulse" />
+                  <span>{isPushEnabled ? 'Active on Device' : 'Ready to Enable'}</span>
+                </span>
+              </div>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Instant order alerts delivered to your Android phone or iPhone lockscreen, even when browser is closed or running in background.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={handleTestNotificationSound}
+              className="px-3 py-2 rounded-xl bg-zinc-800/90 hover:bg-zinc-700 text-zinc-200 hover:text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              title="Play QuickFit high-definition order notification chime"
+            >
+              <Volume2 className="w-4 h-4 text-amber-400" />
+              <span>Test Chime</span>
+            </button>
+
+            {onTestPush && (
+              <button
+                type="button"
+                disabled={isTestingPush}
+                onClick={handleTriggerTestPush}
+                className="px-3.5 py-2 rounded-xl bg-zinc-800/90 hover:bg-zinc-700 border border-zinc-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shadow-sm"
+                title="Send a sample order notification to phone lockscreen"
+              >
+                {isTestingPush ? (
+                  <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
+                ) : (
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                )}
+                <span>Test Phone Notification</span>
+              </button>
+            )}
+
+            {onEnablePush && (
+              <button
+                type="button"
+                disabled={isRegisteringPush}
+                onClick={onEnablePush}
+                className="px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-lg disabled:opacity-50"
+              >
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>{isRegisteringPush ? 'Registering...' : isPushEnabled ? 'Re-Sync Token' : 'Enable on Phone'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-zinc-800/60 text-[11px] text-zinc-400">
+          <div className="flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span><strong>Android Phones:</strong> Chrome, Edge, PWA Background Wake</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span><strong>iOS Devices:</strong> Safari PWA (Add to Home Screen) WebPush</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span><strong>Order Details:</strong> Price, Customer, Items Count & Sound Chime</span>
+          </div>
+        </div>
       </div>
 
       {/* Filter Tabs */}

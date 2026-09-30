@@ -25,7 +25,8 @@ export const AdminOrdersTab = ({
   ordersList = [],
   deliveryPartners = [],
   onUpdateOrderStatus,
-  onAssignDeliveryPartner
+  onAssignDeliveryPartner,
+  onClearAllOrders
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -33,6 +34,7 @@ export const AdminOrdersTab = ({
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [assigningOrderId, setAssigningOrderId] = useState(null);
   const [selectedPartnerId, setSelectedPartnerId] = useState('');
+  const [isConfirmingClear, setIsConfirmingClear] = useState(false);
 
   // Status Filter options
   const statusOptions = ['All', 'Pending', 'Confirmed', 'Packed', 'Out For Delivery', 'Delivered', 'Cancelled'];
@@ -88,6 +90,43 @@ export const AdminOrdersTab = ({
             Track, fulfill, dispatch, and manage live customer purchases in real-time.
           </p>
         </div>
+
+        {onClearAllOrders && (
+          <div className="flex items-center gap-2">
+            {!isConfirmingClear ? (
+              <button
+                type="button"
+                onClick={() => setIsConfirmingClear(true)}
+                className="px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-red-950/40 border border-zinc-800 hover:border-red-800/60 text-zinc-400 hover:text-red-300 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm shrink-0"
+                title="Clear all test orders and reset dashboard metrics to zero"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Reset / Clear Test Orders</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 bg-red-950/60 border border-red-800/80 rounded-xl p-1.5 animate-in fade-in">
+                <span className="text-[11px] font-bold text-red-200 px-2">Clear all orders?</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await onClearAllOrders();
+                    setIsConfirmingClear(false);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-black text-[11px] cursor-pointer"
+                >
+                  Yes, Clear All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmingClear(false)}
+                  className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-[11px] cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Filter and Search Bar */}

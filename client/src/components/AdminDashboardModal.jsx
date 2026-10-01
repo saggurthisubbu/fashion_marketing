@@ -209,15 +209,23 @@ export const AdminDashboardModal = () => {
   };
 
   useEffect(() => {
-    if (isAdminOpen) {
-      console.log('[ORDER NAV] Opening admin dashboard');
+    const syncTabFromUrl = () => {
       const search = window.location.search || '';
       const hash = window.location.hash || '';
       if (search.includes('tab=orders') || search.includes('acceptOrder') || hash.includes('orders')) {
-        console.log('[ORDER NAV] Opening orders tab');
+        console.log('[ORDER NAV] Opening orders tab from URL sync');
         setActiveTab('orders');
       }
+    };
+
+    if (isAdminOpen) {
+      console.log('[ORDER NAV] Opening admin dashboard');
+      syncTabFromUrl();
       loadAllAdminData();
+      window.addEventListener('popstate', syncTabFromUrl);
+      return () => {
+        window.removeEventListener('popstate', syncTabFromUrl);
+      };
     }
   }, [isAdminOpen]);
 
@@ -892,11 +900,12 @@ export const AdminDashboardModal = () => {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-zinc-950 flex flex-col">
-      
-      {!isAdminAuthenticated ? (
-        <AdminLogin onLogin={handleAdminLogin} isLoading={isAuthLoading} onClose={() => setIsAdminOpen(false)} />
-      ) : (
+    <AdminErrorBoundary sectionName="Admin Portal" onReset={loadAllAdminData}>
+      <div className="fixed inset-0 z-50 bg-zinc-950 flex flex-col">
+        
+        {!isAdminAuthenticated ? (
+          <AdminLogin onLogin={handleAdminLogin} isLoading={isAuthLoading} onClose={() => setIsAdminOpen(false)} />
+        ) : (
         <AdminLayout
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -1367,15 +1376,16 @@ export const AdminDashboardModal = () => {
         </div>
       )}
 
-      {/* PRODUCT IMAGE CROPPER STUDIO MODAL */}
-      <ProductImageCropperModal
-        isOpen={cropperModal.isOpen}
-        imageSrc={cropperModal.imageSrc}
-        angleKey={cropperModal.angleKey}
-        angleLabel={cropperModal.angleLabel}
-        onClose={() => setCropperModal(prev => ({ ...prev, isOpen: false }))}
-        onSaveCroppedImage={handleSaveCroppedImage}
-      />
-    </div>
+        {/* PRODUCT IMAGE CROPPER STUDIO MODAL */}
+        <ProductImageCropperModal
+          isOpen={cropperModal.isOpen}
+          imageSrc={cropperModal.imageSrc}
+          angleKey={cropperModal.angleKey}
+          angleLabel={cropperModal.angleLabel}
+          onClose={() => setCropperModal(prev => ({ ...prev, isOpen: false }))}
+          onSaveCroppedImage={handleSaveCroppedImage}
+        />
+      </div>
+    </AdminErrorBoundary>
   );
 };

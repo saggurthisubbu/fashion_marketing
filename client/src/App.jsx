@@ -58,7 +58,11 @@ const MainApp = () => {
     stopUrgentOrderAlert();
     setUrgentOrderAlert(null);
     setIsAdminOpen(true);
-    window.history.pushState({ modal: 'admin' }, '', '/admin');
+    const targetUrl = orderId && orderId !== 'New' && orderId !== 'new'
+      ? `/admin?tab=orders&acceptOrder=${encodeURIComponent(orderId)}`
+      : '/admin?tab=orders';
+    window.history.pushState({ modal: 'admin' }, '', targetUrl);
+    window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
   const handleDismissUrgentOrder = () => {
@@ -87,6 +91,13 @@ const MainApp = () => {
       console.log('🔔 [FCM CLIENT] foreground message received in App root:', alertData);
       if (alertData?.type === 'ORDER_ACCEPTED') {
         setUrgentOrderAlert(null);
+        setIsAdminOpen(true);
+        const orderId = alertData.orderId;
+        const targetUrl = orderId && orderId !== 'new' && orderId !== 'New'
+          ? `/admin?tab=orders&acceptOrder=${encodeURIComponent(orderId)}`
+          : '/admin?tab=orders';
+        window.history.pushState({ modal: 'admin' }, '', targetUrl);
+        window.dispatchEvent(new PopStateEvent('popstate'));
         return;
       }
       if (alertData?.orderId) {
@@ -137,8 +148,6 @@ const MainApp = () => {
         } else if (isAdminAuthenticated && (path === '/admin/login' || path === '/admin/login/')) {
           window.history.replaceState({ modal: 'admin' }, '', '/admin');
         }
-      } else {
-        setIsAdminOpen(false);
       }
     };
 
@@ -158,17 +167,15 @@ const MainApp = () => {
     const path = window.location.pathname.toLowerCase();
     if (isAdminOpen) {
       if (isAdminAuthenticated) {
-        if (path === '/admin/login' || path === '/admin/login/' || !path.startsWith('/admin')) {
+        if (path === '/admin/login' || path === '/admin/login/') {
           window.history.replaceState({ modal: 'admin' }, '', '/admin');
+        } else if (!path.startsWith('/admin')) {
+          window.history.pushState({ modal: 'admin' }, '', '/admin');
         }
       } else {
-        if (path === '/admin' || path === '/admin/' || !path.startsWith('/admin')) {
-          window.history.replaceState({ modal: 'admin_login' }, '', '/admin/login');
+        if (!path.startsWith('/admin')) {
+          window.history.pushState({ modal: 'admin_login' }, '', '/admin/login');
         }
-      }
-    } else {
-      if (path.startsWith('/admin')) {
-        window.history.pushState({ modal: 'home' }, '', '/');
       }
     }
   }, [isAdminOpen, isAdminAuthenticated, isAuthenticated]);

@@ -315,7 +315,7 @@ export async function setupForegroundFcmListener(onNewOrderCallback) {
                 { action: 'accept_order', title: '✅ ACCEPT ORDER' }
               ],
               data: {
-                url: payload.data?.url || '/admin',
+                url: payload.data?.url || (orderId && orderId !== 'new' ? `/admin?tab=orders&acceptOrder=${encodeURIComponent(orderId)}` : '/admin?tab=orders'),
                 orderId,
                 customerName,
                 totalAmount

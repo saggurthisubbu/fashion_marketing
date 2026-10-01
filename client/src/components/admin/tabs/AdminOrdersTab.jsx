@@ -22,6 +22,22 @@ import {
 import { resolveImageUrl } from '../../../config/api';
 import { formatAdminWhatsAppOrder } from '../../../utils/whatsapp';
 
+const formatOrderDate = (dateVal) => {
+  if (!dateVal) return 'Recently';
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return 'Recently';
+    return d.toLocaleString('en-IN', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return 'Recently';
+  }
+};
+
 export const AdminOrdersTab = ({
   ordersList = [],
   deliveryPartners = [],
@@ -39,6 +55,19 @@ export const AdminOrdersTab = ({
   const [assigningOrderId, setAssigningOrderId] = useState(null);
   const [selectedPartnerId, setSelectedPartnerId] = useState('');
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
+
+  // Auto-open order details modal if acceptOrder is specified in URL query
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const targetOrderId = params.get('acceptOrder');
+    if (targetOrderId && safeOrdersList.length > 0) {
+      const match = safeOrdersList.find(o => o?.orderId === targetOrderId || o?._id === targetOrderId);
+      if (match) {
+        setSelectedOrder(match);
+      }
+    }
+  }, [safeOrdersList]);
 
   // Status Filter options
   const statusOptions = ['All', 'Pending', 'Confirmed', 'Packed', 'Out For Delivery', 'Delivered', 'Cancelled'];
@@ -193,7 +222,7 @@ export const AdminOrdersTab = ({
                 </tr>
               ) : (
                 filteredOrders.map((ord) => {
-                  const emailStatus = ord.emailStatus || ord.emailDeliveryStatus || 'pending';
+                  const emailStatus = String(ord.emailStatus || ord.emailDeliveryStatus || 'pending');
                   const isSent = emailStatus.toLowerCase() === 'sent';
                   const isFailed = emailStatus.toLowerCase() === 'failed';
                   const isSkipped = emailStatus.toLowerCase() === 'skipped';
@@ -205,12 +234,7 @@ export const AdminOrdersTab = ({
                       <td className="p-3.5 font-mono">
                         <div className="font-black text-white text-xs">{ord.orderId}</div>
                         <div className="text-[10px] text-zinc-400">
-                          {new Date(ord.orderDate || ord.createdAt).toLocaleString('en-IN', {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
+                          {formatOrderDate(ord.orderDate || ord.createdAt)}
                         </div>
                       </td>
 
@@ -222,7 +246,7 @@ export const AdminOrdersTab = ({
                         </div>
                         <div className="text-[11px] text-zinc-400 font-mono flex items-center gap-1 mt-0.5">
                           <Phone className="w-2.5 h-2.5" />
-                          <span>{ord.customer?.phone}</span>
+                          <span>{ord.customer?.phone || ''}</span>
                         </div>
                         {ord.customer?.email ? (
                           <div className="text-[10px] text-zinc-400 font-mono flex items-center gap-1 mt-0.5">
@@ -233,21 +257,21 @@ export const AdminOrdersTab = ({
                           <div className="text-[10px] text-zinc-500 italic">No email entered</div>
                         )}
                         <div className="text-[10px] text-zinc-400 truncate max-w-[180px] mt-0.5">
-                          📍 {ord.customer?.address}, {ord.customer?.area}
+                          📍 {ord.customer?.address || 'Vijayawada'}, {ord.customer?.area || ''}
                         </div>
                       </td>
 
                       {/* Ordered Products & Qty */}
                       <td className="p-3.5 max-w-[220px]">
                         <div className="space-y-1">
-                          {ord.items?.map((it, idx) => (
+                          {(Array.isArray(ord.items) ? ord.items : []).filter(Boolean).map((it, idx) => (
                             <div key={idx} className="text-[11px] text-zinc-300 truncate font-medium">
-                              • {it.name} <span className="text-zinc-400 font-mono">({it.size || 'M'}) ×{it.quantity || it.qty || 1}</span>
+                              • {it.name || 'Product'} <span className="text-zinc-400 font-mono">({it.size || 'M'}) ×{it.quantity || it.qty || 1}</span>
                             </div>
                           ))}
                         </div>
                         <div className="text-[10px] text-zinc-400 font-mono mt-1 font-bold">
-                          Qty Total: {ord.items?.reduce((sum, i) => sum + (i.quantity || i.qty || 1), 0)}
+                          Qty Total: {(Array.isArray(ord.items) ? ord.items : []).reduce((sum, i) => sum + (i?.quantity || i?.qty || 1), 0)}
                         </div>
                       </td>
 
@@ -301,13 +325,13 @@ export const AdminOrdersTab = ({
 
                     {/* Assigned Rider */}
                     <td className="p-3.5">
-                      {ord.assignedPartner?.name ? (
+                      {ord.assignedPartner?.name && String(ord.assignedPartner.name).trim() ? (
                         <div>
                           <div className="text-xs font-bold text-emerald-400 flex items-center gap-1">
                             <Truck className="w-3 h-3" />
-                            <span>{ord.assignedPartner.name.split(' ')[0]}</span>
+                            <span>{String(ord.assignedPartner.name).trim().split(' ')[0]}</span>
                           </div>
-                          <div className="text-[10px] text-zinc-400 font-mono">{ord.assignedPartner.vehicleNumber}</div>
+                          <div className="text-[10px] text-zinc-400 font-mono">{ord.assignedPartner.vehicleNumber || ''}</div>
                         </div>
                       ) : (
                         <button
@@ -508,16 +532,16 @@ export const AdminOrdersTab = ({
             {/* Order Items Table */}
             <div className="space-y-2 text-xs">
               <div className="font-bold text-zinc-400 uppercase text-[10px] tracking-wider">
-                Order Items ({selectedOrder.items?.length})
+                Order Items ({(Array.isArray(selectedOrder.items) ? selectedOrder.items : []).filter(Boolean).length})
               </div>
               <div className="divide-y divide-zinc-800 border border-zinc-800 rounded-2xl overflow-hidden bg-zinc-950">
-                {selectedOrder.items?.map((it, idx) => (
+                {(Array.isArray(selectedOrder.items) ? selectedOrder.items : []).filter(Boolean).map((it, idx) => (
                   <div key={idx} className="p-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       {it.image && (
                         <img
                           src={resolveImageUrl(it.image)}
-                          alt={it.name}
+                          alt={it.name || 'Product'}
                           loading="lazy"
                           onError={(e) => {
                             e.currentTarget.onerror = null;
@@ -527,12 +551,12 @@ export const AdminOrdersTab = ({
                         />
                       )}
                       <div>
-                        <div className="font-bold text-white text-xs">{it.name}</div>
+                        <div className="font-bold text-white text-xs">{it.name || 'Product'}</div>
                         <div className="text-[10px] text-zinc-400">Size: {it.size || 'M'} • Qty: {it.quantity || it.qty || 1}</div>
                       </div>
                     </div>
                     <div className="font-bold font-mono text-white text-xs">
-                      ₹{it.price * (it.quantity || it.qty || 1)}
+                      ₹{(Number(it.price) || 0) * (it.quantity || it.qty || 1)}
                     </div>
                   </div>
                 ))}

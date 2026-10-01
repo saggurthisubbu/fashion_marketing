@@ -120,7 +120,9 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const orderId = event.notification.data?.orderId || 'new';
   const isAccept = event.action === 'accept_order';
-  const targetUrl = event.notification.data?.url || '/admin';
+  const targetUrl = orderId && orderId !== 'new' && orderId !== 'New'
+    ? `/admin?tab=orders&acceptOrder=${encodeURIComponent(orderId)}`
+    : '/admin?tab=orders';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
@@ -138,6 +140,9 @@ self.addEventListener('notificationclick', (event) => {
       // 2. If admin window is already open, focus it
       for (const client of windowClients) {
         if (client.url.includes('/admin') && 'focus' in client) {
+          if ('navigate' in client) {
+            client.navigate(targetUrl).catch(() => {});
+          }
           return client.focus();
         }
       }

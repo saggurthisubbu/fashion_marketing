@@ -21,6 +21,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { SearchResultsPage } from './pages/SearchResultsPage';
 import { CategoryPage } from './pages/CategoryPage';
+import { setupForegroundFcmListener } from './config/firebase';
 
 const ToastNotification = () => {
   const { toast } = useShop();
@@ -58,6 +59,25 @@ const MainApp = () => {
       setTimeout(() => setIsCheckoutOpen(true), 150);
     }
   }, [isAuthenticated, checkoutRedirectPending, setCheckoutRedirectPending, setIsCheckoutOpen]);
+
+  // Global Firebase Cloud Messaging (FCM) Foreground Listener
+  // Catches incoming order notifications even when browsing the storefront, cart, or PWA
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') {
+      return;
+    }
+
+    let unsubscribe = () => {};
+    setupForegroundFcmListener((payload) => {
+      console.log('🔔 [FCM CLIENT] foreground message received in App root:', payload);
+    }).then((unsub) => {
+      if (typeof unsub === 'function') unsubscribe = unsub;
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, []);
 
   // Bi-directional URL Synchronization & Route Protection
   useEffect(() => {

@@ -20,7 +20,7 @@ try {
   const messaging = firebase.messaging();
 
   messaging.onBackgroundMessage((payload) => {
-    console.log('[FCM-SW] Received background message:', payload);
+    console.log('[FCM SW] background message received:', payload);
 
     const title = payload.notification?.title || payload.data?.title || '🛍️ New Order Received!';
     const body = payload.notification?.body || payload.data?.body || 'A new order has been placed on QuickFit.';
@@ -33,33 +33,28 @@ try {
       image: payload.notification?.image || undefined,
       tag: `order_${orderId}`,
       renotify: true,
-      requireInteraction: true,
-      vibrate: [300, 100, 300, 100, 300],
-      sound: '/audio/order_notification.mp3',
       data: {
         url: payload.data?.url || '/admin',
         orderId: orderId,
         click_action: payload.data?.click_action || '/admin'
-      },
-      actions: [
-        { action: 'open_order', title: '⚡ Open Admin' }
-      ]
+      }
     };
 
     return self.registration.showNotification(title, notificationOptions);
   });
 } catch (e) {
-  console.warn('[FCM-SW] Firebase init in SW notice:', e.message);
+  console.warn('[FCM SW] Firebase init in SW notice:', e.message);
 }
 
-// Fallback generic Push event listener (handles all direct push payloads)
+// Fallback generic Push event listener (handles direct webpush payloads when not processed by SDK)
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 
   try {
     const rawData = event.data.json();
-    console.log('[FCM-SW] Raw push event data:', rawData);
+    console.log('[FCM SW] background message received (push event):', rawData);
 
+    // If already handled by Firebase messaging SDK or if it has notification block, ensure display
     const title = rawData.notification?.title || rawData.data?.title || rawData.title || '🛍️ New Order Placed!';
     const body = rawData.notification?.body || rawData.data?.body || rawData.body || 'New order received on QuickFit Admin.';
     const orderId = rawData.data?.orderId || rawData.orderId || 'new';
@@ -70,28 +65,21 @@ self.addEventListener('push', (event) => {
       badge: '/icons/icon-192x192.png',
       tag: `order_${orderId}`,
       renotify: true,
-      requireInteraction: true,
-      vibrate: [300, 100, 300, 100, 300],
-      sound: '/audio/order_notification.mp3',
       data: {
         url: rawData.data?.url || '/admin',
         orderId: orderId
-      },
-      actions: [
-        { action: 'open_admin', title: 'Open Dashboard' }
-      ]
+      }
     };
 
     event.waitUntil(self.registration.showNotification(title, options));
   } catch (err) {
     const textData = event.data.text();
+    console.log('[FCM SW] Raw text push received:', textData);
     event.waitUntil(
       self.registration.showNotification('🛍️ New Order Received!', {
         body: textData || 'Check your QuickFit Admin Dashboard.',
         icon: '/icons/icon-192x192.png',
         badge: '/icons/icon-192x192.png',
-        sound: '/audio/order_notification.mp3',
-        vibrate: [300, 100, 300, 100, 300],
         data: { url: '/admin' }
       })
     );

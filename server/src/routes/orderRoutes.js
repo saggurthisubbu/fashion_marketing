@@ -261,6 +261,7 @@ router.post('/', async (req, res) => {
     console.log(`[ORDER FCM] Calling sendFcmOrderNotification for order #${createdOrder.orderId}...`);
     try {
       const plainOrder = typeof createdOrder.toObject === 'function' ? createdOrder.toObject() : createdOrder;
+      console.log(`[FCM ORDER] payload sent for order #${createdOrder.orderId}:`, JSON.stringify(plainOrder));
       const fcmResult = await sendFcmOrderNotification(plainOrder);
       console.log(`[ORDER FCM] FCM function completed: success=${fcmResult?.success !== false}, successCount=${fcmResult?.successCount || 0}, failureCount=${fcmResult?.failureCount || 0}`);
     } catch (fcmErr) {

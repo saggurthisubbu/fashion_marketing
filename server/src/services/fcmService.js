@@ -221,6 +221,7 @@ export async function sendFcmOrderNotification(order) {
 
     // 3. Send message via FCM
     const response = await messaging.sendEachForMulticast(message);
+    console.log(`[FCM ORDER] Firebase accepted message: ${response.successCount} succeeded, ${response.failureCount} failed.`);
     console.log(`🚀 [FCM SUCCESS] Sent notification: ${response.successCount} succeeded, ${response.failureCount} failed.`);
 
     // 4. Clean up invalid/expired tokens

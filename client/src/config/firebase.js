@@ -169,39 +169,68 @@ export async function registerAdminPushNotifications(authToken) {
   }
 }
 
+const foregroundCallbacks = new Set();
+let activeForegroundUnsubscribe = null;
+
 /**
- * Setup Foreground FCM message listener when Admin is viewing the dashboard
+ * Setup Foreground FCM message listener when Admin is viewing the dashboard or app is open
  */
 export async function setupForegroundFcmListener(onNewOrderCallback) {
   try {
-    const messaging = await getFirebaseMessaging();
-    if (!messaging) return () => {};
+    if (typeof onNewOrderCallback === 'function') {
+      foregroundCallbacks.add(onNewOrderCallback);
+    }
 
-    const unsubscribe = onMessage(messaging, (payload) => {
-      console.log('🔔 [FCM FOREGROUND] Push message received in app:', payload);
+    if (!activeForegroundUnsubscribe) {
+      const messaging = await getFirebaseMessaging();
+      if (!messaging) return () => {};
 
-      // 1. Play alert sound and vibrate
-      playOrderNotificationSound();
+      activeForegroundUnsubscribe = onMessage(messaging, (payload) => {
+        console.log('🔔 [FCM CLIENT] foreground message received:', payload);
 
-      // 2. Show native Notification if permission granted and document hidden
-      if (document.hidden && Notification.permission === 'granted') {
+        // 1. Play alert sound and vibrate
+        playOrderNotificationSound();
+
+        // 2. Always show native Notification via Service Worker (works on iOS Safari PWA, Android, and Desktop)
         const title = payload.notification?.title || payload.data?.title || '🛍️ New Order Received!';
         const body = payload.notification?.body || payload.data?.body || 'New order placed on QuickFit.';
-        new Notification(title, {
-          body,
-          icon: '/icons/icon-192x192.png',
-          badge: '/icons/icon-192x192.png',
-          vibrate: [300, 100, 300, 100, 300]
+        const orderId = payload.data?.orderId || 'new';
+
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then((reg) => {
+            reg.showNotification(title, {
+              body,
+              icon: '/icons/icon-192x192.png',
+              badge: '/icons/icon-192x192.png',
+              tag: `order_${orderId}`,
+              renotify: true,
+              data: {
+                url: payload.data?.url || '/admin',
+                orderId
+              }
+            });
+            console.log('📲 [FCM CLIENT] notification displayed:', title);
+          }).catch((err) => {
+            console.warn('⚠️ [FCM CLIENT] Service Worker showNotification error:', err.message);
+          });
+        }
+
+        // 3. Notify all registered callbacks to update UI
+        foregroundCallbacks.forEach((cb) => {
+          try {
+            cb(payload);
+          } catch (e) {
+            console.warn('⚠️ [FCM CLIENT] Callback error:', e.message);
+          }
         });
-      }
+      });
+    }
 
-      // 3. Callback to update UI
+    return () => {
       if (typeof onNewOrderCallback === 'function') {
-        onNewOrderCallback(payload);
+        foregroundCallbacks.delete(onNewOrderCallback);
       }
-    });
-
-    return unsubscribe;
+    };
   } catch (err) {
     console.warn('⚠️ [FCM Foreground Setup Notice]:', err.message);
     return () => {};

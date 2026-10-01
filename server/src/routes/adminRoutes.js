@@ -754,7 +754,7 @@ router.post('/notifications/test-fcm', protect, storeOwnerOrAdmin, async (req, r
       paymentStatus: 'Pending',
       deliveryStatus: 'Confirmed'
     };
-
+    console.log(`[FCM TEST] payload sent for mock order #${mockOrder.orderId}:`, JSON.stringify(mockOrder));
     const result = await sendFcmOrderNotification(mockOrder);
     res.json({
       success: true,

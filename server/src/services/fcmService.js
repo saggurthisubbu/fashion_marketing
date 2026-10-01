@@ -30,14 +30,22 @@ function initFirebaseAdmin() {
     }
 
     // 2. Check for individual environment variables: PROJECT_ID, CLIENT_EMAIL, PRIVATE_KEY
-    const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
-    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    const rawProjectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
+    const rawClientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    let rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
 
-    if (projectId && clientEmail && privateKey) {
+    if (rawProjectId && rawClientEmail && rawPrivateKey) {
+      const projectId = rawProjectId.replace(/["']/g, '').trim();
+      const clientEmail = rawClientEmail.replace(/["']/g, '').trim();
+      let privateKey = rawPrivateKey.trim();
+
+      if (privateKey.startsWith('"') && (privateKey.endsWith('",') || privateKey.endsWith('"'))) {
+        privateKey = privateKey.replace(/^"|"[,]?$/g, '');
+      }
       if (privateKey.includes('\\n')) {
         privateKey = privateKey.replace(/\\n/g, '\n');
       }
+
       initializeApp({
         credential: cert({
           projectId,

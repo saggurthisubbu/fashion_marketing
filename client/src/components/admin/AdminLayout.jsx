@@ -375,6 +375,26 @@ export const AdminLayout = ({
                     )}
                   </div>
 
+                  {/* Push Notification Quick Action */}
+                  <div className="p-3 bg-zinc-950/90 border-b border-zinc-800 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-base">🔔</span>
+                      <div>
+                        <div className="text-xs font-bold text-white leading-tight">Phone Push Notifications</div>
+                        <div className="text-[10px] text-zinc-400">Lockscreen alerts & background chime</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setActiveTab('notifications');
+                        setIsNotifDropdownOpen(false);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black text-[11px] tracking-wide transition-colors cursor-pointer shrink-0 shadow-sm"
+                    >
+                      🔔 Push Settings
+                    </button>
+                  </div>
+
                   <div className="max-h-72 overflow-y-auto divide-y divide-zinc-800/60">
                     {notifications.length === 0 ? (
                       <div className="p-6 text-center text-xs text-zinc-500">

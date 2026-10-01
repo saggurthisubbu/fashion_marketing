@@ -15,7 +15,7 @@ import {
   Sparkles,
   RefreshCw
 } from 'lucide-react';
-import { playOrderNotificationSound } from '../../../config/firebase';
+import { playOrderNotificationSound, registerAdminPushNotifications } from '../../../config/firebase';
 
 export const AdminNotificationsTab = ({
   notifications = [],
@@ -30,6 +30,7 @@ export const AdminNotificationsTab = ({
 }) => {
   const [filterType, setFilterType] = useState('all');
   const [isTestingPush, setIsTestingPush] = useState(false);
+  const [localRegistering, setLocalRegistering] = useState(false);
 
   const handleTestNotificationSound = () => {
     playOrderNotificationSound();
@@ -45,10 +46,31 @@ export const AdminNotificationsTab = ({
     }
   };
 
+  const handleEnablePushClick = async () => {
+    if (onEnablePush) {
+      return onEnablePush();
+    }
+    setLocalRegistering(true);
+    try {
+      const res = await registerAdminPushNotifications();
+      if (res.success) {
+        alert('Push notifications enabled! Real FCM token registered.');
+      } else {
+        alert(res.error || 'Failed to enable notifications');
+      }
+    } catch (e) {
+      alert('Error: ' + e.message);
+    } finally {
+      setLocalRegistering(false);
+    }
+  };
+
   const filtered = notifications.filter((n) => {
     if (filterType === 'all') return true;
     return n.type === filterType;
   });
+
+  const registering = isRegisteringPush || localRegistering;
 
   return (
     <div className="space-y-6">
@@ -57,11 +79,11 @@ export const AdminNotificationsTab = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-zinc-800/80">
         <div>
           <h2 className="text-xl sm:text-2xl font-black font-heading tracking-tight text-white flex items-center gap-2.5">
-            <Bell className="w-6 h-6" />
+            <Bell className="w-6 h-6 text-amber-400" />
             <span>Store Alerts & Notification Feed</span>
           </h2>
           <p className="text-xs text-zinc-400">
-            Real-time triggers for incoming orders, low stock warnings, rider dispatches, and system health.
+            Real-time triggers for incoming orders, low stock warnings, rider dispatches, and push notification controls.
           </p>
         </div>
 
@@ -77,37 +99,37 @@ export const AdminNotificationsTab = ({
       </div>
 
       {/* ── FIREBASE CLOUD MESSAGING (FCM) PUSH NOTIFICATION CONTROLLER ── */}
-      <div className="p-5 rounded-2xl bg-gradient-to-r from-zinc-900 via-zinc-900/90 to-zinc-950 border border-zinc-800/90 shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="p-5 rounded-2xl bg-gradient-to-r from-zinc-900 via-zinc-900/95 to-zinc-950 border-2 border-amber-500/30 shadow-2xl space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-              <Smartphone className="w-5 h-5 text-amber-400" />
+            <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0">
+              <Smartphone className="w-6 h-6 text-amber-400" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-heading font-black text-white text-sm">
-                  Firebase Phone Push Notifications (FCM)
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-heading font-black text-white text-base">
+                  Firebase Cloud Messaging (FCM) Push Notifications
                 </h3>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 ${
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 ${
                   isPushEnabled
-                    ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800'
-                    : 'bg-amber-950/80 text-amber-400 border border-amber-800'
+                    ? 'bg-emerald-950/90 text-emerald-400 border border-emerald-700'
+                    : 'bg-amber-950/90 text-amber-400 border border-amber-700'
                 }`}>
                   <Radio className="w-2.5 h-2.5 animate-pulse" />
                   <span>{isPushEnabled ? 'Active on Device' : 'Ready to Enable'}</span>
                 </span>
               </div>
-              <p className="text-xs text-zinc-400 mt-0.5">
+              <p className="text-xs text-zinc-400 mt-1">
                 Instant order alerts delivered to your Android phone or iPhone lockscreen, even when browser is closed or running in background.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <button
               type="button"
               onClick={handleTestNotificationSound}
-              className="px-3 py-2 rounded-xl bg-zinc-800/90 hover:bg-zinc-700 text-zinc-200 hover:text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              className="px-3.5 py-2.5 rounded-xl bg-zinc-800/90 hover:bg-zinc-700 text-zinc-200 hover:text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm border border-zinc-700/60"
               title="Play QuickFit high-definition order notification chime"
             >
               <Volume2 className="w-4 h-4 text-amber-400" />
@@ -119,7 +141,7 @@ export const AdminNotificationsTab = ({
                 type="button"
                 disabled={isTestingPush}
                 onClick={handleTriggerTestPush}
-                className="px-3.5 py-2 rounded-xl bg-zinc-800/90 hover:bg-zinc-700 border border-zinc-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shadow-sm"
+                className="px-3.5 py-2.5 rounded-xl bg-zinc-800/90 hover:bg-zinc-700 border border-zinc-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shadow-sm"
                 title="Send a sample order notification to phone lockscreen"
               >
                 {isTestingPush ? (
@@ -131,17 +153,34 @@ export const AdminNotificationsTab = ({
               </button>
             )}
 
-            {onEnablePush && (
-              <button
-                type="button"
-                disabled={isRegisteringPush}
-                onClick={onEnablePush}
-                className="px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-lg disabled:opacity-50"
-              >
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>{isRegisteringPush ? 'Registering...' : isPushEnabled ? 'Re-Sync Token' : 'Enable on Phone'}</span>
-              </button>
-            )}
+            {/* Prominent Visible Push Notification Toggle Button */}
+            <button
+              type="button"
+              id="btn-fcm-push-toggle"
+              disabled={registering}
+              onClick={handleEnablePushClick}
+              className={`px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-xl disabled:opacity-50 ${
+                isPushEnabled
+                  ? 'bg-zinc-100 hover:bg-white text-zinc-950 border border-zinc-200'
+                  : 'bg-amber-400 hover:bg-amber-300 text-zinc-950 ring-2 ring-amber-400/40'
+              }`}
+              title={isPushEnabled ? "Re-generate and sync genuine FCM registration token with server" : "Request browser permission and register genuine FCM device token"}
+            >
+              {registering ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-zinc-950" />
+                  <span>Registering Push...</span>
+                </>
+              ) : isPushEnabled ? (
+                <>
+                  <span>🔄 Re-Sync Push Notifications</span>
+                </>
+              ) : (
+                <>
+                  <span>🔔 Enable Push Notifications</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 

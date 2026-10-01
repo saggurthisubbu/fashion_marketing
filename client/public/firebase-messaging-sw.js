@@ -7,12 +7,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-com
 // Standard Firebase Client Configuration
 // This can be customized via VITE_FIREBASE_* environment variables during build
 const firebaseConfig = {
-  apiKey: "AIzaSyQuickFitAdminFCM2026DefaultKey",
-  authDomain: "quickfit-fashion.firebaseapp.com",
-  projectId: "quickfit-fashion",
-  storageBucket: "quickfit-fashion.appspot.com",
-  messagingSenderId: "108392847192",
-  appId: "1:108392847192:web:a1b2c3d4e5f6g7h8i9j0k"
+  apiKey: "AIzaSyD8Tm1LhTUeP3TV7VdNkDEBIkrrl89mo9s",
+  authDomain: "quickfit-notifications.firebaseapp.com",
+  projectId: "quickfit-notifications",
+  storageBucket: "quickfit-notifications.firebasestorage.app",
+  messagingSenderId: "686924877659",
+  appId: "1:686924877659:web:2e7900911ce7338ec4947e"
 };
 
 try {

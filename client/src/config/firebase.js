@@ -3,19 +3,24 @@ import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messagi
 import axios from 'axios';
 import { API_BASE_URL } from './api';
 
-// Firebase Client Configuration
-// Reads from Vite environment variables (VITE_FIREBASE_*) with default fallback
-export const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyQuickFitAdminFCM2026DefaultKey",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "quickfit-fashion.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "quickfit-fashion",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "quickfit-fashion.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "108392847192",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:108392847192:web:a1b2c3d4e5f6g7h8i9j0k"
+const clean = (val, fallback = '') => {
+  if (!val) return fallback;
+  return String(val).replace(/^["']|["']$/g, '').trim();
 };
 
-// Web Push VAPID Key (Optional, can be supplied in .env or defaults to FCM standard)
-export const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || undefined;
+// Firebase Client Configuration
+// Reads from Vite environment variables (VITE_FIREBASE_*) with real fallback
+export const firebaseConfig = {
+  apiKey: clean(import.meta.env.VITE_FIREBASE_API_KEY, "AIzaSyD8Tm1LhTUeP3TV7VdNkDEBIkrrl89mo9s"),
+  authDomain: clean(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN, "quickfit-notifications.firebaseapp.com"),
+  projectId: clean(import.meta.env.VITE_FIREBASE_PROJECT_ID, "quickfit-notifications"),
+  storageBucket: clean(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET, "quickfit-notifications.firebasestorage.app"),
+  messagingSenderId: clean(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID, "686924877659"),
+  appId: clean(import.meta.env.VITE_FIREBASE_APP_ID, "1:686924877659:web:2e7900911ce7338ec4947e")
+};
+
+// Web Push VAPID Key (reads from Vite env or fallback)
+export const VAPID_KEY = clean(import.meta.env.VITE_FIREBASE_VAPID_KEY, "BOkm1LnRJRk_iRoo4Jv5BmNMxzSfSx5bDGc8N9imyg6hevdw-354Yvx0SP48nOeZmE2yk0wA0wPECsRCsb9IB1w") || undefined;
 
 // Initialize Firebase App
 export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -84,20 +89,24 @@ export function getDeviceType() {
  */
 export async function registerAdminPushNotifications(authToken) {
   if (typeof window === 'undefined' || !('Notification' in window)) {
-    return { success: false, error: 'Notifications are not supported in this browser' };
+    return { success: false, error: 'Push notifications are not supported in this browser' };
   }
 
   try {
-    // 1. Request permission
-    const permission = await Notification.requestPermission();
+    // 1. Request permission if not already granted
+    let permission = Notification.permission;
+    if (permission !== 'granted') {
+      permission = await Notification.requestPermission();
+    }
+
     if (permission !== 'granted') {
       console.warn('⚠️ [FCM] Notification permission was not granted by admin:', permission);
-      return { success: false, permission, error: 'Notification permission denied' };
+      return { success: false, permission, error: 'Notification permission denied by browser.' };
     }
 
     console.log('✅ [FCM] Notification permission granted!');
 
-    // 2. Register or fetch Service Worker
+    // 2. Register Service Worker and ensure it is ready
     let swRegistration = null;
     if ('serviceWorker' in navigator) {
       try {
@@ -105,41 +114,38 @@ export async function registerAdminPushNotifications(authToken) {
           scope: '/'
         });
         console.log('✅ [FCM] Service Worker registered at scope:', swRegistration.scope);
+        await navigator.serviceWorker.ready;
       } catch (swErr) {
         console.warn('⚠️ [FCM] Service Worker registration note:', swErr.message);
         swRegistration = await navigator.serviceWorker.ready.catch(() => null);
       }
     }
 
-    // 3. Get FCM Token
+    // 3. Acquire GENUINE FCM Token using Firebase Messaging and VAPID key
     const messaging = await getFirebaseMessaging();
-    let fcmToken = null;
-
-    if (messaging) {
-      try {
-        const options = {
-          serviceWorkerRegistration: swRegistration || undefined
-        };
-        if (VAPID_KEY) {
-          options.vapidKey = VAPID_KEY;
-        }
-
-        fcmToken = await getToken(messaging, options);
-        console.log('📲 [FCM] Received Device Registration Token:', fcmToken);
-      } catch (tokenErr) {
-        console.warn('⚠️ [FCM] getToken notice:', tokenErr.message);
-      }
+    if (!messaging) {
+      throw new Error('Firebase Messaging is not supported or could not be initialized in this browser.');
     }
 
-    // Fallback: If Firebase token could not be acquired (e.g. mock project key), generate client device ID
+    const options = {
+      serviceWorkerRegistration: swRegistration || undefined
+    };
+    if (VAPID_KEY) {
+      options.vapidKey = VAPID_KEY;
+    }
+
+    const fcmToken = await getToken(messaging, options);
+
     if (!fcmToken) {
-      fcmToken = localStorage.getItem('quickfit_fcm_token') || `client_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      throw new Error('No FCM registration token received from Firebase. Ensure VAPID key is configured.');
     }
+
+    console.log('📲 [FCM] Received Genuine FCM Device Registration Token:', fcmToken);
 
     localStorage.setItem('quickfit_fcm_token', fcmToken);
     localStorage.setItem('quickfit_notifications_enabled', 'true');
 
-    // 4. Send token to backend API so server can deliver push notifications
+    // 4. Send genuine token to backend API
     const deviceType = getDeviceType();
     const tokenPayload = {
       token: fcmToken,

@@ -177,36 +177,60 @@ const handledOrderIds = new Set();
 
 /**
  * Start the persistent urgent order alert (audio chime loop and vibration)
+ * Repeats continuously until the admin views or accepts the order.
  */
 export function startUrgentOrderAlert() {
   stopUrgentOrderAlert();
 
   try {
-    const playChime = () => {
+    const playAudio = () => {
       try {
-        const audio = new Audio('/audio/order_notification.mp3');
-        audio.volume = 1.0;
-        const playPromise = audio.play();
+        if (!urgentAudio) {
+          urgentAudio = new Audio('/audio/order_notification.mp3');
+          urgentAudio.volume = 1.0;
+          urgentAudio.loop = true;
+          // When audio finishes, re-trigger if loop is unsupported on platform
+          urgentAudio.addEventListener('ended', () => {
+            if (urgentAudio) {
+              urgentAudio.play().catch(() => {});
+            }
+          });
+        }
+        const playPromise = urgentAudio.play();
         if (playPromise !== undefined) {
           playPromise.catch(() => {
-            // Audio autoplay policy fallback
+            // Autoplay policy or format fallback to WAV
+            try {
+              if (urgentAudio && urgentAudio.src.includes('.mp3')) {
+                urgentAudio = new Audio('/audio/order_notification.wav');
+                urgentAudio.volume = 1.0;
+                urgentAudio.loop = true;
+                urgentAudio.play().catch(() => {});
+              }
+            } catch (e) {}
           });
         }
       } catch (e) {}
     };
 
-    // Play immediately and repeat every 3.5s until accepted
-    playChime();
-    urgentAudioInterval = setInterval(playChime, 3500);
+    // Play immediately
+    playAudio();
 
-    // Vibrate phone continuously (500ms vibrate, 250ms pause, repeat)
+    // Secondary pulse interval in case browser pauses or cuts off looped audio
+    urgentAudioInterval = setInterval(() => {
+      if (urgentAudio && urgentAudio.paused) {
+        urgentAudio.play().catch(() => {});
+      }
+    }, 2000);
+
+    // Vibrate phone continuously (repeating vibration pulses where supported)
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate([500, 250, 500, 250, 500]);
       urgentVibrateInterval = setInterval(() => {
         if ('vibrate' in navigator) {
           navigator.vibrate([500, 250, 500, 250, 500]);
         }
-      }, 3000);
+      }, 2500);
     }
   } catch (err) {
     console.warn('[Urgent Alert Start Error]:', err.message);
@@ -214,7 +238,7 @@ export function startUrgentOrderAlert() {
 }
 
 /**
- * Stop persistent order alert audio and vibration
+ * Stop persistent order alert audio and vibration immediately
  */
 export function stopUrgentOrderAlert() {
   try {
@@ -242,16 +266,17 @@ export function stopUrgentOrderAlert() {
 const foregroundCallbacks = new Set();
 let activeForegroundUnsubscribe = null;
 
-// Listen for service worker notificationclick "accept_order" messages
+// Listen for service worker notificationclick messages (accept_order or view_order)
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (event) => {
-    if (event.data?.type === 'ACCEPT_ORDER') {
+    if (event.data?.type === 'ACCEPT_ORDER' || event.data?.type === 'VIEW_ORDER') {
       const orderId = event.data?.orderId;
-      console.log(`[FCM ORDER CLIENT] Accept Order clicked: #${orderId}`);
+      const actionType = event.data?.type;
+      console.log(`[FCM ORDER CLIENT] ${actionType === 'ACCEPT_ORDER' ? 'Accept Order' : 'View Order'} clicked: #${orderId}`);
       stopUrgentOrderAlert();
       foregroundCallbacks.forEach((cb) => {
         try {
-          cb({ type: 'ORDER_ACCEPTED', orderId });
+          cb({ type: actionType, orderId });
         } catch (e) {}
       });
     }
@@ -277,9 +302,19 @@ export async function setupForegroundFcmListener(onNewOrderCallback) {
         const orderId = payload.data?.orderId || payload.notification?.tag?.replace('order_', '') || `QF-${Date.now()}`;
         const customerName = payload.data?.customerName || 'Customer';
         const customerPhone = payload.data?.customerPhone || '';
+        const customerAddress = payload.data?.customerAddress || '';
+        let items = [];
+        try {
+          if (payload.data?.items) {
+            items = typeof payload.data.items === 'string' ? JSON.parse(payload.data.items) : payload.data.items;
+          }
+        } catch (e) {
+          items = [];
+        }
+        const itemsCount = payload.data?.itemsCount || String(items.length || 1);
         const totalAmount = payload.data?.totalAmount || '0';
-        const itemsCount = payload.data?.itemsCount || '1';
         const paymentMethod = payload.data?.paymentMethod || 'COD';
+        const orderDate = payload.data?.orderDate || new Date().toISOString();
 
         // Deduplication: prevent repeat alert triggers for the same order within 5 minutes
         if (handledOrderIds.has(orderId)) {
@@ -294,12 +329,13 @@ export async function setupForegroundFcmListener(onNewOrderCallback) {
         console.log(`[FCM ORDER CLIENT] Order ID: ${orderId}`);
         console.log(`[FCM ORDER CLIENT] Showing urgent order alert`);
 
-        // 1. Start continuous audio chime loop & phone vibration until accepted
+        // 1. Start continuous audio chime loop & phone vibration until accepted or viewed
         startUrgentOrderAlert();
 
-        // 2. Display native persistent notification with "ACCEPT ORDER" action button
+        // 2. Display native persistent notification with action buttons where supported
         const urgentTitle = payload.notification?.title || `🔔 NEW ORDER: #${orderId}`;
-        const urgentBody = payload.notification?.body || `₹${totalAmount} from ${customerName} (${itemsCount} items) via ${paymentMethod}`;
+        const urgentBody = payload.notification?.body || `₹${totalAmount} from ${customerName} (${itemsCount} items) via ${paymentMethod} | ${customerAddress}`;
+        const targetUrl = `/admin?tab=orders&acceptOrder=${encodeURIComponent(orderId)}`;
 
         if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator) {
           navigator.serviceWorker.ready.then((reg) => {
@@ -312,13 +348,20 @@ export async function setupForegroundFcmListener(onNewOrderCallback) {
               requireInteraction: true,
               vibrate: [500, 250, 500, 250, 500],
               actions: [
+                { action: 'view_order', title: '👁 VIEW ORDER' },
                 { action: 'accept_order', title: '✅ ACCEPT ORDER' }
               ],
               data: {
-                url: payload.data?.url || (orderId && orderId !== 'new' ? `/admin?tab=orders&acceptOrder=${encodeURIComponent(orderId)}` : '/admin?tab=orders'),
+                url: payload.data?.url || targetUrl,
                 orderId,
                 customerName,
-                totalAmount
+                customerPhone,
+                customerAddress,
+                items,
+                itemsCount,
+                totalAmount,
+                paymentMethod,
+                orderDate
               }
             });
             console.log('📲 [FCM CLIENT] notification displayed:', urgentTitle);
@@ -332,9 +375,12 @@ export async function setupForegroundFcmListener(onNewOrderCallback) {
           orderId,
           customerName,
           customerPhone,
-          totalAmount,
+          customerAddress,
+          items,
           itemsCount,
+          totalAmount,
           paymentMethod,
+          orderDate,
           payload
         };
 
@@ -358,3 +404,4 @@ export async function setupForegroundFcmListener(onNewOrderCallback) {
     return () => {};
   }
 }
+

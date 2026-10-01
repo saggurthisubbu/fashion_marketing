@@ -65,6 +65,18 @@ const MainApp = () => {
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
+  const handleViewUrgentOrder = (orderId) => {
+    console.log(`[FCM ORDER CLIENT] View Order clicked: #${orderId}`);
+    stopUrgentOrderAlert();
+    setUrgentOrderAlert(null);
+    setIsAdminOpen(true);
+    const targetUrl = orderId && orderId !== 'New' && orderId !== 'new'
+      ? `/admin?tab=orders&acceptOrder=${encodeURIComponent(orderId)}`
+      : '/admin?tab=orders';
+    window.history.pushState({ modal: 'admin' }, '', targetUrl);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
   const handleDismissUrgentOrder = () => {
     stopUrgentOrderAlert();
     setUrgentOrderAlert(null);
@@ -89,15 +101,12 @@ const MainApp = () => {
     let unsubscribe = () => {};
     setupForegroundFcmListener((alertData) => {
       console.log('🔔 [FCM CLIENT] foreground message received in App root:', alertData);
-      if (alertData?.type === 'ORDER_ACCEPTED') {
-        setUrgentOrderAlert(null);
-        setIsAdminOpen(true);
-        const orderId = alertData.orderId;
-        const targetUrl = orderId && orderId !== 'new' && orderId !== 'New'
-          ? `/admin?tab=orders&acceptOrder=${encodeURIComponent(orderId)}`
-          : '/admin?tab=orders';
-        window.history.pushState({ modal: 'admin' }, '', targetUrl);
-        window.dispatchEvent(new PopStateEvent('popstate'));
+      if (alertData?.type === 'ACCEPT_ORDER' || alertData?.type === 'ORDER_ACCEPTED') {
+        handleAcceptUrgentOrder(alertData.orderId);
+        return;
+      }
+      if (alertData?.type === 'VIEW_ORDER' || alertData?.type === 'ORDER_VIEWED') {
+        handleViewUrgentOrder(alertData.orderId);
         return;
       }
       if (alertData?.orderId) {
@@ -261,6 +270,7 @@ const MainApp = () => {
       <UrgentOrderAlertModal
         orderAlert={urgentOrderAlert}
         onAccept={handleAcceptUrgentOrder}
+        onView={handleViewUrgentOrder}
         onDismiss={handleDismissUrgentOrder}
       />
 

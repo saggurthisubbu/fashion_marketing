@@ -24,13 +24,17 @@ try {
 
     const orderId = payload.data?.orderId || 'new';
     const customerName = payload.data?.customerName || '';
+    const customerPhone = payload.data?.customerPhone || '';
+    const customerAddress = payload.data?.customerAddress || '';
     const totalAmount = payload.data?.totalAmount || '';
     const itemsCount = payload.data?.itemsCount || '1';
+    const paymentMethod = payload.data?.paymentMethod || 'COD';
+    const targetUrl = payload.data?.url || (orderId && orderId !== 'new' ? `/admin?tab=orders&acceptOrder=${encodeURIComponent(orderId)}` : '/admin?tab=orders');
 
     const title = payload.notification?.title || payload.data?.title || `🔔 NEW ORDER: #${orderId}`;
     let body = payload.notification?.body || payload.data?.body;
     if (!body || body.includes('A new order has been placed')) {
-      body = `₹${totalAmount} from ${customerName} (${itemsCount} item${itemsCount === '1' ? '' : 's'})`;
+      body = `₹${totalAmount} from ${customerName} (${itemsCount} item${itemsCount === '1' ? '' : 's'}) via ${paymentMethod} | ${customerAddress}`;
     }
 
     const notificationOptions = {
@@ -43,14 +47,19 @@ try {
       requireInteraction: true,
       vibrate: [500, 250, 500, 250, 500],
       actions: [
+        { action: 'view_order', title: '👁 VIEW ORDER' },
         { action: 'accept_order', title: '✅ ACCEPT ORDER' }
       ],
       data: {
-        url: payload.data?.url || '/admin',
+        url: targetUrl,
         orderId: orderId,
         customerName: customerName,
+        customerPhone: customerPhone,
+        customerAddress: customerAddress,
         totalAmount: totalAmount,
-        click_action: payload.data?.click_action || '/admin'
+        itemsCount: itemsCount,
+        paymentMethod: paymentMethod,
+        click_action: targetUrl
       }
     };
 
@@ -69,14 +78,18 @@ self.addEventListener('push', (event) => {
     console.log('[FCM SW] background message received (push event):', rawData);
 
     const orderId = rawData.data?.orderId || rawData.orderId || 'new';
-    const customerName = rawData.data?.customerName || '';
-    const totalAmount = rawData.data?.totalAmount || '';
-    const itemsCount = rawData.data?.itemsCount || '1';
+    const customerName = rawData.data?.customerName || rawData.customerName || '';
+    const customerPhone = rawData.data?.customerPhone || '';
+    const customerAddress = rawData.data?.customerAddress || '';
+    const totalAmount = rawData.data?.totalAmount || rawData.totalAmount || '';
+    const itemsCount = rawData.data?.itemsCount || rawData.itemsCount || '1';
+    const paymentMethod = rawData.data?.paymentMethod || 'COD';
+    const targetUrl = rawData.data?.url || (orderId && orderId !== 'new' ? `/admin?tab=orders&acceptOrder=${encodeURIComponent(orderId)}` : '/admin?tab=orders');
 
     const title = rawData.notification?.title || rawData.data?.title || rawData.title || `🔔 NEW ORDER: #${orderId}`;
     let body = rawData.notification?.body || rawData.data?.body || rawData.body;
     if (!body || body.includes('New order received') || body.includes('New order placed')) {
-      body = `₹${totalAmount} from ${customerName} (${itemsCount} item${itemsCount === '1' ? '' : 's'})`;
+      body = `₹${totalAmount} from ${customerName} (${itemsCount} item${itemsCount === '1' ? '' : 's'}) via ${paymentMethod} | ${customerAddress}`;
     }
 
     const options = {
@@ -88,13 +101,17 @@ self.addEventListener('push', (event) => {
       requireInteraction: true,
       vibrate: [500, 250, 500, 250, 500],
       actions: [
+        { action: 'view_order', title: '👁 VIEW ORDER' },
         { action: 'accept_order', title: '✅ ACCEPT ORDER' }
       ],
       data: {
-        url: rawData.data?.url || '/admin',
+        url: targetUrl,
         orderId: orderId,
         customerName: customerName,
-        totalAmount: totalAmount
+        customerPhone: customerPhone,
+        customerAddress: customerAddress,
+        totalAmount: totalAmount,
+        paymentMethod: paymentMethod
       }
     };
 
@@ -108,8 +125,11 @@ self.addEventListener('push', (event) => {
         icon: '/icons/icon-192x192.png',
         badge: '/icons/icon-192x192.png',
         requireInteraction: true,
-        actions: [{ action: 'accept_order', title: '✅ ACCEPT ORDER' }],
-        data: { url: '/admin' }
+        actions: [
+          { action: 'view_order', title: '👁 VIEW ORDER' },
+          { action: 'accept_order', title: '✅ ACCEPT ORDER' }
+        ],
+        data: { url: '/admin?tab=orders' }
       })
     );
   }
@@ -119,7 +139,7 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const orderId = event.notification.data?.orderId || 'new';
-  const isAccept = event.action === 'accept_order';
+  const actionType = event.action === 'accept_order' ? 'ACCEPT_ORDER' : 'VIEW_ORDER';
   const targetUrl = orderId && orderId !== 'new' && orderId !== 'New'
     ? `/admin?tab=orders&acceptOrder=${encodeURIComponent(orderId)}`
     : '/admin?tab=orders';
@@ -130,14 +150,14 @@ self.addEventListener('notificationclick', (event) => {
       for (const client of windowClients) {
         if ('postMessage' in client) {
           client.postMessage({
-            type: 'ACCEPT_ORDER',
+            type: actionType,
             orderId: orderId,
             action: event.action
           });
         }
       }
 
-      // 2. If admin window is already open, focus it
+      // 2. If admin window is already open, focus it and navigate
       for (const client of windowClients) {
         if (client.url.includes('/admin') && 'focus' in client) {
           if ('navigate' in client) {

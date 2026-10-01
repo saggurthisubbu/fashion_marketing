@@ -19,7 +19,7 @@ import {
   Store,
   Trash2
 } from 'lucide-react';
-import { resolveImageUrl } from '../../../config/api';
+import { resolveImageUrl, API_BASE_URL } from '../../../config/api';
 import { formatAdminWhatsAppOrder } from '../../../utils/whatsapp';
 
 const formatOrderDate = (dateVal) => {
@@ -61,11 +61,26 @@ export const AdminOrdersTab = ({
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const targetOrderId = params.get('acceptOrder');
-    if (targetOrderId && safeOrdersList.length > 0) {
+    if (!targetOrderId) return;
+
+    if (safeOrdersList.length > 0) {
       const match = safeOrdersList.find(o => o?.orderId === targetOrderId || o?._id === targetOrderId);
       if (match) {
         setSelectedOrder(match);
+        return;
       }
+    }
+
+    // Immediate fallback fetch if safeOrdersList is still loading or empty
+    if (targetOrderId && targetOrderId !== 'new' && targetOrderId !== 'New') {
+      fetch(`${API_BASE_URL}/orders/track/${encodeURIComponent(targetOrderId)}`)
+        .then(res => (res.ok ? res.json() : null))
+        .then(data => {
+          if (data && (data.orderId || data._id)) {
+            setSelectedOrder(data);
+          }
+        })
+        .catch(() => {});
     }
   }, [safeOrdersList]);
 

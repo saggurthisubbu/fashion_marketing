@@ -104,13 +104,21 @@ export async function sendFcmOrderNotification(order) {
   const orderId = rawOrder.orderId || rawOrder._id?.toString() || 'New';
   const customerName = rawOrder.customer?.name || rawOrder.customer?.fullName || 'Customer';
   const customerPhone = rawOrder.customer?.phone || '';
-  const customerAddress = rawOrder.customer?.address || '';
+  const customerAddress = [
+    rawOrder.customer?.address,
+    rawOrder.customer?.landmark,
+    rawOrder.customer?.area,
+    rawOrder.customer?.pincode
+  ].filter(Boolean).join(', ') || rawOrder.customer?.address || 'Vijayawada';
   const totalAmount = rawOrder.totalAmount || 0;
   const itemsCount = Array.isArray(rawOrder.items) ? rawOrder.items.length : 1;
   const paymentMethod = rawOrder.paymentMethod || 'COD';
+  const orderDate = String(rawOrder.orderDate || rawOrder.createdAt || new Date().toISOString());
+  const serializedItems = JSON.stringify(Array.isArray(rawOrder.items) ? rawOrder.items : []);
+  const targetUrl = `/admin?tab=orders&acceptOrder=${encodeURIComponent(orderId)}`;
 
   const notificationTitle = `🔔 NEW ORDER: #${orderId}`;
-  const notificationBody = `₹${totalAmount} from ${customerName} (${itemsCount} item${itemsCount === 1 ? '' : 's'}) via ${paymentMethod}`;
+  const notificationBody = `₹${totalAmount} from ${customerName} (${itemsCount} item${itemsCount === 1 ? '' : 's'}) via ${paymentMethod} | ${customerAddress}`;
 
   console.log(`\n🔔 [FCM PUSH TRIGGER] Preparing instant push notification for Order #${orderId}...`);
 
@@ -139,7 +147,7 @@ export async function sendFcmOrderNotification(order) {
 
     const messaging = getMessaging();
 
-    // 2. Prepare comprehensive FCM Multicast Message with Android & iOS sound & order details
+    // 2. Prepare comprehensive FCM Multicast Message with Android & iOS sound & complete order details
     const message = {
       tokens,
       notification: {
@@ -152,11 +160,13 @@ export async function sendFcmOrderNotification(order) {
         customerName: String(customerName),
         customerPhone: String(customerPhone),
         customerAddress: String(customerAddress),
-        paymentMethod: String(paymentMethod),
+        items: serializedItems,
         itemsCount: String(itemsCount),
+        paymentMethod: String(paymentMethod),
+        orderDate: String(orderDate),
         type: 'new_order',
-        url: '/admin',
-        click_action: '/admin'
+        url: targetUrl,
+        click_action: targetUrl
       },
       // Android specific configuration (high priority, vibration, custom channel)
       android: {
@@ -167,7 +177,7 @@ export async function sendFcmOrderNotification(order) {
           defaultSound: true,
           defaultVibrateTimings: true,
           notificationPriority: 'PRIORITY_MAX',
-          clickAction: '/admin',
+          clickAction: targetUrl,
           tag: `order_${orderId}`,
           icon: 'ic_launcher'
         }
@@ -205,19 +215,24 @@ export async function sendFcmOrderNotification(order) {
           renotify: true,
           vibrate: [500, 250, 500, 250, 500],
           actions: [
+            { action: 'view_order', title: '👁 VIEW ORDER' },
             { action: 'accept_order', title: '✅ ACCEPT ORDER' }
           ],
           data: {
-            url: '/admin',
+            url: targetUrl,
             orderId: String(orderId),
             customerName: String(customerName),
-            totalAmount: String(totalAmount),
+            customerPhone: String(customerPhone),
+            customerAddress: String(customerAddress),
+            items: serializedItems,
             itemsCount: String(itemsCount),
-            paymentMethod: String(paymentMethod)
+            totalAmount: String(totalAmount),
+            paymentMethod: String(paymentMethod),
+            orderDate: String(orderDate)
           }
         },
         fcmOptions: {
-          link: '/admin'
+          link: targetUrl
         }
       }
     };

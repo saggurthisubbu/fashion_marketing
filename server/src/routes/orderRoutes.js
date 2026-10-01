@@ -257,9 +257,16 @@ router.post('/', async (req, res) => {
     }
 
     // 10. Instant FCM Push Notification to Admin Phones (Android, iOS & Background WebPush)
-    sendFcmOrderNotification(createdOrder).catch((fcmErr) => {
-      console.error('[FCM Notification Error]:', fcmErr.message);
-    });
+    console.log(`[ORDER FCM] Order created: #${createdOrder.orderId}`);
+    console.log(`[ORDER FCM] Calling sendFcmOrderNotification for order #${createdOrder.orderId}...`);
+    try {
+      const plainOrder = typeof createdOrder.toObject === 'function' ? createdOrder.toObject() : createdOrder;
+      const fcmResult = await sendFcmOrderNotification(plainOrder);
+      console.log(`[ORDER FCM] FCM function completed: success=${fcmResult?.success !== false}, successCount=${fcmResult?.successCount || 0}, failureCount=${fcmResult?.failureCount || 0}`);
+    } catch (fcmErr) {
+      console.error('❌ [ORDER FCM Error]: Failed to send FCM order notification:', fcmErr.message);
+      // Non-blocking: Order creation must NEVER fail because of push notification errors
+    }
 
     return res.status(201).json(createdOrder);
   } catch (error) {

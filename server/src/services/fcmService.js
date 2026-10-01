@@ -1,3 +1,4 @@
+import '../config/env.js';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 import fs from 'fs';
@@ -96,15 +97,17 @@ initFirebaseAdmin();
  * @param {Object} order - The newly created order document
  */
 export async function sendFcmOrderNotification(order) {
-  if (!order) return;
+  if (!order) return { success: false, reason: 'no_order_provided' };
 
-  const orderId = order.orderId || order._id?.toString() || 'New';
-  const customerName = order.customer?.name || 'Customer';
-  const customerPhone = order.customer?.phone || '';
-  const customerAddress = order.customer?.address || '';
-  const totalAmount = order.totalAmount || 0;
-  const itemsCount = Array.isArray(order.items) ? order.items.length : 1;
-  const paymentMethod = order.paymentMethod || 'COD';
+  const rawOrder = typeof order.toObject === 'function' ? order.toObject() : order;
+
+  const orderId = rawOrder.orderId || rawOrder._id?.toString() || 'New';
+  const customerName = rawOrder.customer?.name || rawOrder.customer?.fullName || 'Customer';
+  const customerPhone = rawOrder.customer?.phone || '';
+  const customerAddress = rawOrder.customer?.address || '';
+  const totalAmount = rawOrder.totalAmount || 0;
+  const itemsCount = Array.isArray(rawOrder.items) ? rawOrder.items.length : 1;
+  const paymentMethod = rawOrder.paymentMethod || 'COD';
 
   const notificationTitle = `🛍️ New Order: #${orderId}`;
   const notificationBody = `₹${totalAmount} from ${customerName} (${itemsCount} item${itemsCount === 1 ? '' : 's'}) via ${paymentMethod}`;

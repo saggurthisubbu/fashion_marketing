@@ -169,8 +169,94 @@ export async function registerAdminPushNotifications(authToken) {
   }
 }
 
+// Urgent Order Alert Audio & Vibration Controller
+let urgentAudio = null;
+let urgentAudioInterval = null;
+let urgentVibrateInterval = null;
+const handledOrderIds = new Set();
+
+/**
+ * Start the persistent urgent order alert (audio chime loop and vibration)
+ */
+export function startUrgentOrderAlert() {
+  stopUrgentOrderAlert();
+
+  try {
+    const playChime = () => {
+      try {
+        const audio = new Audio('/audio/order_notification.mp3');
+        audio.volume = 1.0;
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {
+            // Audio autoplay policy fallback
+          });
+        }
+      } catch (e) {}
+    };
+
+    // Play immediately and repeat every 3.5s until accepted
+    playChime();
+    urgentAudioInterval = setInterval(playChime, 3500);
+
+    // Vibrate phone continuously (500ms vibrate, 250ms pause, repeat)
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([500, 250, 500, 250, 500]);
+      urgentVibrateInterval = setInterval(() => {
+        if ('vibrate' in navigator) {
+          navigator.vibrate([500, 250, 500, 250, 500]);
+        }
+      }, 3000);
+    }
+  } catch (err) {
+    console.warn('[Urgent Alert Start Error]:', err.message);
+  }
+}
+
+/**
+ * Stop persistent order alert audio and vibration
+ */
+export function stopUrgentOrderAlert() {
+  try {
+    if (urgentAudio) {
+      urgentAudio.pause();
+      urgentAudio.currentTime = 0;
+      urgentAudio = null;
+    }
+    if (urgentAudioInterval) {
+      clearInterval(urgentAudioInterval);
+      urgentAudioInterval = null;
+    }
+    if (urgentVibrateInterval) {
+      clearInterval(urgentVibrateInterval);
+      urgentVibrateInterval = null;
+    }
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(0);
+    }
+  } catch (err) {
+    console.warn('[Urgent Alert Stop Error]:', err.message);
+  }
+}
+
 const foregroundCallbacks = new Set();
 let activeForegroundUnsubscribe = null;
+
+// Listen for service worker notificationclick "accept_order" messages
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data?.type === 'ACCEPT_ORDER') {
+      const orderId = event.data?.orderId;
+      console.log(`[FCM ORDER CLIENT] Accept Order clicked: #${orderId}`);
+      stopUrgentOrderAlert();
+      foregroundCallbacks.forEach((cb) => {
+        try {
+          cb({ type: 'ORDER_ACCEPTED', orderId });
+        } catch (e) {}
+      });
+    }
+  });
+}
 
 /**
  * Setup Foreground FCM message listener when Admin is viewing the dashboard or app is open
@@ -188,37 +274,73 @@ export async function setupForegroundFcmListener(onNewOrderCallback) {
       activeForegroundUnsubscribe = onMessage(messaging, (payload) => {
         console.log('🔔 [FCM CLIENT] foreground message received:', payload);
 
-        // 1. Play alert sound and vibrate
-        playOrderNotificationSound();
+        const orderId = payload.data?.orderId || payload.notification?.tag?.replace('order_', '') || `QF-${Date.now()}`;
+        const customerName = payload.data?.customerName || 'Customer';
+        const customerPhone = payload.data?.customerPhone || '';
+        const totalAmount = payload.data?.totalAmount || '0';
+        const itemsCount = payload.data?.itemsCount || '1';
+        const paymentMethod = payload.data?.paymentMethod || 'COD';
 
-        // 2. Always show native Notification via Service Worker (works on iOS Safari PWA, Android, and Desktop)
-        const title = payload.notification?.title || payload.data?.title || '🛍️ New Order Received!';
-        const body = payload.notification?.body || payload.data?.body || 'New order placed on QuickFit.';
-        const orderId = payload.data?.orderId || 'new';
+        // Deduplication: prevent repeat alert triggers for the same order within 5 minutes
+        if (handledOrderIds.has(orderId)) {
+          console.log(`ℹ️ [FCM ORDER CLIENT] Skipping duplicate alert for Order ID: ${orderId}`);
+          return;
+        }
+        handledOrderIds.add(orderId);
+        setTimeout(() => handledOrderIds.delete(orderId), 5 * 60 * 1000);
+
+        // Required explicit logs
+        console.log(`[FCM ORDER CLIENT] New order notification received`);
+        console.log(`[FCM ORDER CLIENT] Order ID: ${orderId}`);
+        console.log(`[FCM ORDER CLIENT] Showing urgent order alert`);
+
+        // 1. Start continuous audio chime loop & phone vibration until accepted
+        startUrgentOrderAlert();
+
+        // 2. Display native persistent notification with "ACCEPT ORDER" action button
+        const urgentTitle = payload.notification?.title || `🔔 NEW ORDER: #${orderId}`;
+        const urgentBody = payload.notification?.body || `₹${totalAmount} from ${customerName} (${itemsCount} items) via ${paymentMethod}`;
 
         if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator) {
           navigator.serviceWorker.ready.then((reg) => {
-            reg.showNotification(title, {
-              body,
+            reg.showNotification(urgentTitle, {
+              body: urgentBody,
               icon: '/icons/icon-192x192.png',
               badge: '/icons/icon-192x192.png',
               tag: `order_${orderId}`,
               renotify: true,
+              requireInteraction: true,
+              vibrate: [500, 250, 500, 250, 500],
+              actions: [
+                { action: 'accept_order', title: '✅ ACCEPT ORDER' }
+              ],
               data: {
                 url: payload.data?.url || '/admin',
-                orderId
+                orderId,
+                customerName,
+                totalAmount
               }
             });
-            console.log('📲 [FCM CLIENT] notification displayed:', title);
+            console.log('📲 [FCM CLIENT] notification displayed:', urgentTitle);
           }).catch((err) => {
             console.warn('⚠️ [FCM CLIENT] Service Worker showNotification error:', err.message);
           });
         }
 
-        // 3. Notify all registered callbacks to update UI
+        // 3. Notify all registered callbacks to display the urgent in-app modal
+        const alertData = {
+          orderId,
+          customerName,
+          customerPhone,
+          totalAmount,
+          itemsCount,
+          paymentMethod,
+          payload
+        };
+
         foregroundCallbacks.forEach((cb) => {
           try {
-            cb(payload);
+            cb(alertData);
           } catch (e) {
             console.warn('⚠️ [FCM CLIENT] Callback error:', e.message);
           }

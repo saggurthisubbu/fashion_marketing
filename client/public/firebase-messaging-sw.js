@@ -22,9 +22,16 @@ try {
   messaging.onBackgroundMessage((payload) => {
     console.log('[FCM SW] background message received:', payload);
 
-    const title = payload.notification?.title || payload.data?.title || '🛍️ New Order Received!';
-    const body = payload.notification?.body || payload.data?.body || 'A new order has been placed on QuickFit.';
     const orderId = payload.data?.orderId || 'new';
+    const customerName = payload.data?.customerName || '';
+    const totalAmount = payload.data?.totalAmount || '';
+    const itemsCount = payload.data?.itemsCount || '1';
+
+    const title = payload.notification?.title || payload.data?.title || `🔔 NEW ORDER: #${orderId}`;
+    let body = payload.notification?.body || payload.data?.body;
+    if (!body || body.includes('A new order has been placed')) {
+      body = `₹${totalAmount} from ${customerName} (${itemsCount} item${itemsCount === '1' ? '' : 's'})`;
+    }
 
     const notificationOptions = {
       body: body,
@@ -33,9 +40,16 @@ try {
       image: payload.notification?.image || undefined,
       tag: `order_${orderId}`,
       renotify: true,
+      requireInteraction: true,
+      vibrate: [500, 250, 500, 250, 500],
+      actions: [
+        { action: 'accept_order', title: '✅ ACCEPT ORDER' }
+      ],
       data: {
         url: payload.data?.url || '/admin',
         orderId: orderId,
+        customerName: customerName,
+        totalAmount: totalAmount,
         click_action: payload.data?.click_action || '/admin'
       }
     };
@@ -54,10 +68,16 @@ self.addEventListener('push', (event) => {
     const rawData = event.data.json();
     console.log('[FCM SW] background message received (push event):', rawData);
 
-    // If already handled by Firebase messaging SDK or if it has notification block, ensure display
-    const title = rawData.notification?.title || rawData.data?.title || rawData.title || '🛍️ New Order Placed!';
-    const body = rawData.notification?.body || rawData.data?.body || rawData.body || 'New order received on QuickFit Admin.';
     const orderId = rawData.data?.orderId || rawData.orderId || 'new';
+    const customerName = rawData.data?.customerName || '';
+    const totalAmount = rawData.data?.totalAmount || '';
+    const itemsCount = rawData.data?.itemsCount || '1';
+
+    const title = rawData.notification?.title || rawData.data?.title || rawData.title || `🔔 NEW ORDER: #${orderId}`;
+    let body = rawData.notification?.body || rawData.data?.body || rawData.body;
+    if (!body || body.includes('New order received') || body.includes('New order placed')) {
+      body = `₹${totalAmount} from ${customerName} (${itemsCount} item${itemsCount === '1' ? '' : 's'})`;
+    }
 
     const options = {
       body: body,
@@ -65,9 +85,16 @@ self.addEventListener('push', (event) => {
       badge: '/icons/icon-192x192.png',
       tag: `order_${orderId}`,
       renotify: true,
+      requireInteraction: true,
+      vibrate: [500, 250, 500, 250, 500],
+      actions: [
+        { action: 'accept_order', title: '✅ ACCEPT ORDER' }
+      ],
       data: {
         url: rawData.data?.url || '/admin',
-        orderId: orderId
+        orderId: orderId,
+        customerName: customerName,
+        totalAmount: totalAmount
       }
     };
 
@@ -76,10 +103,12 @@ self.addEventListener('push', (event) => {
     const textData = event.data.text();
     console.log('[FCM SW] Raw text push received:', textData);
     event.waitUntil(
-      self.registration.showNotification('🛍️ New Order Received!', {
+      self.registration.showNotification('🔔 NEW ORDER', {
         body: textData || 'Check your QuickFit Admin Dashboard.',
         icon: '/icons/icon-192x192.png',
         badge: '/icons/icon-192x192.png',
+        requireInteraction: true,
+        actions: [{ action: 'accept_order', title: '✅ ACCEPT ORDER' }],
         data: { url: '/admin' }
       })
     );
@@ -89,17 +118,30 @@ self.addEventListener('push', (event) => {
 // Handle notification click on phone (Android / iOS / Desktop)
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const orderId = event.notification.data?.orderId || 'new';
+  const isAccept = event.action === 'accept_order';
   const targetUrl = event.notification.data?.url || '/admin';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // If admin window is already open, focus it
+      // 1. Post message to active browser tabs/PWA to stop sound & vibration and open order
+      for (const client of windowClients) {
+        if ('postMessage' in client) {
+          client.postMessage({
+            type: 'ACCEPT_ORDER',
+            orderId: orderId,
+            action: event.action
+          });
+        }
+      }
+
+      // 2. If admin window is already open, focus it
       for (const client of windowClients) {
         if (client.url.includes('/admin') && 'focus' in client) {
           return client.focus();
         }
       }
-      // Otherwise open a new window to the Admin Dashboard
+      // 3. Otherwise open the Admin Dashboard
       if (clients.openWindow) {
         return clients.openWindow(targetUrl);
       }

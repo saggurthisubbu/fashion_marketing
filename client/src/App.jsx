@@ -21,7 +21,8 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { SearchResultsPage } from './pages/SearchResultsPage';
 import { CategoryPage } from './pages/CategoryPage';
-import { setupForegroundFcmListener } from './config/firebase';
+import { setupForegroundFcmListener, stopUrgentOrderAlert } from './config/firebase';
+import { UrgentOrderAlertModal } from './components/admin/UrgentOrderAlertModal';
 
 const ToastNotification = () => {
   const { toast } = useShop();
@@ -45,11 +46,25 @@ const MainApp = () => {
     checkoutRedirectPending, setCheckoutRedirectPending, setIsCheckoutOpen
   } = useShop();
   const [currentPath, setCurrentPath] = React.useState(() => window.location.pathname.toLowerCase());
+  const [urgentOrderAlert, setUrgentOrderAlert] = React.useState(null);
 
   const isAuthenticated = Boolean(user && (token || localStorage.getItem('quickfit_token')));
   const isAdminAuthenticated = Boolean(
     isAuthenticated && (user.role === 'admin' || user.role === 'store_owner')
   );
+
+  const handleAcceptUrgentOrder = (orderId) => {
+    console.log(`[FCM ORDER CLIENT] Accept Order clicked: #${orderId}`);
+    stopUrgentOrderAlert();
+    setUrgentOrderAlert(null);
+    setIsAdminOpen(true);
+    window.history.pushState({ modal: 'admin' }, '', '/admin');
+  };
+
+  const handleDismissUrgentOrder = () => {
+    stopUrgentOrderAlert();
+    setUrgentOrderAlert(null);
+  };
 
   // After login/register: if a checkout was pending, open the checkout modal
   useEffect(() => {
@@ -68,8 +83,15 @@ const MainApp = () => {
     }
 
     let unsubscribe = () => {};
-    setupForegroundFcmListener((payload) => {
-      console.log('🔔 [FCM CLIENT] foreground message received in App root:', payload);
+    setupForegroundFcmListener((alertData) => {
+      console.log('🔔 [FCM CLIENT] foreground message received in App root:', alertData);
+      if (alertData?.type === 'ORDER_ACCEPTED') {
+        setUrgentOrderAlert(null);
+        return;
+      }
+      if (alertData?.orderId) {
+        setUrgentOrderAlert(alertData);
+      }
     }).then((unsub) => {
       if (typeof unsub === 'function') unsubscribe = unsub;
     });
@@ -229,6 +251,11 @@ const MainApp = () => {
       <AuthModal />
       <ContactModal />
       <AboutModal />
+      <UrgentOrderAlertModal
+        orderAlert={urgentOrderAlert}
+        onAccept={handleAcceptUrgentOrder}
+        onDismiss={handleDismissUrgentOrder}
+      />
 
       {/* HIDDEN ADMIN DASHBOARD (ACCESSIBLE STRICTLY VIA /admin ROUTE) */}
       <AdminDashboardModal />

@@ -218,15 +218,12 @@ export const AdminDashboardModal = () => {
     if (!isAuthed) return;
 
     let unsubscribe = () => {};
-    setupForegroundFcmListener((payload) => {
-      // 1. Play order notification chime and vibrate
-      playOrderNotificationSound();
-      // 2. Refresh dashboard data
+    setupForegroundFcmListener((alertData) => {
+      // Refresh dashboard collections
       loadAllAdminData();
-      // 3. Show high-priority Toast
-      const title = payload.notification?.title || payload.data?.title || 'New Order Received!';
-      const body = payload.notification?.body || payload.data?.body || '';
-      showToast(`${title} • ${body}`, 'success');
+      if (alertData?.orderId) {
+        setActiveTab('orders');
+      }
     }).then((unsub) => {
       if (typeof unsub === 'function') unsubscribe = unsub;
     });

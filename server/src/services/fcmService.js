@@ -109,7 +109,7 @@ export async function sendFcmOrderNotification(order) {
   const itemsCount = Array.isArray(rawOrder.items) ? rawOrder.items.length : 1;
   const paymentMethod = rawOrder.paymentMethod || 'COD';
 
-  const notificationTitle = `🛍️ New Order: #${orderId}`;
+  const notificationTitle = `🔔 NEW ORDER: #${orderId}`;
   const notificationBody = `₹${totalAmount} from ${customerName} (${itemsCount} item${itemsCount === 1 ? '' : 's'}) via ${paymentMethod}`;
 
   console.log(`\n🔔 [FCM PUSH TRIGGER] Preparing instant push notification for Order #${orderId}...`);
@@ -185,8 +185,7 @@ export async function sendFcmOrderNotification(order) {
               body: notificationBody
             },
             sound: 'default',
-            badge: 1,
-            contentAvailable: true
+            badge: 1
           }
         }
       },
@@ -204,13 +203,17 @@ export async function sendFcmOrderNotification(order) {
           requireInteraction: true,
           tag: `order_${orderId}`,
           renotify: true,
-          vibrate: [300, 100, 300, 100, 300],
+          vibrate: [500, 250, 500, 250, 500],
           actions: [
-            { action: 'view_order', title: 'Open Admin Dashboard' }
+            { action: 'accept_order', title: '✅ ACCEPT ORDER' }
           ],
           data: {
             url: '/admin',
-            orderId: String(orderId)
+            orderId: String(orderId),
+            customerName: String(customerName),
+            totalAmount: String(totalAmount),
+            itemsCount: String(itemsCount),
+            paymentMethod: String(paymentMethod)
           }
         },
         fcmOptions: {

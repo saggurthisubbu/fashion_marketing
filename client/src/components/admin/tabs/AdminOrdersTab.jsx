@@ -16,7 +16,8 @@ import {
   ChevronRight,
   Send,
   MessageCircle,
-  Store
+  Store,
+  Trash2
 } from 'lucide-react';
 import { resolveImageUrl } from '../../../config/api';
 import { formatAdminWhatsAppOrder } from '../../../utils/whatsapp';
@@ -28,6 +29,9 @@ export const AdminOrdersTab = ({
   onAssignDeliveryPartner,
   onClearAllOrders
 }) => {
+  const safeOrdersList = Array.isArray(ordersList) ? ordersList : [];
+  console.log('[ORDER UI] Loading orders. Total orders in state:', safeOrdersList.length);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -40,15 +44,16 @@ export const AdminOrdersTab = ({
   const statusOptions = ['All', 'Pending', 'Confirmed', 'Packed', 'Out For Delivery', 'Delivered', 'Cancelled'];
 
   // Filtered Orders
-  const filteredOrders = ordersList.filter((ord) => {
+  const filteredOrders = safeOrdersList.filter((ord) => {
+    if (!ord) return false;
     const matchesStatus = statusFilter === 'All' || ord.deliveryStatus === statusFilter;
     const query = searchTerm.toLowerCase().trim();
     if (!query) return matchesStatus;
 
-    const matchesId = ord.orderId?.toLowerCase().includes(query);
-    const matchesName = ord.customer?.name?.toLowerCase().includes(query);
-    const matchesPhone = ord.customer?.phone?.includes(query);
-    const matchesItem = ord.items?.some(it => it.name?.toLowerCase().includes(query));
+    const matchesId = ord.orderId ? String(ord.orderId).toLowerCase().includes(query) : false;
+    const matchesName = ord.customer?.name ? String(ord.customer.name).toLowerCase().includes(query) : false;
+    const matchesPhone = ord.customer?.phone ? String(ord.customer.phone).includes(query) : false;
+    const matchesItem = Array.isArray(ord.items) && ord.items.some(it => it?.name ? String(it.name).toLowerCase().includes(query) : false);
 
     return matchesStatus && (matchesId || matchesName || matchesPhone || matchesItem);
   });

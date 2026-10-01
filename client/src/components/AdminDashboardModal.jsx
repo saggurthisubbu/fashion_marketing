@@ -16,6 +16,7 @@ import { AdminNotificationsTab } from './admin/tabs/AdminNotificationsTab';
 import { AdminSettingsTab } from './admin/tabs/AdminSettingsTab';
 import { AdminStoresTab } from './admin/tabs/AdminStoresTab';
 import { AdminStoreOwnersTab } from './admin/tabs/AdminStoreOwnersTab';
+import { AdminErrorBoundary } from './admin/AdminErrorBoundary';
 import { Camera, X, Upload, Crop } from 'lucide-react';
 import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 import { ProductImageCropperModal } from './admin/ProductImageCropperModal';
@@ -177,10 +178,12 @@ export const AdminDashboardModal = () => {
         ? prodRes.data
         : (Array.isArray(products) && products.length > 0 ? products : []);
       setProductsList(loadedProducts);
-      setOrdersList(orderRes.data || []);
-      setCustomersList(custRes.data || []);
-      setDeliveryPartners(deliveryRes.data || []);
-      setCategories(catRes.data || []);
+      const safeOrders = Array.isArray(orderRes.data) ? orderRes.data : [];
+      setOrdersList(safeOrders);
+      console.log(`[ORDER UI] Orders loaded: ${safeOrders.length} order(s)`);
+      setCustomersList(Array.isArray(custRes.data) ? custRes.data : []);
+      setDeliveryPartners(Array.isArray(deliveryRes.data) ? deliveryRes.data : []);
+      setCategories(Array.isArray(catRes.data) ? catRes.data : []);
       setNotifications(notifRes.data?.notifications || []);
       setUnreadNotifsCount(notifRes.data?.unreadCount || 0);
       setSettings(settingsRes.data || {});
@@ -207,6 +210,13 @@ export const AdminDashboardModal = () => {
 
   useEffect(() => {
     if (isAdminOpen) {
+      console.log('[ORDER NAV] Opening admin dashboard');
+      const search = window.location.search || '';
+      const hash = window.location.hash || '';
+      if (search.includes('tab=orders') || search.includes('acceptOrder') || hash.includes('orders')) {
+        console.log('[ORDER NAV] Opening orders tab');
+        setActiveTab('orders');
+      }
       loadAllAdminData();
     }
   }, [isAdminOpen]);
@@ -222,6 +232,7 @@ export const AdminDashboardModal = () => {
       // Refresh dashboard collections
       loadAllAdminData();
       if (alertData?.orderId) {
+        console.log('[ORDER NAV] Opening orders tab for Order ID:', alertData.orderId);
         setActiveTab('orders');
       }
     }).then((unsub) => {
@@ -923,13 +934,15 @@ export const AdminDashboardModal = () => {
           )}
 
           {activeTab === 'orders' && (
-            <AdminOrdersTab
-              ordersList={ordersList}
-              deliveryPartners={deliveryPartners}
-              onUpdateOrderStatus={handleUpdateOrderStatus}
-              onAssignDeliveryPartner={handleAssignDeliveryPartner}
-              onClearAllOrders={handleClearAllOrders}
-            />
+            <AdminErrorBoundary sectionName="Orders" onReset={loadAllAdminData}>
+              <AdminOrdersTab
+                ordersList={ordersList}
+                deliveryPartners={deliveryPartners}
+                onUpdateOrderStatus={handleUpdateOrderStatus}
+                onAssignDeliveryPartner={handleAssignDeliveryPartner}
+                onClearAllOrders={handleClearAllOrders}
+              />
+            </AdminErrorBoundary>
           )}
 
           {activeTab === 'products' && (

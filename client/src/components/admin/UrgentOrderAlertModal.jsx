@@ -22,6 +22,8 @@ export const UrgentOrderAlertModal = ({ orderAlert, onAccept, onDismiss }) => {
     paymentMethod = 'COD'
   } = orderAlert;
 
+  const safeAmount = Number(String(totalAmount).replace(/[^0-9.]/g, '')) || 0;
+
   const handleAcceptClick = () => {
     console.log(`[FCM ORDER CLIENT] Accept Order clicked: #${orderId}`);
     if (typeof onAccept === 'function') {
@@ -73,7 +75,7 @@ export const UrgentOrderAlertModal = ({ orderAlert, onAccept, onDismiss }) => {
             <div className="text-right">
               <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Total Amount</span>
               <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
-                ₹{Number(totalAmount).toLocaleString('en-IN')}
+                ₹{safeAmount.toLocaleString('en-IN')}
               </div>
             </div>
           </div>

@@ -128,12 +128,13 @@ export const AdminNotificationsTab = ({
           <div className="flex items-center gap-2.5 flex-wrap">
             <button
               type="button"
+              id="btn-test-order-alert-sound"
               onClick={handleTestNotificationSound}
               className="px-3.5 py-2.5 rounded-xl bg-zinc-800/90 hover:bg-zinc-700 text-zinc-200 hover:text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm border border-zinc-700/60"
-              title="Play QuickFit high-definition order notification chime"
+              title="Play loud QuickFit admin order alert sound (/public/sounds/order-alert.mp3)"
             >
               <Volume2 className="w-4 h-4 text-amber-400" />
-              <span>Test Chime</span>
+              <span>Test Order Alert</span>
             </button>
 
             {onTestPush && (

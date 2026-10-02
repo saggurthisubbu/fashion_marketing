@@ -44,26 +44,43 @@ export async function getFirebaseMessaging() {
 }
 
 /**
- * Play the custom order notification chime and trigger phone vibration
+ * Play the loud order notification sound (/public/sounds/order-alert.mp3) and trigger phone vibration
  */
-export function playOrderNotificationSound() {
+export function playOrderNotificationSound(orderId) {
+  if (orderId && isOrderDuplicate(orderId)) {
+    console.log(`ℹ️ [Audio Alert] Skipping duplicate sound for order: ${orderId}`);
+    return;
+  }
+  if (orderId) {
+    markOrderHandled(orderId);
+  }
+
   try {
-    // 1. Play audio chime
-    const audio = new Audio('/audio/order_notification.mp3');
+    // 1. Play loud order alert sound (using /public/sounds/order-alert.mp3)
+    const audio = new Audio('/public/sounds/order-alert.mp3');
     audio.volume = 1.0;
     const playPromise = audio.play();
     if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        // Fallback to .wav if browser needs wav format
-        const wavAudio = new Audio('/audio/order_notification.wav');
-        wavAudio.volume = 1.0;
-        wavAudio.play().catch(() => {});
+      playPromise.catch((err) => {
+        console.warn('[Audio Alert] Primary /public/sounds failed, trying fallback:', err?.message);
+        // Fallback to /sounds/order-alert.mp3
+        const fallbackAudio = new Audio('/sounds/order-alert.mp3');
+        fallbackAudio.volume = 1.0;
+        fallbackAudio.play().catch(() => {
+          const wavAudio = new Audio('/sounds/order-alert.wav');
+          wavAudio.volume = 1.0;
+          wavAudio.play().catch(() => {
+            const legacyAudio = new Audio('/audio/order_notification.mp3');
+            legacyAudio.volume = 1.0;
+            legacyAudio.play().catch(() => {});
+          });
+        });
       });
     }
 
     // 2. Trigger phone vibration (Android & compatible devices)
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      navigator.vibrate([300, 100, 300, 100, 300]);
+      navigator.vibrate([500, 250, 500, 250, 500]);
     }
   } catch (err) {
     console.warn('[Audio Alert Notice]:', err.message);
@@ -169,24 +186,128 @@ export async function registerAdminPushNotifications(authToken) {
   }
 }
 
-// Urgent Order Alert Audio & Vibration Controller
+// Urgent Order Alert Audio & Vibration Controller with Cross-Tab Deduplication
 let urgentAudio = null;
 let urgentAudioInterval = null;
 let urgentVibrateInterval = null;
 const handledOrderIds = new Set();
 
+// Cross-tab synchronization channel to prevent multiple open tabs from playing duplicate sounds simultaneously
+let alertBroadcastChannel = null;
+if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+  try {
+    alertBroadcastChannel = new BroadcastChannel('quickfit_order_alerts');
+    alertBroadcastChannel.onmessage = (event) => {
+      if (event.data?.type === 'ORDER_ALERT_PLAYED' && event.data?.orderId) {
+        handledOrderIds.add(String(event.data.orderId));
+      }
+    };
+  } catch (e) {}
+}
+
 /**
- * Start the persistent urgent order alert (audio chime loop and vibration)
+ * Check if sound for the given order was already played within the deduplication window (5 mins)
+ */
+export function isOrderDuplicate(orderId) {
+  if (!orderId) return false;
+  const idStr = String(orderId);
+  if (handledOrderIds.has(idStr)) return true;
+
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const storedTime = localStorage.getItem(`quickfit_order_sound_${idStr}`);
+      if (storedTime) {
+        const elapsed = Date.now() - Number(storedTime);
+        if (elapsed < 5 * 60 * 1000) {
+          handledOrderIds.add(idStr);
+          return true;
+        }
+      }
+    } catch (e) {}
+  }
+  return false;
+}
+
+/**
+ * Mark order as handled to prevent duplicate sounds across tabs and events
+ */
+export function markOrderHandled(orderId) {
+  if (!orderId) return;
+  const idStr = String(orderId);
+  handledOrderIds.add(idStr);
+
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      localStorage.setItem(`quickfit_order_sound_${idStr}`, String(Date.now()));
+    } catch (e) {}
+  }
+
+  if (alertBroadcastChannel) {
+    try {
+      alertBroadcastChannel.postMessage({
+        type: 'ORDER_ALERT_PLAYED',
+        orderId: idStr,
+        timestamp: Date.now()
+      });
+    } catch (e) {}
+  }
+
+  // Auto clean-up after 5 minutes
+  setTimeout(() => {
+    handledOrderIds.delete(idStr);
+    try {
+      localStorage.removeItem(`quickfit_order_sound_${idStr}`);
+    } catch (e) {}
+  }, 5 * 60 * 1000);
+}
+
+// User-interaction audio primer to ensure browser policy allows background/inactive tab audio
+let audioUnlocked = false;
+export function unlockAudio() {
+  if (audioUnlocked) return;
+  try {
+    const silentAudio = new Audio('/public/sounds/order-alert.mp3');
+    silentAudio.volume = 0.001;
+    const p = silentAudio.play();
+    if (p !== undefined) {
+      p.then(() => {
+        silentAudio.pause();
+        silentAudio.currentTime = 0;
+        audioUnlocked = true;
+      }).catch(() => {});
+    }
+  } catch (e) {}
+}
+
+if (typeof window !== 'undefined') {
+  const events = ['click', 'touchstart', 'keydown'];
+  const onFirstInteraction = () => {
+    unlockAudio();
+    events.forEach((evt) => window.removeEventListener(evt, onFirstInteraction));
+  };
+  events.forEach((evt) => window.addEventListener(evt, onFirstInteraction, { once: true, passive: true }));
+}
+
+/**
+ * Start the persistent urgent order alert (loud order alert audio loop and vibration)
  * Repeats continuously until the admin views or accepts the order.
  */
-export function startUrgentOrderAlert() {
+export function startUrgentOrderAlert(orderId) {
+  if (orderId && isOrderDuplicate(orderId)) {
+    console.log(`ℹ️ [Urgent Alert] Duplicate sound loop prevented for order: ${orderId}`);
+    return;
+  }
+  if (orderId) {
+    markOrderHandled(orderId);
+  }
+
   stopUrgentOrderAlert();
 
   try {
     const playAudio = () => {
       try {
         if (!urgentAudio) {
-          urgentAudio = new Audio('/audio/order_notification.mp3');
+          urgentAudio = new Audio('/public/sounds/order-alert.mp3');
           urgentAudio.volume = 1.0;
           urgentAudio.loop = true;
           // When audio finishes, re-trigger if loop is unsupported on platform
@@ -198,14 +319,19 @@ export function startUrgentOrderAlert() {
         }
         const playPromise = urgentAudio.play();
         if (playPromise !== undefined) {
-          playPromise.catch(() => {
-            // Autoplay policy or format fallback to WAV
+          playPromise.catch((err) => {
+            console.warn('[Urgent Alert Audio] Primary /public/sounds failed, trying fallback:', err?.message);
             try {
-              if (urgentAudio && urgentAudio.src.includes('.mp3')) {
-                urgentAudio = new Audio('/audio/order_notification.wav');
+              if (urgentAudio) {
+                urgentAudio = new Audio('/sounds/order-alert.mp3');
                 urgentAudio.volume = 1.0;
                 urgentAudio.loop = true;
-                urgentAudio.play().catch(() => {});
+                urgentAudio.play().catch(() => {
+                  const legacyAudio = new Audio('/audio/order_notification.mp3');
+                  legacyAudio.volume = 1.0;
+                  legacyAudio.loop = true;
+                  legacyAudio.play().catch(() => {});
+                });
               }
             } catch (e) {}
           });
@@ -216,12 +342,12 @@ export function startUrgentOrderAlert() {
     // Play immediately
     playAudio();
 
-    // Secondary pulse interval in case browser pauses or cuts off looped audio
+    // Secondary pulse interval in case browser pauses or cuts off looped audio in background
     urgentAudioInterval = setInterval(() => {
       if (urgentAudio && urgentAudio.paused) {
         urgentAudio.play().catch(() => {});
       }
-    }, 2000);
+    }, 2500);
 
     // Vibrate phone continuously (repeating vibration pulses where supported)
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -230,7 +356,7 @@ export function startUrgentOrderAlert() {
         if ('vibrate' in navigator) {
           navigator.vibrate([500, 250, 500, 250, 500]);
         }
-      }, 2500);
+      }, 3000);
     }
   } catch (err) {
     console.warn('[Urgent Alert Start Error]:', err.message);
@@ -266,9 +392,12 @@ export function stopUrgentOrderAlert() {
 const foregroundCallbacks = new Set();
 let activeForegroundUnsubscribe = null;
 
-// Listen for service worker notificationclick messages (accept_order or view_order)
+// Listen for service worker messages:
+// 1. Notification action clicks (accept_order or view_order)
+// 2. Incoming background order pushes from SW -> plays sound EVEN IF TAB IS INACTIVE
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (event) => {
+    // A. Notification click actions
     if (event.data?.type === 'ACCEPT_ORDER' || event.data?.type === 'VIEW_ORDER') {
       const orderId = event.data?.orderId;
       const actionType = event.data?.type;
@@ -277,6 +406,44 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       foregroundCallbacks.forEach((cb) => {
         try {
           cb({ type: actionType, orderId });
+        } catch (e) {}
+      });
+      return;
+    }
+
+    // B. Background order notification pushed from Service Worker
+    // Plays sound immediately even when the admin dashboard tab is not active / in background
+    if (event.data?.type === 'FCM_ORDER_NOTIFICATION') {
+      const orderId = event.data?.orderId || event.data?.data?.orderId || `QF-${Date.now()}`;
+      console.log(`🔔 [FCM SW MESSAGE] Order alert received via Service Worker: #${orderId}, document.hidden=${typeof document !== 'undefined' ? document.hidden : false}`);
+
+      // Deduplication check: prevent duplicate sounds for the same order
+      if (isOrderDuplicate(orderId)) {
+        console.log(`ℹ️ [FCM SW MESSAGE] Skipping duplicate alert sound for Order ID: ${orderId}`);
+        return;
+      }
+      markOrderHandled(orderId);
+
+      // Play loud order alert immediately
+      startUrgentOrderAlert(orderId);
+
+      // Dispatch to active UI callbacks
+      const alertData = {
+        orderId,
+        customerName: event.data?.data?.customerName || 'Customer',
+        customerPhone: event.data?.data?.customerPhone || '',
+        customerAddress: event.data?.data?.customerAddress || '',
+        items: event.data?.data?.items || [],
+        itemsCount: event.data?.data?.itemsCount || '1',
+        totalAmount: event.data?.data?.totalAmount || '0',
+        paymentMethod: event.data?.data?.paymentMethod || 'COD',
+        orderDate: event.data?.data?.orderDate || new Date().toISOString(),
+        payload: event.data?.payload
+      };
+
+      foregroundCallbacks.forEach((cb) => {
+        try {
+          cb(alertData);
         } catch (e) {}
       });
     }
@@ -317,12 +484,11 @@ export async function setupForegroundFcmListener(onNewOrderCallback) {
         const orderDate = payload.data?.orderDate || new Date().toISOString();
 
         // Deduplication: prevent repeat alert triggers for the same order within 5 minutes
-        if (handledOrderIds.has(orderId)) {
+        if (isOrderDuplicate(orderId)) {
           console.log(`ℹ️ [FCM ORDER CLIENT] Skipping duplicate alert for Order ID: ${orderId}`);
           return;
         }
-        handledOrderIds.add(orderId);
-        setTimeout(() => handledOrderIds.delete(orderId), 5 * 60 * 1000);
+        markOrderHandled(orderId);
 
         // Required explicit logs
         console.log(`[FCM ORDER CLIENT] New order notification received`);
@@ -330,7 +496,7 @@ export async function setupForegroundFcmListener(onNewOrderCallback) {
         console.log(`[FCM ORDER CLIENT] Showing urgent order alert`);
 
         // 1. Start continuous audio chime loop & phone vibration until accepted or viewed
-        startUrgentOrderAlert();
+        startUrgentOrderAlert(orderId);
 
         // 2. Display native persistent notification with action buttons where supported
         const urgentTitle = payload.notification?.title || `🔔 NEW ORDER: #${orderId}`;

@@ -68,6 +68,20 @@ app.use('/uploads', express.static(uploadsDir, {
   }
 }));
 
+// Serve alert sounds for order notifications
+const soundsDir = path.join(__dirname, '../../client/public/sounds');
+if (fs.existsSync(soundsDir)) {
+  const soundStatic = express.static(soundsDir, {
+    maxAge: '1d',
+    setHeaders: (res) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    }
+  });
+  app.use('/sounds', soundStatic);
+  app.use('/public/sounds', soundStatic);
+}
+
 // Missing uploads return 404 so client knows the file is not on disk
 app.get('/uploads/*', (req, res) => {
   res.status(404).send('Not Found');

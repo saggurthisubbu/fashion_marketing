@@ -5,6 +5,17 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   plugins: [
+    {
+      name: 'public-sounds-rewrite',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url && req.url.startsWith('/public/sounds/')) {
+            req.url = req.url.replace(/^\/public/, '');
+          }
+          next();
+        });
+      }
+    },
     react(),
     tailwindcss(),
     VitePWA({
@@ -15,6 +26,8 @@ export default defineConfig({
         'icons/*.png',
         'placeholder-product.svg',
         'placeholder-product.jpg',
+        'sounds/*.mp3',
+        'sounds/*.wav',
       ],
       manifest: {
         name: 'QuickFit - Fashion in 1 Hour',

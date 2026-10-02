@@ -521,49 +521,6 @@ export const ShopProvider = ({ children }) => {
   }, [fetchProducts, detectUserLocation]);
 
   // --- AUTHENTICATION FUNCTIONS ---
-  const sendOtp = async (phone) => {
-    try {
-      const res = await axios.post(`${API_BASE_URL}/auth/send-otp`, { phone });
-      showToast(res.data.message || 'OTP sent successfully!');
-      return res.data;
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Failed to send OTP. Please check the number.';
-      showToast(msg, 'error');
-      throw new Error(msg);
-    }
-  };
-
-  const verifyOtp = async (phone, otp) => {
-    try {
-      const res = await axios.post(`${API_BASE_URL}/auth/verify-otp`, { phone, otp });
-      setUser(res.data);
-      setToken(res.data.token);
-      localStorage.setItem('quickfit_user', JSON.stringify(res.data));
-      localStorage.setItem('quickfit_token', res.data.token);
-      showToast(res.data.message || 'Phone verified successfully!');
-      return res.data;
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Invalid or expired OTP.';
-      showToast(msg, 'error');
-      throw new Error(msg);
-    }
-  };
-
-  const updateCustomerProfile = async (profileData) => {
-    try {
-      const currentToken = token || localStorage.getItem('quickfit_token');
-      const res = await axios.put(`${API_BASE_URL}/auth/customer-profile`, profileData, {
-        headers: { Authorization: `Bearer ${currentToken}` }
-      });
-      const updatedUser = { ...(user || {}), ...res.data };
-      setUser(updatedUser);
-      localStorage.setItem('quickfit_user', JSON.stringify(updatedUser));
-      return updatedUser;
-    } catch (err) {
-      console.error('[Update Profile Error]:', err);
-      return null;
-    }
-  };
 
   const loginUser = async (email, password) => {
     try {
@@ -875,9 +832,6 @@ export const ShopProvider = ({ children }) => {
         setToken,
         loginUser,
         logoutUser,
-        sendOtp,
-        verifyOtp,
-        updateCustomerProfile,
         searchQuery,
         setSearchQuery,
         selectedCategory,

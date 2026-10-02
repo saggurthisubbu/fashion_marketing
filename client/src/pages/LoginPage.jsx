@@ -1,179 +1,111 @@
 import React, { useState, useEffect } from 'react';
 import { useShop } from '../context/ShopContext';
 
-export const LoginPage = ({ onClose }) => {
-  const {
-    sendOtp,
-    verifyOtp,
-    updateCustomerProfile,
-    showToast,
-    user,
-    checkoutRedirectPending
-  } = useShop();
+// Password strength helper
+const getPasswordStrength = (pwd) => {
+  let score = 0;
+  if (!pwd) return { score: 0, label: '', color: '' };
+  if (pwd.length >= 8) score++;
+  if (/[A-Z]/.test(pwd)) score++;
+  if (/[0-9]/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+  const levels = [
+    { score: 0, label: '', color: '' },
+    { score: 1, label: 'Weak', color: '#ef4444' },
+    { score: 2, label: 'Fair', color: '#f59e0b' },
+    { score: 3, label: 'Good', color: '#3b82f6' },
+    { score: 4, label: 'Strong', color: '#10b981' },
+  ];
+  return levels[score] || levels[0];
+};
 
+const EyeIcon = ({ open }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    {open ? (
+      <>
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
+      </>
+    ) : (
+      <>
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+        <line x1="1" y1="1" x2="23" y2="23" />
+      </>
+    )}
+  </svg>
+);
+
+export const LoginPage = ({ onClose }) => {
+  const { loginUser, showToast, user, checkoutRedirectPending } = useShop();
   const isCheckoutRedirect = checkoutRedirectPending ||
     new URLSearchParams(window.location.search).get('redirect') === 'checkout';
 
-  // Step state: 'phone' | 'otp' | 'details'
-  const [step, setStep] = useState('phone');
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
-  const [demoOtp, setDemoOtp] = useState('');
-  const [countdown, setCountdown] = useState(0);
-
-  // Customer details for editing / initial setup
-  const [customerDetails, setCustomerDetails] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    street: '',
-    area: 'Benz Circle',
-    landmark: '',
-    pincode: '520010'
-  });
-
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setTimeout(() => setMounted(true), 10);
-    // Pre-fill remembered phone if any
-    const savedPhone = localStorage.getItem('quickfit_remember_phone');
-    if (savedPhone) setPhone(savedPhone);
+    // Pre-fill remembered email
+    const saved = localStorage.getItem('quickfit_remember_email');
+    if (saved) { setEmail(saved); setRememberMe(true); }
   }, []);
 
-  // Countdown timer for resend OTP
+  // If user is already authenticated or becomes authenticated, navigate to home (/)
   useEffect(() => {
-    let timer;
-    if (countdown > 0) {
-      timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+    if (user) {
+      window.history.replaceState({ modal: 'home' }, '', '/');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      onClose?.();
     }
-    return () => clearTimeout(timer);
-  }, [countdown]);
+  }, [user, onClose]);
 
-  const cleanDigits = (val) => String(val || '').replace(/\D/g, '');
+  const validateEmail = (val) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
 
-  const handlePhoneChange = (e) => {
-    const val = cleanDigits(e.target.value).slice(0, 10);
-    setPhone(val);
+  const handleLogin = async (e) => {
+    e.preventDefault();
     setError('');
-  };
-
-  // Step 1: Send OTP
-  const handleSendOtp = async (e) => {
-    if (e) e.preventDefault();
-    setError('');
-    const digits = cleanDigits(phone);
-    if (digits.length !== 10) {
-      setError('Please enter a valid 10-digit mobile number.');
-      return;
-    }
+    if (!email.trim()) { setError('Please enter your email address.'); return; }
+    if (!validateEmail(email.trim())) { setError('Please enter a valid email address.'); return; }
+    if (!password) { setError('Please enter your password.'); return; }
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
 
     setLoading(true);
     try {
-      const res = await sendOtp(digits);
-      localStorage.setItem('quickfit_remember_phone', digits);
-      if (res.otp) {
-        setDemoOtp(res.otp);
-      }
-      setStep('otp');
-      setCountdown(30);
-      setSuccess(`OTP sent to +91 ${digits}`);
-    } catch (err) {
-      setError(err.message || 'Failed to send OTP. Please check your phone number.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Step 2: Verify OTP
-  const handleVerifyOtp = async (e) => {
-    if (e) e.preventDefault();
-    setError('');
-    const cleanOtp = cleanDigits(otp);
-    if (cleanOtp.length !== 6) {
-      setError('Please enter the 6-digit OTP code.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const verifiedUser = await verifyOtp(phone, cleanOtp);
-
-      // ONLY after successful OTP verification, load saved customer details
-      const savedAddress = verifiedUser.address || {};
-      const fullAddr = savedAddress.fullAddress || savedAddress.street || '';
-
-      setCustomerDetails({
-        name: verifiedUser.name || '',
-        email: verifiedUser.email || '',
-        phone: verifiedUser.phone || phone,
-        street: fullAddr,
-        area: savedAddress.area || 'Benz Circle',
-        landmark: savedAddress.landmark || '',
-        pincode: savedAddress.pincode || '520010'
-      });
-
-      setSuccess(verifiedUser.isReturningCustomer
-        ? `Welcome back, ${verifiedUser.name}! Saved details loaded.`
-        : 'Phone verified successfully!'
-      );
-
-      // Transition to customer details step so customer can review/edit details
-      setStep('details');
-    } catch (err) {
-      setError(err.message || 'Invalid or expired OTP. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Step 3: Save / Confirm Details & Continue
-  const handleSaveDetails = async (e) => {
-    if (e) e.preventDefault();
-    setError('');
-
-    if (!customerDetails.name?.trim()) {
-      setError('Please enter your full name.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await updateCustomerProfile({
-        name: customerDetails.name.trim(),
-        email: customerDetails.email ? customerDetails.email.trim() : '',
-        phone: customerDetails.phone || phone,
-        address: {
-          street: customerDetails.street ? customerDetails.street.trim() : '',
-          fullAddress: customerDetails.street ? customerDetails.street.trim() : '',
-          area: customerDetails.area || 'Benz Circle',
-          landmark: customerDetails.landmark ? customerDetails.landmark.trim() : '',
-          pincode: customerDetails.pincode || '520010',
-          city: 'Vijayawada'
-        }
-      });
-
-      showToast('Details saved successfully!', 'success');
-
+      await loginUser(email.trim().toLowerCase(), password);
+      if (rememberMe) localStorage.setItem('quickfit_remember_email', email.trim());
+      else localStorage.removeItem('quickfit_remember_email');
+      setSuccess(isCheckoutRedirect ? 'Signed in! Returning to checkout...' : 'Welcome back! Redirecting to QuickFit...');
       setTimeout(() => {
         window.history.replaceState({ modal: 'home' }, '', '/');
         window.dispatchEvent(new PopStateEvent('popstate'));
         onClose?.();
-      }, 400);
+        // Note: App.jsx will detect checkoutRedirectPending and auto-open checkout
+      }, 500);
     } catch (err) {
-      setError(err.message || 'Failed to save details.');
+      setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickProceed = () => {
-    window.history.replaceState({ modal: 'home' }, '', '/');
-    window.dispatchEvent(new PopStateEvent('popstate'));
-    onClose?.();
+  const handleForgotPassword = (e) => {
+    e.preventDefault();
+    if (!forgotEmail.trim() || !validateEmail(forgotEmail.trim())) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    showToast('If this email exists, a reset link has been sent.', 'info');
+    setForgotMode(false);
+    setError('');
   };
 
   return (
@@ -209,281 +141,175 @@ export const LoginPage = ({ onClose }) => {
               window.dispatchEvent(new PopStateEvent('popstate'));
               onClose?.();
             }}
-            className="absolute top-4 right-4 z-10 text-slate-400 hover:text-slate-700 transition-colors text-xs font-semibold flex items-center gap-1 cursor-pointer"
+            className="absolute top-4 right-4 z-10 text-slate-400 hover:text-slate-700 transition-colors text-xs font-semibold flex items-center gap-1"
             title="Continue browsing without signing in"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-            <span>Close</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <span>Continue browsing</span>
           </button>
 
-          <div className="px-7 pt-7 pb-7">
+          <div className="px-8 pt-8 pb-8">
             {/* BRAND */}
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center gap-2 mb-3">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center gap-2 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-slate-900 text-amber-400 flex items-center justify-center text-lg font-black shadow-md">⚡</div>
                 <span className="text-2xl font-black text-slate-900 tracking-tight">QUICKFIT</span>
               </div>
               {isCheckoutRedirect && (
                 <div className="mb-3 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                  🔐 Sign in with mobile OTP to complete your order — your cart is saved!
+                  🔐 Sign in to complete your order — your cart is saved!
                 </div>
               )}
               <h1 className="text-xl font-black text-slate-900 mb-1">
-                {step === 'phone' && 'Customer Sign In'}
-                {step === 'otp' && 'Verify Mobile OTP'}
-                {step === 'details' && 'Customer Profile & Address'}
+                {forgotMode ? 'Reset Your Password' : 'Sign In to Continue'}
               </h1>
-              <p className="text-xs text-slate-500">
-                {step === 'phone' && 'Enter your phone number to receive a verification OTP'}
-                {step === 'otp' && `Enter the 6-digit OTP sent to +91 ${phone}`}
-                {step === 'details' && 'Review or edit your saved details before ordering'}
+              <p className="text-sm text-slate-500">
+                {forgotMode ? 'Enter your email to receive a reset link' : 'Sign in to place your order with QuickFit'}
               </p>
             </div>
 
-            {/* ERROR / SUCCESS ALERTS */}
-            {error && (
-              <div className="mb-4 flex items-center gap-2 p-3 bg-rose-50 rounded-xl border border-rose-100">
-                <span className="text-rose-500 font-bold">⚠</span>
-                <span className="text-xs font-semibold text-rose-600">{error}</span>
-              </div>
-            )}
-            {success && (
-              <div className="mb-4 flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                <span className="text-emerald-500 font-bold">✓</span>
-                <span className="text-xs font-semibold text-emerald-700">{success}</span>
-              </div>
-            )}
-
-            {/* STEP 1: PHONE NUMBER INPUT */}
-            {step === 'phone' && (
-              <form onSubmit={handleSendOtp} className="space-y-4" noValidate>
+            {/* FORGOT PASSWORD FORM */}
+            {forgotMode ? (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-2">
-                    Mobile Phone Number
-                  </label>
-                  <div className="relative flex items-center">
-                    <div className="absolute left-3.5 flex items-center gap-1.5 text-xs font-black text-slate-600 pointer-events-none select-none border-r border-slate-200 pr-2">
-                      <span className="text-sm">🇮🇳</span>
-                      <span>+91</span>
-                    </div>
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={handlePhoneChange}
-                      placeholder="98765 43210"
-                      maxLength={10}
-                      autoFocus
-                      className="w-full pl-20 pr-4 py-3.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition-all font-mono tracking-wider"
-                    />
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-1.5 font-medium">
-                    We will send a 6-digit OTP code to verify your account.
-                  </p>
+                  <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-2">Email Address</label>
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => { setForgotEmail(e.target.value); setError(''); }}
+                    placeholder="your@email.com"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition-all"
+                    autoFocus
+                  />
                 </div>
-
-                <button
-                  type="submit"
-                  disabled={loading || phone.length !== 10}
-                  className="relative w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider text-white transition-all overflow-hidden disabled:opacity-50 cursor-pointer !min-h-[46px]"
-                  style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }}
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Sending OTP...
-                    </span>
-                  ) : (
-                    'Get Verification OTP ➔'
-                  )}
+                {error && (
+                  <div className="flex items-center gap-2 p-3 bg-rose-50 rounded-xl border border-rose-100">
+                    <span className="text-rose-500 text-sm">⚠</span>
+                    <span className="text-xs font-semibold text-rose-600">{error}</span>
+                  </div>
+                )}
+                <button type="submit" className="w-full py-3.5 rounded-xl bg-slate-900 hover:bg-black text-white text-sm font-black transition-all">
+                  Send Reset Link
+                </button>
+                <button type="button" onClick={() => { setForgotMode(false); setError(''); }} className="w-full py-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors">
+                  ← Back to Sign In
                 </button>
               </form>
-            )}
+            ) : (
+              /* LOGIN FORM */
+              <form onSubmit={handleLogin} className="space-y-4" noValidate>
+                {/* EMAIL */}
+                <div>
+                  <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-2">Email Address</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); setError(''); }}
+                    placeholder="your@email.com"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition-all"
+                    autoComplete="email"
+                    autoFocus
+                  />
+                </div>
 
-            {/* STEP 2: OTP VERIFICATION */}
-            {step === 'otp' && (
-              <form onSubmit={handleVerifyOtp} className="space-y-4" noValidate>
+                {/* PASSWORD */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-black text-slate-700 uppercase tracking-wider">
-                      Enter 6-Digit OTP
-                    </label>
+                    <label className="text-xs font-black text-slate-700 uppercase tracking-wider">Password</label>
                     <button
                       type="button"
-                      onClick={() => { setStep('phone'); setError(''); setOtp(''); }}
-                      className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer"
+                      onClick={() => setForgotMode(true)}
+                      className="text-xs font-semibold text-slate-400 hover:text-slate-900 transition-colors"
                     >
-                      Change Phone Number
+                      Forgot password?
                     </button>
                   </div>
-
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    value={otp}
-                    onChange={(e) => {
-                      const val = cleanDigits(e.target.value).slice(0, 6);
-                      setOtp(val);
-                      setError('');
-                    }}
-                    placeholder="123456"
-                    maxLength={6}
-                    autoFocus
-                    className="w-full text-center tracking-[0.5em] font-mono text-xl font-black py-3.5 rounded-xl border border-slate-200 text-slate-900 placeholder:text-slate-300 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition-all"
-                  />
-
-                  {demoOtp && (
-                    <div
-                      onClick={() => setOtp(demoOtp)}
-                      className="mt-2.5 p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold flex items-center justify-between cursor-pointer hover:bg-amber-100 transition-colors"
-                      title="Click to auto-fill demo OTP"
-                    >
-                      <span>⚡ Demo OTP: <strong className="font-mono font-black">{demoOtp}</strong></span>
-                      <span className="text-[10px] uppercase font-black text-amber-700 underline">Auto-fill</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between text-xs pt-1">
-                  <span className="text-slate-500 font-medium">Didn't receive code?</span>
-                  {countdown > 0 ? (
-                    <span className="text-slate-400 font-mono font-bold">Resend in {countdown}s</span>
-                  ) : (
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                      placeholder="••••••••"
+                      className="w-full px-4 py-3 pr-11 rounded-xl border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition-all"
+                      autoComplete="current-password"
+                    />
                     <button
                       type="button"
-                      onClick={handleSendOtp}
-                      disabled={loading}
-                      className="font-black text-slate-900 hover:underline cursor-pointer"
+                      onClick={() => setShowPassword(p => !p)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
                     >
-                      Resend OTP
+                      <EyeIcon open={showPassword} />
                     </button>
-                  )}
+                  </div>
                 </div>
 
+                {/* REMEMBER ME */}
+                <label className="flex items-center gap-2.5 cursor-pointer group">
+                  <div
+                    onClick={() => setRememberMe(p => !p)}
+                    className={`w-4.5 h-4.5 rounded border-2 flex items-center justify-center transition-all ${rememberMe ? 'bg-slate-900 border-slate-900' : 'border-slate-300 hover:border-slate-500'}`}
+                    style={{ width: 18, height: 18, flexShrink: 0 }}
+                  >
+                    {rememberMe && (
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    )}
+                  </div>
+                  <span className="text-xs font-semibold text-slate-600 group-hover:text-slate-900 transition-colors">Remember me for 30 days</span>
+                </label>
+
+                {/* ERROR / SUCCESS */}
+                {error && (
+                  <div className="flex items-center gap-2 p-3 bg-rose-50 rounded-xl border border-rose-100">
+                    <span className="text-rose-500">⚠</span>
+                    <span className="text-xs font-semibold text-rose-600">{error}</span>
+                  </div>
+                )}
+                {success && (
+                  <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                    <span className="text-emerald-500">✓</span>
+                    <span className="text-xs font-semibold text-emerald-700">{success}</span>
+                  </div>
+                )}
+
+                {/* SUBMIT */}
                 <button
                   type="submit"
-                  disabled={loading || otp.length !== 6}
-                  className="relative w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider text-white transition-all overflow-hidden disabled:opacity-50 cursor-pointer !min-h-[46px]"
-                  style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }}
+                  disabled={loading}
+                  className="relative w-full py-3.5 rounded-xl font-black text-sm text-white transition-all overflow-hidden disabled:opacity-70"
+                  style={{ background: loading ? '#334155' : 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }}
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Verifying OTP...
+                      <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="white" strokeWidth="4" /><path className="opacity-75" fill="white" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                      Signing In...
                     </span>
-                  ) : (
-                    'Verify & Load Details ➔'
-                  )}
+                  ) : 'Sign In to QuickFit'}
                 </button>
-              </form>
-            )}
 
-            {/* STEP 3: CUSTOMER DETAILS (SAVED DETAILS LOADED & EDITABLE) */}
-            {step === 'details' && (
-              <form onSubmit={handleSaveDetails} className="space-y-3.5 text-xs" noValidate>
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-[11px] font-semibold flex items-center gap-2">
-                  <span>✅</span>
-                  <span>
-                    {customerDetails.name ? 'Saved details loaded from your account. You can edit them anytime.' : 'Verified! Please complete your name and delivery address.'}
-                  </span>
+                {/* DIVIDER */}
+                <div className="flex items-center gap-3 my-2">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <span className="text-xs font-bold text-slate-400">OR</span>
+                  <div className="flex-1 h-px bg-slate-200" />
                 </div>
 
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Full Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={customerDetails.name}
-                    onChange={(e) => setCustomerDetails({ ...customerDetails, name: e.target.value })}
-                    placeholder="e.g. Rahul Sharma"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="font-bold text-slate-700 block mb-1">Phone (Verified)</label>
-                    <input
-                      type="text"
-                      disabled
-                      value={`+91 ${customerDetails.phone || phone}`}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-xs font-bold text-slate-500 cursor-not-allowed"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-bold text-slate-700 block mb-1">Email Address</label>
-                    <input
-                      type="email"
-                      value={customerDetails.email}
-                      onChange={(e) => setCustomerDetails({ ...customerDetails, email: e.target.value })}
-                      placeholder="name@email.com"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Delivery Address *</label>
-                  <input
-                    type="text"
-                    required
-                    value={customerDetails.street}
-                    onChange={(e) => setCustomerDetails({ ...customerDetails, street: e.target.value })}
-                    placeholder="House/Flat No., Building, Street Name"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="font-bold text-slate-700 block mb-1">Area</label>
-                    <input
-                      type="text"
-                      value={customerDetails.area}
-                      onChange={(e) => setCustomerDetails({ ...customerDetails, area: e.target.value })}
-                      placeholder="e.g. Benz Circle"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-bold text-slate-700 block mb-1">Pincode</label>
-                    <input
-                      type="text"
-                      value={customerDetails.pincode}
-                      onChange={(e) => setCustomerDetails({ ...customerDetails, pincode: e.target.value })}
-                      placeholder="520010"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2 flex flex-col gap-2">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-3.5 rounded-xl bg-slate-900 hover:bg-black text-white font-black text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer !min-h-[46px]"
-                  >
-                    {loading ? 'Saving Details...' : isCheckoutRedirect ? 'Save & Return to Checkout ➔' : 'Save Details & Start Shopping ➔'}
-                  </button>
-                  {customerDetails.name && (
-                    <button
-                      type="button"
-                      onClick={handleQuickProceed}
-                      className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
-                    >
-                      Continue with Existing Details ➔
-                    </button>
-                  )}
-                </div>
+                {/* REGISTER LINK */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.history.pushState({}, '', '/register');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                  }}
+                  className="w-full py-3 rounded-xl border-2 border-slate-200 hover:border-slate-900 text-sm font-black text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-all"
+                >
+                  Create New Account
+                </button>
               </form>
             )}
 
             {/* FOOTER NOTE */}
-            <p className="text-center text-[10px] text-slate-400 mt-5 leading-relaxed">
-              By continuing, you agree to QuickFit's{' '}
+            <p className="text-center text-[10px] text-slate-400 mt-6 leading-relaxed">
+              By signing in, you agree to QuickFit's{' '}
               <span className="underline cursor-pointer hover:text-slate-600">Terms of Service</span>
               {' '}and{' '}
               <span className="underline cursor-pointer hover:text-slate-600">Privacy Policy</span>.

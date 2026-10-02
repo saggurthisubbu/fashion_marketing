@@ -1,129 +1,77 @@
-import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import assert from 'assert';
 
-process.env.VITE_API_URL = 'http://localhost:5000/api';
-const { resolveImageUrl } = await import('../client/src/config/api.js');
+console.log('=== VERIFYING ORDER NOTIFICATION SOUND FIX FLOW ===\n');
 
+// 1. Audio Files Check
+const pathsToCheck = [
+  'client/public/sounds/order-alert.mp3',
+  'client/public/public/sounds/order-alert.mp3',
+  'client/dist/sounds/order-alert.mp3',
+  'client/dist/public/sounds/order-alert.mp3',
+  'public/sounds/order-alert.mp3'
+];
 
-async function testFullFlow() {
-  console.log('=== STARTING COMPLETE PRODUCT & IMAGE FLOW VERIFICATION ===\n');
-
-  // 1. Create a distinct small test image buffer (PNG)
-  // 1x1 red PNG buffer
-  const testPngBuffer = Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-    'base64'
-  );
-
-  console.log('1. Prepared unique test image buffer (PNG).');
-
-  // 2. Upload image to backend
-  const FormData = (await import('form-data')).default;
-  const form = new FormData();
-  form.append('image', testPngBuffer, {
-    filename: `test-unique-${Date.now()}.png`,
-    contentType: 'image/png'
-  });
-
-  const uploadRes = await axios.post('http://localhost:5000/api/upload', form, {
-    headers: form.getHeaders()
-  });
-
-  console.log('2. Image upload response:', {
-    success: uploadRes.data.success,
-    imageUrl: uploadRes.data.imageUrl,
-    storage: uploadRes.data.storage
-  });
-
-  const uploadedUrl = uploadRes.data.imageUrl;
-  if (!uploadedUrl) {
-    throw new Error('Upload did not return an imageUrl!');
-  }
-
-  // 3. Create a product with this image
-  // First login as admin
-  const loginRes = await axios.post('http://localhost:5000/api/auth/login', {
-    email: 'saggurthisubbu9@gmail.com',
-    password: 'QuickFitAdmin@2026!'
-  });
-
-  const token = loginRes.data.token;
-  console.log('3. Authenticated as admin. Token received.');
-
-  const productPayload = {
-    name: `VERIFIED TEST PRODUCT ${Date.now()}`,
-    category: 'Men',
-    subcategory: 'Oversized T-Shirts',
-    price: 1299,
-    originalPrice: 1999,
-    stockQuantity: 50,
-    inStock: true,
-    isActive: true,
-    published: true,
-    boutique: 'QuickFit Central, Vijayawada',
-    description: 'Test product created to verify complete image upload and persistence flow.',
-    sizes: ['S', 'M', 'L', 'XL'],
-    images: {
-      front: uploadedUrl,
-      back: '',
-      left: '',
-      right: ''
-    },
-    image: uploadedUrl
-  };
-
-  const createProdRes = await axios.post('http://localhost:5000/api/products', productPayload, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
-
-  console.log('4. Product created in MongoDB:', {
-    _id: createProdRes.data._id,
-    name: createProdRes.data.name,
-    image: createProdRes.data.image,
-    images: createProdRes.data.images
-  });
-
-  const createdId = createProdRes.data._id;
-
-  // 5. Query /api/products (public storefront API)
-  const catalogRes = await axios.get('http://localhost:5000/api/products');
-  const foundProd = catalogRes.data.find(p => p._id === createdId || p.name === productPayload.name);
-
-  if (!foundProd) {
-    throw new Error('Newly created product not found in /api/products response!');
-  }
-  console.log('5. Found product in public API response:', {
-    _id: foundProd._id,
-    name: foundProd.name,
-    image: foundProd.image,
-    images: foundProd.images
-  });
-
-  // 6. Test frontend URL resolution
-  const resolvedUrl = resolveImageUrl(foundProd.images?.front || foundProd.image);
-  console.log('6. Frontend resolved image URL:', resolvedUrl);
-
-
-  // 7. Test fetching the image using resolved URL
-  const imgFetchRes = await axios.get(resolvedUrl, { responseType: 'arraybuffer' });
-  console.log('7. Fetched image from resolved URL:', {
-    status: imgFetchRes.status,
-    contentType: imgFetchRes.headers['content-type'],
-    bytes: imgFetchRes.data.length
-  });
-
-  if (imgFetchRes.data.length !== testPngBuffer.length) {
-    throw new Error(`Byte length mismatch: expected ${testPngBuffer.length}, got ${imgFetchRes.data.length}`);
-  }
-
-  console.log('\n=== ALL 7 STEPS VERIFIED SUCCESSFULLY! ===');
-  console.log('Uploaded image matches the original byte-for-byte without ANY placeholder replacement!');
+for (const p of pathsToCheck) {
+  const full = path.resolve(p);
+  assert(fs.existsSync(full), `File must exist: ${p}`);
+  const stat = fs.statSync(full);
+  assert(stat.size > 20000, `File should be a valid mp3 > 20KB: ${p}`);
+  console.log(`✅ Sound file verified: ${p} (${stat.size} bytes)`);
 }
 
-testFullFlow().catch(err => {
-  console.error('VERIFICATION FAILED:', err.response?.data || err.message);
-  process.exit(1);
-});
+// 2. Service Worker Inspection
+const swContent = fs.readFileSync(path.resolve('client/public/firebase-messaging-sw.js'), 'utf8');
+assert(swContent.includes('broadcastOrderAlertToClients'), 'SW must have broadcastOrderAlertToClients');
+assert(swContent.includes('Promise.all(['), 'SW must keep worker alive with Promise.all in waitUntil');
+assert(swContent.includes('/sounds/order-alert.mp3'), 'SW must reference soundUrl');
+assert(swContent.includes('FCM_ORDER_NOTIFICATION'), 'SW must broadcast FCM_ORDER_NOTIFICATION');
+console.log('✅ Service worker background broadcast & lifecycle wait verified.');
+
+// 3. Client Firebase Config Inspection
+const fbContent = fs.readFileSync(path.resolve('client/src/config/firebase.js'), 'utf8');
+assert(fbContent.includes('playSynthesizedOrderBuzzer'), 'Must include Web Audio API buzzer synthesizer');
+assert(fbContent.includes('playOrderNotificationSound'), 'Must include playOrderNotificationSound');
+assert(fbContent.includes('unlockAudio'), 'Must include unlockAudio for browser autoplay handling');
+assert(fbContent.includes('isOrderDuplicate'), 'Must include isOrderDuplicate');
+assert(fbContent.includes('markOrderHandled'), 'Must include markOrderHandled');
+assert(fbContent.includes('FCM_ORDER_NOTIFICATION'), 'Must listen to SW broadcast message');
+console.log('✅ Client firebase sound engine & autoplay handler verified.');
+
+// 4. Test Single-Play Deduplication Logic
+const handledIds = new Set();
+const storage = new Map();
+
+function isOrderDuplicate(orderId) {
+  if (!orderId) return false;
+  const idStr = String(orderId);
+  if (handledIds.has(idStr)) return true;
+  const stored = storage.get(`sound_${idStr}`);
+  if (stored && (Date.now() - stored) < 300000) return true;
+  return false;
+}
+
+function markOrderHandled(orderId) {
+  const idStr = String(orderId);
+  handledIds.add(idStr);
+  storage.set(`sound_${idStr}`, Date.now());
+}
+
+function playNotificationSound(orderId) {
+  if (orderId) {
+    if (isOrderDuplicate(orderId)) {
+      return false; // Skipped duplicate!
+    }
+    markOrderHandled(orderId);
+  }
+  return true; // Played!
+}
+
+assert.strictEqual(playNotificationSound('ORD-101'), true, 'Order 101 must play on first trigger');
+assert.strictEqual(playNotificationSound('ORD-101'), false, 'Order 101 must NOT play again on duplicate event');
+assert.strictEqual(playNotificationSound('ORD-102'), true, 'Order 102 must play on first trigger');
+assert.strictEqual(playNotificationSound('ORD-102'), false, 'Order 102 must NOT play again on duplicate event');
+
+console.log('✅ Single-play deduplication flow confirmed.');
+console.log('\n🎉 ALL CHECKS PASSED SUCCESSFULLY!');

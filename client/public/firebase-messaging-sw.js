@@ -75,14 +75,18 @@ try {
 // Broadcast incoming order alert to all open window tabs (including inactive background tabs)
 function broadcastOrderAlertToClients(orderId, alertData, rawPayload) {
   try {
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      if (!windowClients || windowClients.length === 0) return;
+    return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      if (!windowClients || windowClients.length === 0) {
+        console.log('[FCM SW] No open window clients currently connected.');
+        return;
+      }
+      console.log(`[FCM SW] Broadcasting order alert #${orderId} to ${windowClients.length} window client(s).`);
       for (const client of windowClients) {
         if ('postMessage' in client) {
           client.postMessage({
             type: 'FCM_ORDER_NOTIFICATION',
             orderId: orderId,
-            soundUrl: '/public/sounds/order-alert.mp3',
+            soundUrl: '/sounds/order-alert.mp3',
             data: alertData || {},
             payload: rawPayload || {}
           });
@@ -93,6 +97,7 @@ function broadcastOrderAlertToClients(orderId, alertData, rawPayload) {
     });
   } catch (e) {
     console.warn('[FCM SW] broadcastOrderAlert exception:', e);
+    return Promise.resolve();
   }
 }
 
@@ -142,26 +147,31 @@ self.addEventListener('push', (event) => {
       }
     };
 
-    // Broadcast to open tabs (including inactive tabs) to play order alert sound
-    broadcastOrderAlertToClients(orderId, rawData.data || rawData, rawData);
-
-    event.waitUntil(self.registration.showNotification(title, options));
+    // Broadcast to open tabs (including inactive tabs) AND show notification, keeping SW alive until both finish
+    event.waitUntil(
+      Promise.all([
+        broadcastOrderAlertToClients(orderId, rawData.data || rawData, rawData),
+        self.registration.showNotification(title, options)
+      ])
+    );
   } catch (err) {
     const textData = event.data.text();
     console.log('[FCM SW] Raw text push received:', textData);
-    broadcastOrderAlertToClients('new', { text: textData }, { text: textData });
     event.waitUntil(
-      self.registration.showNotification('🔔 NEW ORDER', {
-        body: textData || 'Check your QuickFit Admin Dashboard.',
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/icon-192x192.png',
-        requireInteraction: true,
-        actions: [
-          { action: 'view_order', title: '👁 VIEW ORDER' },
-          { action: 'accept_order', title: '✅ ACCEPT ORDER' }
-        ],
-        data: { url: '/admin?tab=orders' }
-      })
+      Promise.all([
+        broadcastOrderAlertToClients('new', { text: textData }, { text: textData }),
+        self.registration.showNotification('🔔 NEW ORDER', {
+          body: textData || 'Check your QuickFit Admin Dashboard.',
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/icon-192x192.png',
+          requireInteraction: true,
+          actions: [
+            { action: 'view_order', title: '👁 VIEW ORDER' },
+            { action: 'accept_order', title: '✅ ACCEPT ORDER' }
+          ],
+          data: { url: '/admin?tab=orders' }
+        })
+      ])
     );
   }
 });

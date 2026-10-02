@@ -118,57 +118,16 @@ export function playSynthesizedOrderBuzzer() {
   }
 }
 
+// Replace order-alert.mp3 with any preferred buzzer/ringtone
+import { startLoopingOrderAlert, stopOrderAlert } from '../utils/audioAlert';
+
 /**
- * Play the loud clear buzzer/alert sound once for an incoming order
- * Plays both synthesized Web Audio buzzer and MP3 audio file
+ * Play the loud looping buzzer/ringtone for an incoming order
+ * Continues looping until View Order or Accept Order is clicked.
  */
 export function playOrderNotificationSound(orderId) {
-  if (orderId) {
-    if (isOrderDuplicate(orderId)) {
-      console.log(`ℹ️ [Audio Alert] Skipping duplicate sound for order: #${orderId}`);
-      return false;
-    }
-    markOrderHandled(orderId);
-  }
-
-  console.log(`🔊 [Audio Alert] Playing clear buzzer alert sound for Order #${orderId || 'new'}`);
-
-  // 1. Play the synthesized buzzer tone via Web Audio API (instant, guaranteed audible)
-  playSynthesizedOrderBuzzer();
-
-  // 2. Play the sound file (/sounds/order-alert.mp3 with /public/sounds fallbacks)
-  try {
-    const audio = new Audio('/sounds/order-alert.mp3');
-    audio.volume = 1.0;
-    const playPromise = audio.play();
-    if (playPromise !== undefined) {
-      playPromise.catch((err) => {
-        console.warn('[Audio Alert] Primary /sounds failed, trying fallback:', err?.message);
-        const fallbackAudio = new Audio('/public/sounds/order-alert.mp3');
-        fallbackAudio.volume = 1.0;
-        fallbackAudio.play().catch(() => {
-          const wavAudio = new Audio('/sounds/order-alert.wav');
-          wavAudio.volume = 1.0;
-          wavAudio.play().catch(() => {
-            const legacyAudio = new Audio('/audio/order_notification.mp3');
-            legacyAudio.volume = 1.0;
-            legacyAudio.play().catch(() => {});
-          });
-        });
-      });
-    }
-  } catch (err) {
-    console.warn('[Audio Alert Notice]:', err?.message);
-  }
-
-  // 3. Trigger phone vibration (Android & compatible devices)
-  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-    try {
-      navigator.vibrate([400, 200, 400]);
-    } catch (e) {}
-  }
-
-  return true;
+  // Replace order-alert.mp3 with any preferred buzzer/ringtone
+  return startLoopingOrderAlert(orderId);
 }
 
 /**
@@ -383,12 +342,8 @@ export function startUrgentOrderAlert(orderId) {
 /**
  * Stop persistent order alert audio and vibration immediately
  */
-export function stopUrgentOrderAlert() {
-  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-    try {
-      navigator.vibrate(0);
-    } catch (err) {}
-  }
+export function stopUrgentOrderAlert(orderId) {
+  stopOrderAlert(orderId);
 }
 
 const foregroundCallbacks = new Set();

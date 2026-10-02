@@ -33,7 +33,34 @@ export const AdminNotificationsTab = ({
   const [localRegistering, setLocalRegistering] = useState(false);
 
   const handleTestNotificationSound = () => {
-    playOrderNotificationSound();
+    // Replace order-alert.mp3 with any preferred buzzer/ringtone
+    const demoId = 'DEMO-' + Math.floor(1000 + Math.random() * 9000);
+    playOrderNotificationSound(demoId);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('quickfit_new_order', {
+        detail: {
+          orderId: demoId,
+          customer: {
+            name: 'Priya Sharma (Demo Customer)',
+            phone: '9876543210',
+            address: 'Flat 402, Royal Residency, MG Road, Benz Circle, Vijayawada'
+          },
+          items: [
+            {
+              name: "MEN'S SLIM FIT LINEN SHIRT",
+              size: 'L',
+              color: 'Navy Blue',
+              quantity: 1,
+              price: 799,
+              image: ''
+            }
+          ],
+          totalAmount: 799,
+          paymentMethod: 'UPI (GPay/PhonePe)',
+          orderDate: new Date().toISOString()
+        }
+      }));
+    }
   };
 
   const handleTriggerTestPush = async () => {

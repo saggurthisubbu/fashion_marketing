@@ -22,6 +22,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { SearchResultsPage } from './pages/SearchResultsPage';
 import { CategoryPage } from './pages/CategoryPage';
 import { setupForegroundFcmListener, stopUrgentOrderAlert } from './config/firebase';
+import { startLoopingOrderAlert, stopOrderAlert, isOrderHandled } from './utils/audioAlert';
 import { UrgentOrderAlertModal } from './components/admin/UrgentOrderAlertModal';
 
 const ToastNotification = () => {
@@ -43,20 +44,49 @@ const ToastNotification = () => {
 const MainApp = () => {
   const {
     isAdminOpen, setIsAdminOpen, user, token,
-    checkoutRedirectPending, setCheckoutRedirectPending, setIsCheckoutOpen
+    checkoutRedirectPending, setCheckoutRedirectPending, setIsCheckoutOpen,
+    API_BASE_URL
   } = useShop();
   const [currentPath, setCurrentPath] = React.useState(() => window.location.pathname.toLowerCase());
-  const [urgentOrderAlert, setUrgentOrderAlert] = React.useState(null);
+  const [urgentOrderQueue, setUrgentOrderQueue] = React.useState([]);
+
+  const currentUrgentAlert = urgentOrderQueue[0] || null;
 
   const isAuthenticated = Boolean(user && (token || localStorage.getItem('quickfit_token')));
   const isAdminAuthenticated = Boolean(
     isAuthenticated && (user.role === 'admin' || user.role === 'store_owner')
   );
 
+  // Enqueue new order alert and start loud looping buzzer
+  const enqueueNewOrderAlert = React.useCallback((alertData) => {
+    if (!alertData?.orderId) return;
+    const orderId = String(alertData.orderId).trim();
+
+    if (isOrderHandled(orderId)) {
+      return;
+    }
+
+    setUrgentOrderQueue((prevQueue) => {
+      if (prevQueue.some((item) => String(item.orderId).trim() === orderId)) {
+        return prevQueue;
+      }
+      return [...prevQueue, alertData];
+    });
+
+    // Start loud looping buzzer immediately (continues until View or Accept is clicked)
+    startLoopingOrderAlert(orderId);
+  }, []);
+
   const handleAcceptUrgentOrder = (orderId) => {
-    console.log(`[FCM ORDER CLIENT] Accept Order clicked: #${orderId}`);
-    stopUrgentOrderAlert();
-    setUrgentOrderAlert(null);
+    console.log(`[ORDER ALERT] Accept Order clicked: #${orderId}`);
+    // Stop buzzer for this order (if other orders remain, buzzer keeps playing)
+    stopOrderAlert(orderId);
+
+    // Remove from queue
+    setUrgentOrderQueue((prevQueue) =>
+      prevQueue.filter((item) => String(item.orderId).trim() !== String(orderId).trim())
+    );
+
     setIsAdminOpen(true);
     const targetUrl = orderId && orderId !== 'New' && orderId !== 'new'
       ? `/admin?tab=orders&acceptOrder=${encodeURIComponent(orderId)}`
@@ -66,9 +96,15 @@ const MainApp = () => {
   };
 
   const handleViewUrgentOrder = (orderId) => {
-    console.log(`[FCM ORDER CLIENT] View Order clicked: #${orderId}`);
-    stopUrgentOrderAlert();
-    setUrgentOrderAlert(null);
+    console.log(`[ORDER ALERT] View Order clicked: #${orderId}`);
+    // Stop buzzer for this order (if other orders remain, buzzer keeps playing)
+    stopOrderAlert(orderId);
+
+    // Remove from queue
+    setUrgentOrderQueue((prevQueue) =>
+      prevQueue.filter((item) => String(item.orderId).trim() !== String(orderId).trim())
+    );
+
     setIsAdminOpen(true);
     const targetUrl = orderId && orderId !== 'New' && orderId !== 'new'
       ? `/admin?tab=orders&acceptOrder=${encodeURIComponent(orderId)}`
@@ -77,30 +113,19 @@ const MainApp = () => {
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
-  const handleDismissUrgentOrder = () => {
-    stopUrgentOrderAlert();
-    setUrgentOrderAlert(null);
-  };
-
   // After login/register: if a checkout was pending, open the checkout modal
   useEffect(() => {
     if (isAuthenticated && checkoutRedirectPending) {
       setCheckoutRedirectPending(false);
-      // Small delay so the homepage fully renders first
       setTimeout(() => setIsCheckoutOpen(true), 150);
     }
   }, [isAuthenticated, checkoutRedirectPending, setCheckoutRedirectPending, setIsCheckoutOpen]);
 
   // Global Firebase Cloud Messaging (FCM) Foreground Listener
-  // Catches incoming order notifications even when browsing the storefront, cart, or PWA
   useEffect(() => {
-    if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') {
-      return;
-    }
-
     let unsubscribe = () => {};
     setupForegroundFcmListener((alertData) => {
-      console.log('🔔 [FCM CLIENT] foreground message received in App root:', alertData);
+      console.log('🔔 [FCM CLIENT] Foreground order message received:', alertData);
       if (alertData?.type === 'ACCEPT_ORDER' || alertData?.type === 'ORDER_ACCEPTED') {
         handleAcceptUrgentOrder(alertData.orderId);
         return;
@@ -110,7 +135,7 @@ const MainApp = () => {
         return;
       }
       if (alertData?.orderId) {
-        setUrgentOrderAlert(alertData);
+        enqueueNewOrderAlert(alertData);
       }
     }).then((unsub) => {
       if (typeof unsub === 'function') unsubscribe = unsub;
@@ -119,7 +144,33 @@ const MainApp = () => {
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
-  }, []);
+  }, [enqueueNewOrderAlert]);
+
+  // Local window event listener: immediately catches new orders placed in the application
+  useEffect(() => {
+    const handleLocalNewOrder = (event) => {
+      const order = event.detail;
+      if (!order || !order.orderId) return;
+
+      console.log('⚡ [ORDER EVENT] Incoming New Order detected:', order.orderId);
+      enqueueNewOrderAlert({
+        orderId: order.orderId,
+        customerName: order.customer?.name || order.customer?.fullName || 'Valued Customer',
+        customerPhone: order.customer?.phone || '',
+        customerAddress: [order.customer?.address, order.customer?.area, order.customer?.landmark]
+          .filter(Boolean)
+          .join(', '),
+        items: order.items || [],
+        itemsCount: String(order.items?.length || 1),
+        totalAmount: String(order.totalAmount || 0),
+        paymentMethod: order.paymentMethod || 'COD',
+        orderDate: order.orderDate || order.createdAt || new Date().toISOString()
+      });
+    };
+
+    window.addEventListener('quickfit_new_order', handleLocalNewOrder);
+    return () => window.removeEventListener('quickfit_new_order', handleLocalNewOrder);
+  }, [enqueueNewOrderAlert]);
 
   // Bi-directional URL Synchronization & Route Protection
   useEffect(() => {
@@ -268,10 +319,10 @@ const MainApp = () => {
       <ContactModal />
       <AboutModal />
       <UrgentOrderAlertModal
-        orderAlert={urgentOrderAlert}
+        orderAlert={currentUrgentAlert}
+        pendingCount={urgentOrderQueue.length}
         onAccept={handleAcceptUrgentOrder}
         onView={handleViewUrgentOrder}
-        onDismiss={handleDismissUrgentOrder}
       />
 
       {/* HIDDEN ADMIN DASHBOARD (ACCESSIBLE STRICTLY VIA /admin ROUTE) */}

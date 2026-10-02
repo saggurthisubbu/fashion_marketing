@@ -374,6 +374,13 @@ export const CheckoutModal = () => {
         image: item.images?.front || item.image || item.imageUrl || ''
       }));
 
+      // Dispatch immediate order event so admin alert & loud looping buzzer trigger without delay
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('quickfit_new_order', {
+          detail: { ...createdOrder, items: enrichedItems }
+        }));
+      }
+
       setLastOrder({
         ...createdOrder,
         items: enrichedItems,

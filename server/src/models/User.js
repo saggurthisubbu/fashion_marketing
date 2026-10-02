@@ -2,19 +2,25 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
+  name: { type: String, default: '' },
+  email: { type: String, sparse: true, index: true, lowercase: true, trim: true },
   adminId: { type: String, sparse: true },
-  password: { type: String, required: true },
-  phone: { type: String, required: true },
+  password: {
+    type: String,
+    required: function () {
+      return this.role === 'admin' || this.role === 'store_owner';
+    }
+  },
+  phone: { type: String, required: true, index: true },
   role: { type: String, enum: ['customer', 'admin', 'store_owner'], default: 'customer' },
   assignedStoreId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null },
   address: {
-    street: String,
-    area: String,
-    landmark: String,
-    pincode: String,
-    city: { type: String, default: 'Vijayawada' }
+    street: { type: String, default: '' },
+    area: { type: String, default: '' },
+    landmark: { type: String, default: '' },
+    pincode: { type: String, default: '520010' },
+    city: { type: String, default: 'Vijayawada' },
+    fullAddress: { type: String, default: '' }
   },
   emailStatus: { type: String, enum: ['pending', 'sent', 'failed'], default: 'pending' },
   welcomeEmailSentAt: { type: Date },
@@ -25,13 +31,14 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
+  if (!this.password || !this.isModified('password')) return next();
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
 userSchema.methods.matchPassword = async function (enteredPassword) {
+  if (!this.password) return false;
   return await bcrypt.compare(enteredPassword, this.password);
 };
 

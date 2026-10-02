@@ -119,8 +119,11 @@ export const ProductCard = React.memo(({ product, priority = false }) => {
             disabled={isOutOfStock}
             onClick={(e) => {
               e.stopPropagation();
-              const defaultSize = sizesList[0] || 'M';
-              addToCart(product, defaultSize);
+              if (sizesList && sizesList.length > 0) {
+                openProductDetail(product);
+              } else {
+                addToCart(product, 'Free Size');
+              }
             }}
             className={`w-full h-8 sm:h-9 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer select-none ${
               isOutOfStock
@@ -128,7 +131,7 @@ export const ProductCard = React.memo(({ product, priority = false }) => {
                 : 'bg-slate-900 hover:bg-black active:scale-[0.98] text-white shadow-xs'
             }`}
           >
-            {isOutOfStock ? 'Sold Out' : 'Add to Bag'}
+            {isOutOfStock ? 'Sold Out' : 'Select Size & Add ➔'}
           </button>
         </div>
       </div>

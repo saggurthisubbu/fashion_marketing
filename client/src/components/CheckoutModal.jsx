@@ -5,16 +5,10 @@ import { formatFullOrderWhatsApp } from '../utils/whatsapp';
 import { checkDeliveryAvailability } from '../utils/deliveryRadius';
 import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 
-// ─── Delivery status constants ────────────────────────────────────────────────
-// 'idle'     — location not yet shared
-// 'checking' — GPS acquired, querying stores
-// 'allowed'  — inside a delivery zone ✅
-// 'blocked'  — outside all delivery zones ❌
-// 'error'    — GPS failed
-
 export const CheckoutModal = () => {
   const {
     cart,
+    setCart,
     isCheckoutOpen,
     setIsCheckoutOpen,
     cartSubtotal,
@@ -28,8 +22,13 @@ export const CheckoutModal = () => {
     showToast,
     fetchProducts,
     verifiedLocation,
-    setVerifiedLocation
+    setVerifiedLocation,
+    user,
+    updateCustomerProfile
   } = useShop();
+
+  // Two-step checkout flow: 'details' -> 'confirmation'
+  const [checkoutStep, setCheckoutStep] = useState('details');
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -55,10 +54,14 @@ export const CheckoutModal = () => {
 
   const vijayawadaAreas = ['MG Road', 'Benz Circle', 'Patamata', 'Eluru Road', 'Governorpet', 'Labbipet', 'Kunchanapalli', 'Moghalrajpuram'];
 
-  // Initialize or pre-fill verified location state on modal open
+  // Initialize and automatically pre-fill saved customer details on modal open
   useEffect(() => {
     if (isCheckoutOpen) {
-      // 1. Check if we already have a verified location in context or active session
+      setCheckoutStep('details');
+      setErrorMsg('');
+      setIsSubmitting(false);
+
+      // 1. Check verified location
       const savedVerified = verifiedLocation || (() => {
         try {
           const s = sessionStorage.getItem('quickfit_session_verified_location');
@@ -70,17 +73,19 @@ export const CheckoutModal = () => {
         ? savedVerified.areaName
         : '';
 
+      // 2. Automatically load saved customer details if available
+      const savedAddr = user?.address || {};
+      const initialStreet = savedAddr.fullAddress || savedAddr.street || (typeof user?.address === 'string' ? user.address : '');
+
       setFormData({
-        fullName: '',
-        phone: '',
-        email: '',
-        address: '',
-        landmark: '',
-        pincode: '',
-        area: matchedArea || ''
+        fullName: user?.name || '',
+        phone: user?.phone || '',
+        email: user?.email && !user.email.endsWith('@customer.quickfit.in') ? user.email : '',
+        address: initialStreet || '',
+        landmark: savedAddr.landmark || '',
+        pincode: savedAddr.pincode || '520010',
+        area: savedAddr.area || matchedArea || 'Benz Circle'
       });
-      setErrorMsg('');
-      setIsSubmitting(false);
 
       if (savedVerified && typeof savedVerified.lat === 'number' && typeof savedVerified.lng === 'number') {
         const mapsUrl = `https://www.google.com/maps?q=${savedVerified.lat},${savedVerified.lng}`;
@@ -113,15 +118,33 @@ export const CheckoutModal = () => {
         setDeliveryInfo(null);
       }
     }
-  }, [isCheckoutOpen, verifiedLocation]);
+  }, [isCheckoutOpen, verifiedLocation, user]);
 
   if (!isCheckoutOpen) return null;
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    setErrorMsg('');
   };
 
-  // ─── Step 1: GPS Capture + Step 2: Delivery Zone Validation ─────────────────
+  // Helper to update a cart item's size in checkout
+  const handleUpdateItemSize = (index, newSize) => {
+    if (setCart) {
+      setCart(prev => {
+        const updated = [...prev];
+        if (updated[index]) {
+          updated[index] = {
+            ...updated[index],
+            selectedSize: newSize,
+            size: newSize
+          };
+        }
+        return updated;
+      });
+    }
+  };
+
+  // GPS Capture + Delivery Zone Validation
   const handleShareLocation = () => {
     if (!navigator.geolocation) {
       setLocationStatus('error');
@@ -140,7 +163,6 @@ export const CheckoutModal = () => {
         setLocationLink(mapsUrl);
         setCustomerCoords({ lat: latitude, lng: longitude });
 
-        // Immediately validate against all active stores
         try {
           const result = await checkDeliveryAvailability(latitude, longitude, API_BASE_URL);
           setDeliveryInfo(result);
@@ -169,7 +191,6 @@ export const CheckoutModal = () => {
               setVerifiedLocation(verifiedData);
             }
 
-            // Re-fetch products to ensure catalog updates to the new nearest store
             fetchProducts({ lat: latitude, lng: longitude });
           } else {
             setLocationStatus('blocked');
@@ -217,32 +238,74 @@ export const CheckoutModal = () => {
     );
   };
 
-  // Derived booleans
   const isLocationChecking = locationStatus === 'checking';
   const isLocationAllowed  = locationStatus === 'allowed';
   const isLocationBlocked  = locationStatus === 'blocked';
   const isLocationPending  = locationStatus === 'idle' || locationStatus === 'error';
-  // Stores configured but not yet checked → must check first
-  const hasStores = deliveryInfo?.allStores?.length > 0;
 
-  // Block if: outside zone OR location not yet verified when stores exist
-  // The backend will also enforce this — this is the UX layer
-  const canPlaceOrder = isLocationAllowed;
-
-  // ─── Handle Order Submission ─────────────────────────────────────────────────
-  const handleSubmitOrder = async (e) => {
+  // ─── Step 1 -> Step 2: Validate Details & Move to Confirmation ───────────────
+  const handleProceedToConfirmation = (e) => {
     e.preventDefault();
     setErrorMsg('');
 
-    if (!formData.fullName?.trim() || !formData.phone?.trim() || !formData.address?.trim()) {
-      setErrorMsg('Please fill in your Full Name, WhatsApp Phone, and Address.');
+    if (!formData.fullName?.trim()) {
+      setErrorMsg('Please enter your full name.');
+      return;
+    }
+    const cleanPhone = String(formData.phone || '').replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
+      setErrorMsg('Please enter a valid 10-digit mobile/WhatsApp number.');
+      return;
+    }
+    if (!formData.address?.trim()) {
+      setErrorMsg('Please enter your delivery street address.');
       return;
     }
 
+    if (!isLocationAllowed) {
+      setErrorMsg('Please verify your GPS location within a QuickFit delivery zone to continue.');
+      return;
+    }
+
+    // Size validation: If size is required, customer MUST select a size before continuing
+    for (let i = 0; i < cart.length; i++) {
+      const item = cart[i];
+      const hasSizes = Array.isArray(item.sizes) && item.sizes.length > 0;
+      const chosenSize = item.selectedSize || item.size;
+      if (hasSizes && (!chosenSize || chosenSize === '')) {
+        setErrorMsg(`Please select a size for "${item.name}" before proceeding.`);
+        showToast(`Please select a size for "${item.name}".`, 'warning');
+        return;
+      }
+    }
+
+    // Persist edited customer details for future visits
+    if (updateCustomerProfile) {
+      updateCustomerProfile({
+        name: formData.fullName.trim(),
+        email: formData.email ? formData.email.trim() : '',
+        phone: cleanPhone,
+        address: {
+          street: formData.address.trim(),
+          fullAddress: formData.address.trim(),
+          area: formData.area || 'Benz Circle',
+          landmark: formData.landmark ? formData.landmark.trim() : '',
+          pincode: formData.pincode ? formData.pincode.trim() : '520010',
+          city: 'Vijayawada'
+        }
+      }).catch(err => console.error('[Profile update background error]:', err));
+    }
+
+    // Move to Order Confirmation step
+    setCheckoutStep('confirmation');
+  };
+
+  // ─── Step 2: Final Order Submission upon clicking "Confirm Order" ─────────────
+  const handleFinalOrderConfirm = async () => {
+    setErrorMsg('');
     setIsSubmitting(true);
 
     try {
-      // Build verified store assignment payload
       const assignedStorePayload = deliveryInfo?.nearestStore
         ? {
             id: deliveryInfo.nearestStore._id,
@@ -336,7 +399,7 @@ export const CheckoutModal = () => {
       setIsCheckoutOpen(false);
       setIsOrderConfirmedOpen(true);
       fetchProducts();
-      showToast('Order placed successfully. A confirmation email has been sent.');
+      showToast('Order confirmed and placed successfully! 🎉');
       window.open(waUrl, '_blank');
     } catch (err) {
       console.error('Checkout error:', err);
@@ -348,17 +411,28 @@ export const CheckoutModal = () => {
     }
   };
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/75 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-3xl p-5 sm:p-8 max-w-xl w-full my-auto shadow-2xl border border-slate-200 space-y-5 max-h-[94vh] overflow-y-auto animate-in zoom-in-95">
+      <div className="bg-white rounded-3xl p-5 sm:p-7 max-w-xl w-full my-auto shadow-2xl border border-slate-200 space-y-4 max-h-[94vh] overflow-y-auto animate-in zoom-in-95 text-xs">
 
         {/* HEADER */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">FAST CHECKOUT</span>
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                checkoutStep === 'details' ? 'bg-slate-900 text-white' : 'bg-emerald-100 text-emerald-800'
+              }`}>
+                Step 1: Details {checkoutStep === 'confirmation' ? '✓' : ''}
+              </span>
+              <span className="text-slate-300">➔</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                checkoutStep === 'confirmation' ? 'bg-amber-400 text-slate-950 font-black ring-2 ring-amber-400/40' : 'bg-slate-100 text-slate-500'
+              }`}>
+                Step 2: Order Confirmation
+              </span>
+            </div>
             <h3 className="text-xl sm:text-2xl font-black font-heading text-slate-900">
-              Delivery & Order Placement
+              {checkoutStep === 'details' ? 'Delivery & Customer Details' : 'Order Confirmation'}
             </h3>
           </div>
           <button
@@ -369,7 +443,7 @@ export const CheckoutModal = () => {
           </button>
         </div>
 
-        {/* Error message */}
+        {/* ERROR ALERT */}
         {errorMsg && (
           <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-start gap-2">
             <span className="text-sm mt-0.5">🚫</span>
@@ -377,332 +451,413 @@ export const CheckoutModal = () => {
           </div>
         )}
 
-        {/* PRE-SELECTED PRODUCT / CART SUMMARY */}
-        {cart && cart.length > 0 && (
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                {cart.length === 1 ? 'Selected Product' : `Order Items (${cart.length})`}
-              </span>
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                ⚡ Express 60-Min Dispatch
-              </span>
+        {/* ═══════════════════════════════════════════════════════════════════════ */}
+        {/* STAGE 1: CUSTOMER DETAILS & DELIVERY LOCATION                         */}
+        {/* ═══════════════════════════════════════════════════════════════════════ */}
+        {checkoutStep === 'details' && (
+          <form onSubmit={handleProceedToConfirmation} className="space-y-4" autoComplete="off">
+
+            {/* PRE-FILLED CUSTOMER NOTICE */}
+            {user?.name && (
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">👤</span>
+                  <span>
+                    Saved details for <strong className="text-slate-900">{user.name}</strong> loaded. You can edit them below.
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Editable</span>
+              </div>
+            )}
+
+            {/* CUSTOMER INPUTS */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-slate-800 block mb-1">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleChange}
+                  placeholder="Enter your full name"
+                  className="input-field"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-slate-800 block mb-1">WhatsApp Phone *</label>
+                <input
+                  type="tel"
+                  required
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder="10-digit mobile number"
+                  className="input-field font-mono font-bold"
+                />
+              </div>
             </div>
-            <div className="divide-y divide-slate-100 max-h-36 overflow-y-auto">
-              {cart.map((item, idx) => (
-                <div key={idx} className="py-1.5 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {item.image && (
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-slate-800 block mb-1">Email Address (Optional)</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="name@example.com"
+                  className="input-field"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-slate-800 block mb-1">Area / Locality *</label>
+                <select
+                  name="area"
+                  value={formData.area}
+                  onChange={handleChange}
+                  className="input-field font-semibold"
+                >
+                  {vijayawadaAreas.map(area => (
+                    <option key={area} value={area}>{area}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="font-bold text-slate-800 block mb-1">Street Address *</label>
+              <textarea
+                required
+                name="address"
+                rows={2}
+                value={formData.address}
+                onChange={handleChange}
+                placeholder="House / Flat No., Apartment Name, Street Name"
+                className="input-field resize-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-slate-800 block mb-1">Landmark (Optional)</label>
+                <input
+                  type="text"
+                  name="landmark"
+                  value={formData.landmark}
+                  onChange={handleChange}
+                  placeholder="e.g. Near Benz Circle"
+                  className="input-field"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-slate-800 block mb-1">Pincode</label>
+                <input
+                  type="text"
+                  name="pincode"
+                  value={formData.pincode}
+                  onChange={handleChange}
+                  placeholder="520010"
+                  className="input-field font-mono"
+                />
+              </div>
+            </div>
+
+            {/* GPS LOCATION & DELIVERY ZONE CHECK */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <span>📍</span>
+                  <span>Delivery Zone GPS Verification</span>
+                </span>
+                {isLocationAllowed && (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase">
+                    Verified Zone ✅
+                  </span>
+                )}
+              </div>
+
+              {!isLocationAllowed ? (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-slate-500">
+                    QuickFit delivers within Vijayawada in 60 minutes. Click below to verify your address coordinates.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={isLocationChecking}
+                    onClick={handleShareLocation}
+                    className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-black text-white font-extrabold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
+                  >
+                    {isLocationChecking ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Checking Store Proximity...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>📍</span>
+                        <span>Verify Delivery Availability</span>
+                      </>
+                    )}
+                  </button>
+                  {locationError && (
+                    <p className="text-rose-600 text-[11px] font-semibold">{locationError}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center justify-between text-xs bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
+                  <div className="text-emerald-900 font-medium">
+                    ⚡ {deliveryInfo?.message || 'Express Delivery Available'}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleShareLocation}
+                    className="text-[10px] text-emerald-800 underline font-bold cursor-pointer"
+                  >
+                    Re-verify
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* PAYMENT METHOD */}
+            <div>
+              <label className="font-bold text-slate-800 block mb-1">Select Payment Method</label>
+              <div className="grid grid-cols-2 gap-2">
+                {['UPI (GPay/PhonePe)', 'Cash On Delivery'].map((mode) => (
+                  <button
+                    type="button"
+                    key={mode}
+                    onClick={() => setPaymentMethod(mode)}
+                    className={`p-3 rounded-xl border text-xs font-black transition-all cursor-pointer ${
+                      paymentMethod === mode
+                        ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* PROCEED BUTTON */}
+            <button
+              type="submit"
+              className="w-full py-4 rounded-2xl bg-slate-900 hover:bg-black text-white font-extrabold uppercase tracking-wider text-xs shadow-lg transition-all flex items-center justify-center gap-2 !min-h-[48px] cursor-pointer"
+            >
+              <span>Review & Confirm Order ➔</span>
+            </button>
+          </form>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════════════ */}
+        {/* STAGE 2: ORDER CONFIRMATION STEP                                      */}
+        {/* Customer must confirm: Product, Image, Size, Qty, Price, Address,     */}
+        {/* Phone, Email. Then click "Confirm Order".                             */}
+        {/* ═══════════════════════════════════════════════════════════════════════ */}
+        {checkoutStep === 'confirmation' && (
+          <div className="space-y-4">
+
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-amber-900 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">⚡</span>
+                <span className="text-xs font-bold">
+                  Please review all items & delivery details before final confirmation.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCheckoutStep('details')}
+                className="text-xs font-black text-amber-800 underline hover:text-amber-950 cursor-pointer"
+              >
+                Edit Details
+              </button>
+            </div>
+
+            {/* 1. PRODUCT CONFIRMATION (PRODUCT, IMAGE, SIZE, QUANTITY, PRICE) */}
+            <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+              <div className="px-4 py-2.5 bg-slate-900 text-white font-black text-[11px] uppercase tracking-wider flex items-center justify-between">
+                <span>Products to Confirm ({cart.length})</span>
+                <span className="text-slate-400">Express Dispatch</span>
+              </div>
+
+              <div className="p-3 divide-y divide-slate-100 space-y-3">
+                {cart.map((item, idx) => {
+                  const frontImg = resolveImageUrl(item.images?.front || item.image);
+                  const itemSizes = Array.isArray(item.sizes) && item.sizes.length > 0 ? item.sizes : ['S', 'M', 'L', 'XL', 'XXL'];
+                  const chosenSize = item.selectedSize || item.size || 'M';
+
+                  return (
+                    <div key={idx} className="pt-3 first:pt-0 flex gap-3 items-start">
+                      {/* Product Image */}
                       <img
-                        src={resolveImageUrl(item.image)}
+                        src={frontImg}
                         alt={item.name}
                         loading="lazy"
-                        decoding="async"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
                           e.currentTarget.src = DEFAULT_PLACEHOLDER_IMAGE;
                         }}
-                        className="w-10 h-12 object-cover object-top rounded-xl border border-slate-200 shrink-0 bg-white product-image-hd"
+                        className="w-16 h-20 object-cover object-top rounded-xl border border-slate-200 bg-white shrink-0 shadow-xs"
                       />
-                    )}
-                    <div className="min-w-0">
-                      <div className="font-extrabold text-slate-900 truncate text-xs">{item.name}</div>
-                      <div className="text-[11px] text-slate-500 font-semibold flex items-center gap-1.5 mt-0.5">
-                        <span>Size: <strong className="text-slate-800 font-bold">{item.selectedSize || item.size || 'M'}</strong></span>
-                        {item.selectedColor || item.color ? (
-                          <span>· Color: <strong className="text-slate-800 font-bold">{item.selectedColor || item.color}</strong></span>
-                        ) : null}
-                        <span>· Qty: <strong className="text-slate-800 font-bold">{item.quantity || 1}</strong></span>
+
+                      {/* Product Details */}
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <h4 className="font-extrabold text-slate-900 text-sm truncate">
+                          {item.name}
+                        </h4>
+
+                        {/* Size Selection Confirmation */}
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="font-bold text-slate-700">Size:</span>
+                          <div className="flex items-center gap-1">
+                            {itemSizes.map(sz => (
+                              <button
+                                key={sz}
+                                type="button"
+                                onClick={() => handleUpdateItemSize(idx, sz)}
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase border transition-all cursor-pointer ${
+                                  chosenSize === sz
+                                    ? 'bg-slate-900 text-white border-slate-900'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
+                                }`}
+                              >
+                                {sz}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Quantity & Unit Price */}
+                        <div className="flex items-center justify-between text-xs text-slate-600 pt-1">
+                          <span className="font-semibold">
+                            Quantity: <strong className="text-slate-900">{item.quantity || 1}</strong>
+                          </span>
+                          <span className="font-extrabold text-slate-900 font-mono text-sm">
+                            ₹{(item.price || 0) * (item.quantity || 1)}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="font-black text-slate-900 font-mono text-sm shrink-0">
-                    ₹{(item.price || 0) * (item.quantity || 1)}
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
+              </div>
             </div>
+
+            {/* 2. CUSTOMER & DELIVERY ADDRESS CONFIRMATION */}
+            <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50 space-y-2.5">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <span className="font-black text-slate-900 uppercase text-[11px] tracking-wider">
+                  Delivery Details Confirmation
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCheckoutStep('details')}
+                  className="text-xs font-bold text-blue-600 hover:underline cursor-pointer"
+                >
+                  Change Address
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-slate-500 font-bold block text-[10px] uppercase">Customer Name</span>
+                  <span className="font-extrabold text-slate-900">{formData.fullName}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-bold block text-[10px] uppercase">Phone Number</span>
+                  <span className="font-bold text-slate-900 font-mono">+91 {formData.phone}</span>
+                </div>
+                <div className="sm:col-span-2">
+                  <span className="text-slate-500 font-bold block text-[10px] uppercase">Email Address</span>
+                  <span className="font-semibold text-slate-900">{formData.email || 'None (WhatsApp updates only)'}</span>
+                </div>
+                <div className="sm:col-span-2">
+                  <span className="text-slate-500 font-bold block text-[10px] uppercase">Delivery Address</span>
+                  <span className="font-medium text-slate-900 leading-relaxed">
+                    {formData.address}, {formData.area}
+                    {formData.landmark ? `, Landmark: ${formData.landmark}` : ''}
+                    {formData.pincode ? ` - ${formData.pincode}` : ''}, Vijayawada
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-bold block text-[10px] uppercase">Payment Mode</span>
+                  <span className="font-bold text-slate-900">{paymentMethod}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-bold block text-[10px] uppercase">Store Dispatch</span>
+                  <span className="font-bold text-emerald-700">
+                    {deliveryInfo?.nearestStore?.name || 'QuickFit Store'} (60-min delivery)
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. ORDER PRICING SUMMARY */}
+            <div className="p-4 rounded-2xl bg-slate-900 text-white space-y-2">
+              <div className="flex justify-between text-slate-300 text-xs">
+                <span>Items Subtotal</span>
+                <span className="font-mono">₹{cartSubtotal}</span>
+              </div>
+              <div className="flex justify-between text-slate-300 text-xs">
+                <span>Express Delivery Fee</span>
+                <span className="text-emerald-400 font-bold font-mono">
+                  {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}
+                </span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-emerald-400 text-xs font-bold">
+                  <span>Discount Applied</span>
+                  <span className="font-mono">-₹{discountAmount}</span>
+                </div>
+              )}
+              <div className="pt-2 border-t border-slate-800 flex justify-between items-baseline">
+                <span className="font-black text-sm uppercase tracking-wider text-slate-200">
+                  Total Payable Amount
+                </span>
+                <span className="text-xl font-black font-heading text-amber-400 font-mono">
+                  ₹{cartGrandTotal}
+                </span>
+              </div>
+            </div>
+
+            {/* 4. CONFIRM ORDER ACTION BUTTON */}
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleFinalOrderConfirm}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-800 hover:from-emerald-700 hover:to-teal-900 text-white font-extrabold uppercase tracking-wider text-sm shadow-xl shadow-emerald-700/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed !min-h-[50px] active:scale-98"
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Processing & Submitting Order...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🛍️</span>
+                    <span>Confirm Order (₹{cartGrandTotal}) ➔</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCheckoutStep('details')}
+                className="w-full py-2.5 rounded-xl text-slate-500 hover:text-slate-800 font-bold text-xs transition-colors cursor-pointer text-center"
+              >
+                ← Back to Edit Delivery Details
+              </button>
+            </div>
+
           </div>
         )}
 
-        <form onSubmit={handleSubmitOrder} className="space-y-4 text-xs" autoComplete="off">
-
-          {/* CUSTOMER DETAILS */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="font-bold text-slate-800 block mb-1">Full Name *</label>
-              <input
-                type="text"
-                required
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleChange}
-                placeholder="Enter your full name"
-                className="input-field"
-                autoComplete="off"
-                data-form-type="other"
-              />
-            </div>
-            <div>
-              <label className="font-bold text-slate-800 block mb-1">WhatsApp Phone *</label>
-              <input
-                type="tel"
-                required
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="Enter WhatsApp mobile number"
-                className="input-field"
-                autoComplete="off"
-                data-form-type="other"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="font-bold text-slate-800 block mb-1">
-              Email Address <span className="text-emerald-600 font-normal text-[11px]">(Confirmation receipt sent here)</span>
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="e.g. name@gmail.com"
-              className="input-field"
-              autoComplete="off"
-              data-form-type="other"
-            />
-          </div>
-
-          <div>
-            <label className="font-bold text-slate-800 block mb-1">Delivery Address *</label>
-            <textarea
-              rows="2"
-              required
-              name="address"
-              value={formData.address}
-              onChange={handleChange}
-              placeholder="Flat / House No., Building Name, Street address..."
-              className="input-field"
-              autoComplete="off"
-              data-form-type="other"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="font-bold text-slate-800 block mb-1">Area *</label>
-              <select name="area" value={formData.area} onChange={handleChange} className="input-field cursor-pointer" autoComplete="off">
-                <option value="">Select Area in Vijayawada...</option>
-                {vijayawadaAreas.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="font-bold text-slate-800 block mb-1">Landmark (Optional)</label>
-              <input
-                type="text"
-                name="landmark"
-                value={formData.landmark}
-                onChange={handleChange}
-                placeholder="e.g. Near PVP Mall"
-                className="input-field"
-                autoComplete="off"
-                data-form-type="other"
-              />
-            </div>
-          </div>
-
-          {/* ═══════════════════════════════════════════════════════════════════ */}
-          {/* GPS LOCATION + DELIVERY ZONE VALIDATION (MANDATORY)               */}
-          {/* ═══════════════════════════════════════════════════════════════════ */}
-          <div className={`p-4 rounded-2xl border space-y-3 ${
-            isLocationAllowed ? 'bg-emerald-50 border-emerald-200' :
-            isLocationBlocked ? 'bg-rose-50 border-rose-200' :
-            'bg-slate-50 border-slate-200'
-          }`}>
-
-            <div className="flex items-center justify-between">
-              <span className={`font-extrabold text-xs flex items-center gap-1.5 ${
-                isLocationAllowed ? 'text-emerald-800' :
-                isLocationBlocked ? 'text-rose-800' :
-                'text-slate-900'
-              }`}>
-                <span>📍</span>
-                <span>Delivery Zone Verification</span>
-                <span className="text-rose-500 font-black">*Required</span>
-              </span>
-              {isLocationAllowed && (
-                <span className="text-[10px] font-black text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
-                  ✓ Verified
-                </span>
-              )}
-            </div>
-
-            {/* IDLE / ERROR — show the share location button */}
-            {(isLocationPending) && (
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={handleShareLocation}
-                  className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-700 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                >
-                  <span>📍</span>
-                  <span>Share My Location & Check Delivery Availability</span>
-                </button>
-                {locationError && (
-                  <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-semibold flex items-start gap-1.5">
-                    <span>⚠️</span>
-                    <span>{locationError}</span>
-                  </div>
-                )}
-                <p className="text-slate-500 text-[10px] text-center">
-                  Location verification is required to confirm delivery availability in your area.
-                </p>
-              </div>
-            )}
-
-            {/* CHECKING — spinner */}
-            {isLocationChecking && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
-                  <span className="w-5 h-5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin shrink-0"></span>
-                  <div>
-                    <p className="font-bold text-slate-800 text-xs">Detecting your location...</p>
-                    <p className="text-slate-500 text-[10px]">Checking delivery availability in your area</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ALLOWED ✅ */}
-            {isLocationAllowed && deliveryInfo && (
-              <div className="space-y-2.5">
-                <div className="flex items-start gap-3 p-3 bg-white rounded-xl border border-emerald-200">
-                  <span className="text-xl shrink-0">✅</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-black text-emerald-800 text-xs">Delivery Available!</p>
-                    {deliveryInfo.nearestStore && (
-                      <>
-                        <p className="text-emerald-700 text-[11px] font-semibold mt-0.5">
-                          📦 {deliveryInfo.nearestStore.name}
-                        </p>
-                        {deliveryInfo.distanceKm && (
-                          <p className="text-emerald-600 text-[10px] mt-0.5 font-mono">
-                            {deliveryInfo.distanceKm.toFixed(1)} km from your location
-                            {' '}· covers up to {deliveryInfo.nearestStore.deliveryRadiusKm} km
-                          </p>
-                        )}
-                      </>
-                    )}
-                    <a
-                      href={locationLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[10px] text-emerald-600 hover:underline mt-1 flex items-center gap-1"
-                    >
-                      📍 View your location
-                    </a>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleShareLocation}
-                    className="text-[10px] text-emerald-700 hover:underline font-bold shrink-0 cursor-pointer"
-                  >
-                    Re-check
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* BLOCKED ❌ */}
-            {isLocationBlocked && deliveryInfo && (
-              <div className="space-y-2.5">
-                <div className="flex items-start gap-3 p-3 bg-white rounded-xl border border-rose-200">
-                  <span className="text-xl shrink-0">❌</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-black text-rose-800 text-xs">Delivery Not Available</p>
-                    <p className="text-rose-700 text-[11px] font-semibold mt-0.5">
-                      Sorry, we are currently not available in your location.
-                    </p>
-                    {deliveryInfo.closestStore && deliveryInfo.distanceKm && (
-                      <p className="text-rose-600 text-[10px] mt-1 font-mono">
-                        Nearest store: {deliveryInfo.closestStore.name} ({deliveryInfo.distanceKm.toFixed(1)} km away
-                        {' '}· delivers up to {deliveryInfo.closestStore.deliveryRadiusKm} km only)
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleShareLocation}
-                    className="text-[10px] text-rose-600 hover:underline font-bold shrink-0 cursor-pointer"
-                  >
-                    Retry
-                  </button>
-                </div>
-                <p className="text-rose-700 text-[10px] text-center font-semibold">
-                  🚫 Checkout is disabled until you are within a delivery zone.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* PAYMENT METHOD */}
-          <div>
-            <label className="font-bold text-slate-800 block mb-1">Payment Method</label>
-            <div className="grid grid-cols-2 gap-2">
-              {['UPI (GPay/PhonePe)', 'Cash On Delivery'].map((mode) => (
-                <button
-                  type="button"
-                  key={mode}
-                  onClick={() => setPaymentMethod(mode)}
-                  className={`p-3 rounded-xl border text-xs font-black transition-all cursor-pointer ${
-                    paymentMethod === mode
-                      ? 'bg-slate-900 text-white border-slate-900'
-                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  {mode}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* ORDER TOTAL */}
-          <div className="p-3.5 rounded-2xl bg-slate-900 text-white flex items-center justify-between">
-            <div>
-              <div className="text-[10px] text-slate-400 uppercase font-black">Grand Total</div>
-              <div className="text-xl font-black font-heading">₹{cartGrandTotal}</div>
-            </div>
-            <div className="text-right text-[10px] text-slate-300 font-semibold">
-              <div>{cart.length} Item(s)</div>
-              <div className="text-emerald-400 font-bold">Free Express Delivery</div>
-            </div>
-          </div>
-
-          {/* ═══════════════════════════════════════════ */}
-          {/* SUBMIT BUTTON                              */}
-          {/* ═══════════════════════════════════════════ */}
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold uppercase tracking-wider text-xs shadow-lg transition-all flex items-center justify-center gap-2 !min-h-[48px] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {isSubmitting ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                <span>Placing Order & Sending Email...</span>
-              </>
-            ) : (
-              <>
-                <span>🛍️</span>
-                <span>Place Order & Confirm Dispatch ➔</span>
-              </>
-            )}
-          </button>
-
-        </form>
       </div>
     </div>
   );
 };
+
+export default CheckoutModal;

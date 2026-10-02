@@ -8,7 +8,8 @@ export const ProductDetailModal = () => {
   const { selectedProduct, isDetailModalOpen, setIsDetailModalOpen, addToCart, buyNow, showToast, verifiedLocation, userLocation } = useShop();
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedSize, setSelectedSize] = useState('M');
+  const [selectedSize, setSelectedSize] = useState('');
+  const [sizeError, setSizeError] = useState(false);
   const [selectedColor, setSelectedColor] = useState('');
 
   // WhatsApp Direct Order Quick Popup State
@@ -42,7 +43,8 @@ export const ProductDetailModal = () => {
   useEffect(() => {
     if (selectedProduct) {
       setCurrentIndex(0);
-      setSelectedSize(selectedProduct.sizes && selectedProduct.sizes.length > 0 ? selectedProduct.sizes[0] : 'M');
+      setSelectedSize('');
+      setSizeError(false);
       setSelectedColor(selectedProduct.colors && selectedProduct.colors.length > 0 ? (selectedProduct.colors[0].name || '') : '');
       setIsZoomed(false);
       setZoomScale(1);
@@ -240,11 +242,23 @@ export const ProductDetailModal = () => {
   };
 
   const handleAddToCart = () => {
-    addToCart(selectedProduct, selectedSize, selectedColor);
+    if (selectedProduct.sizes && selectedProduct.sizes.length > 0 && !selectedSize) {
+      setSizeError(true);
+      showToast('Please select a size before continuing.', 'warning');
+      return;
+    }
+    setSizeError(false);
+    addToCart(selectedProduct, selectedSize || 'Free Size', selectedColor);
   };
 
   const handleBuyNow = () => {
-    buyNow(selectedProduct, selectedSize, selectedColor);
+    if (selectedProduct.sizes && selectedProduct.sizes.length > 0 && !selectedSize) {
+      setSizeError(true);
+      showToast('Please select a size before continuing.', 'warning');
+      return;
+    }
+    setSizeError(false);
+    buyNow(selectedProduct, selectedSize || 'Free Size', selectedColor);
   };
 
   const stock = selectedProduct.stockQuantity !== undefined ? selectedProduct.stockQuantity : 25;
@@ -470,19 +484,24 @@ export const ProductDetailModal = () => {
 
             {/* SIZES */}
             {selectedProduct.sizes && selectedProduct.sizes.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-black text-slate-900 uppercase tracking-wider">
-                  <span>Select Size: <strong className="text-slate-900">{selectedSize}</strong></span>
+              <div className={`space-y-2 p-3 rounded-2xl transition-all ${
+                sizeError ? 'bg-amber-50 border-2 border-amber-400 ring-2 ring-amber-400/20' : 'border border-transparent'
+              }`}>
+                <div className="flex items-center justify-between text-xs font-black uppercase tracking-wider">
+                  <span className={sizeError ? 'text-amber-800 font-bold' : 'text-slate-900'}>
+                    {sizeError ? '⚠️ Please Select a Size (Required):' : 'Select Size:'}
+                    {selectedSize ? <strong className="text-slate-900 ml-1.5 font-black">{selectedSize}</strong> : null}
+                  </span>
                   <span className="text-[10px] text-slate-400 font-semibold lowercase">standard relaxed fit</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {selectedProduct.sizes.map((sz) => (
                     <button
                       key={sz}
-                      onClick={() => setSelectedSize(sz)}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase border transition-all !min-h-[40px] ${
+                      onClick={() => { setSelectedSize(sz); setSizeError(false); }}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase border transition-all !min-h-[40px] cursor-pointer ${
                         selectedSize === sz
-                          ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                          ? 'bg-slate-900 text-white border-slate-900 shadow-md scale-105'
                           : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
                       }`}
                     >

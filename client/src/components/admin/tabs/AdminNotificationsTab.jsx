@@ -181,6 +181,19 @@ export const AdminNotificationsTab = ({
               </button>
             )}
 
+            {onNavigateTab && (
+              <button
+                type="button"
+                id="btn-open-diagnostics"
+                onClick={() => onNavigateTab('diagnostics')}
+                className="px-3.5 py-2.5 rounded-xl bg-zinc-800/90 hover:bg-zinc-700 border border-amber-500/40 text-amber-300 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                title="View push permission, FCM token, PWA status, and live tester"
+              >
+                <Radio className="w-4 h-4 text-amber-400" />
+                <span>Push Diagnostics</span>
+              </button>
+            )}
+
             {/* Prominent Visible Push Notification Toggle Button */}
             <button
               type="button"

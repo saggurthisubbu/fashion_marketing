@@ -203,7 +203,11 @@ export async function registerAdminPushNotifications(authToken) {
     console.log('📲 [FCM] Received Genuine FCM Device Registration Token:', fcmToken);
 
     localStorage.setItem('quickfit_fcm_token', fcmToken);
+    localStorage.setItem('quickfit_fcm_token_synced_at', new Date().toISOString());
     localStorage.setItem('quickfit_notifications_enabled', 'true');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('quickfit_fcm_token_changed', { detail: { token: fcmToken } }));
+    }
 
     // 4. Send genuine token to backend API
     const deviceType = getDeviceType();
@@ -226,6 +230,135 @@ export async function registerAdminPushNotifications(authToken) {
   } catch (err) {
     console.error('❌ [FCM Registration Error]:', err.message);
     return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Refresh expired or rotating FCM Device Token and re-sync with server
+ * @param {string} authToken
+ * @returns {Promise<{success: boolean, token?: string, isNew?: boolean, error?: string}>}
+ */
+export async function refreshAdminFcmToken(authToken) {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return { success: false, error: 'Push notifications are not supported in this browser' };
+  }
+
+  try {
+    if (Notification.permission !== 'granted') {
+      return { success: false, error: 'Notification permission is not granted' };
+    }
+
+    const messaging = await getFirebaseMessaging();
+    if (!messaging) {
+      throw new Error('Firebase Messaging could not be initialized in this browser.');
+    }
+
+    let swRegistration = null;
+    if ('serviceWorker' in navigator) {
+      swRegistration = await navigator.serviceWorker.ready.catch(() => null);
+    }
+
+    const options = {
+      serviceWorkerRegistration: swRegistration || undefined
+    };
+    if (VAPID_KEY) {
+      options.vapidKey = VAPID_KEY;
+    }
+
+    const currentSavedToken = localStorage.getItem('quickfit_fcm_token');
+    const fcmToken = await getToken(messaging, options);
+
+    if (!fcmToken) {
+      throw new Error('Could not acquire fresh FCM device token.');
+    }
+
+    const isNew = currentSavedToken !== fcmToken;
+    const deviceType = getDeviceType();
+
+    localStorage.setItem('quickfit_fcm_token', fcmToken);
+    localStorage.setItem('quickfit_fcm_token_synced_at', new Date().toISOString());
+    localStorage.setItem('quickfit_notifications_enabled', 'true');
+
+    const tokenPayload = {
+      token: fcmToken,
+      oldToken: isNew ? currentSavedToken : undefined,
+      deviceType,
+      platform: navigator.platform || '',
+      userAgent: navigator.userAgent || ''
+    };
+
+    const tokenHeader = authToken || localStorage.getItem('quickfit_token');
+    if (tokenHeader) {
+      await axios.post(`${API_BASE_URL}/admin/notifications/fcm-token`, tokenPayload, {
+        headers: { Authorization: `Bearer ${tokenHeader}` }
+      });
+      console.log(`🔄 [FCM REFRESH] Token verified & synced with backend (${isNew ? 'Rotated New Token' : 'Existing Token Confirmed'})`);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('quickfit_fcm_token_changed', { detail: { token: fcmToken } }));
+    }
+
+    return { success: true, token: fcmToken, isNew, deviceType };
+  } catch (err) {
+    console.error('❌ [FCM Refresh Error]:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Record a received notification in localStorage for the diagnostics dashboard
+ */
+export function recordReceivedNotification(data) {
+  if (typeof window === 'undefined') return;
+  try {
+    const record = {
+      ...data,
+      receivedAt: new Date().toISOString(),
+      timestamp: Date.now()
+    };
+    localStorage.setItem('quickfit_last_notification', JSON.stringify(record));
+
+    let history = [];
+    try {
+      const existing = localStorage.getItem('quickfit_notification_history');
+      if (existing) history = JSON.parse(existing);
+      if (!Array.isArray(history)) history = [];
+    } catch { history = []; }
+
+    history.unshift(record);
+    if (history.length > 25) history = history.slice(0, 25);
+    localStorage.setItem('quickfit_notification_history', JSON.stringify(history));
+
+    window.dispatchEvent(new CustomEvent('quickfit_notification_received', { detail: record }));
+  } catch (e) {
+    console.warn('[FCM] recordReceivedNotification notice:', e.message);
+  }
+}
+
+/**
+ * Get the most recently received notification from storage
+ */
+export function getLastReceivedNotification() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('quickfit_last_notification');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get notification history from storage
+ */
+export function getNotificationHistory() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('quickfit_notification_history');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
   }
 }
 
@@ -391,6 +524,21 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
         payload: event.data?.payload
       };
 
+      // Record for diagnostics page and history
+      recordReceivedNotification({
+        orderId,
+        customerName: alertData.customerName,
+        customerPhone: alertData.customerPhone,
+        customerAddress: alertData.customerAddress,
+        itemsCount: alertData.itemsCount,
+        totalAmount: alertData.totalAmount,
+        paymentMethod: alertData.paymentMethod,
+        orderDate: alertData.orderDate,
+        title: `🔔 NEW ORDER: #${orderId}`,
+        body: `₹${alertData.totalAmount} from ${alertData.customerName}`,
+        source: 'Service Worker Background Push'
+      });
+
       foregroundCallbacks.forEach((cb) => {
         try {
           cb(alertData);
@@ -492,6 +640,21 @@ export async function setupForegroundFcmListener(onNewOrderCallback) {
           orderDate,
           payload
         };
+
+        // Record for diagnostics page and history
+        recordReceivedNotification({
+          orderId,
+          customerName,
+          customerPhone,
+          customerAddress,
+          itemsCount,
+          totalAmount,
+          paymentMethod,
+          orderDate,
+          title: urgentTitle,
+          body: urgentBody,
+          source: 'FCM Foreground Push'
+        });
 
         foregroundCallbacks.forEach((cb) => {
           try {

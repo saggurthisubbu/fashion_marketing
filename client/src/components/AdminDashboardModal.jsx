@@ -13,6 +13,7 @@ import { AdminInventoryTab } from './admin/tabs/AdminInventoryTab';
 import { AdminPaymentsTab } from './admin/tabs/AdminPaymentsTab';
 import { AdminAnalyticsTab } from './admin/tabs/AdminAnalyticsTab';
 import { AdminNotificationsTab } from './admin/tabs/AdminNotificationsTab';
+import { AdminDiagnosticsTab } from './admin/tabs/AdminDiagnosticsTab';
 import { AdminSettingsTab } from './admin/tabs/AdminSettingsTab';
 import { AdminStoresTab } from './admin/tabs/AdminStoresTab';
 import { AdminStoreOwnersTab } from './admin/tabs/AdminStoreOwnersTab';
@@ -22,6 +23,7 @@ import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 import { ProductImageCropperModal } from './admin/ProductImageCropperModal';
 import {
   registerAdminPushNotifications,
+  refreshAdminFcmToken,
   setupForegroundFcmListener,
   playOrderNotificationSound
 } from '../config/firebase';
@@ -212,7 +214,12 @@ export const AdminDashboardModal = () => {
     const syncTabFromUrl = () => {
       const search = window.location.search || '';
       const hash = window.location.hash || '';
-      if (search.includes('tab=orders') || search.includes('acceptOrder') || hash.includes('orders')) {
+      if (search.includes('tab=diagnostics') || hash.includes('diagnostics')) {
+        console.log('[NAV] Opening diagnostics tab from URL sync');
+        setActiveTab('diagnostics');
+      } else if (search.includes('tab=notifications') || hash.includes('notifications')) {
+        setActiveTab('notifications');
+      } else if (search.includes('tab=orders') || search.includes('acceptOrder') || hash.includes('orders')) {
         console.log('[ORDER NAV] Opening orders tab from URL sync');
         setActiveTab('orders');
       }
@@ -247,14 +254,21 @@ export const AdminDashboardModal = () => {
       if (typeof unsub === 'function') unsubscribe = unsub;
     });
 
-    // Auto-sync token if notification permission was already granted previously
+    // Auto-sync & refresh token if notification permission was already granted
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
       const activeToken = user?.token || adminToken || localStorage.getItem('quickfit_token');
-      registerAdminPushNotifications(activeToken)
+      // Requirement 6: Refresh expired FCM tokens & keep backend updated
+      refreshAdminFcmToken(activeToken)
         .then((res) => {
           if (res?.success) setIsPushEnabled(true);
         })
-        .catch(() => {});
+        .catch(() => {
+          registerAdminPushNotifications(activeToken)
+            .then((res) => {
+              if (res?.success) setIsPushEnabled(true);
+            })
+            .catch(() => {});
+        });
     }
 
     return () => {
@@ -327,6 +341,19 @@ export const AdminDashboardModal = () => {
       setAdminToken(res.data.token);
       localStorage.setItem('quickfit_user', JSON.stringify(res.data));
       localStorage.setItem('quickfit_token', res.data.token);
+
+      // Requirement 5: Automatically register FCM token after login
+      if (res.data.role === 'admin' || res.data.role === 'store_owner') {
+        registerAdminPushNotifications(res.data.token)
+          .then((fcmRes) => {
+            if (fcmRes?.success) {
+              console.log('✅ [FCM] Automatically registered device token after login');
+              setIsPushEnabled(true);
+            }
+          })
+          .catch((fcmErr) => console.warn('⚠️ [FCM] Auto-registration notice on login:', fcmErr.message));
+      }
+
       showToast(res.data.role === 'store_owner' ? `Authenticated! Welcome Store Manager ${res.data.name} 🔓` : `Admin Authenticated! Welcome ${res.data.name} 🔓`);
       await loadAllAdminData();
     } catch (err) {
@@ -913,6 +940,8 @@ export const AdminDashboardModal = () => {
           onClose={() => setIsAdminOpen(false)}
           onOpenAddProduct={handleOpenAddProduct}
           adminUser={user || { name: 'Admin', email: 'admin@quickfit.com' }}
+          authToken={user?.token || adminToken || localStorage.getItem('quickfit_token')}
+          showToast={showToast}
           counts={{
             orders: ordersList.length,
             products: currentProducts.length,
@@ -1029,6 +1058,15 @@ export const AdminDashboardModal = () => {
               isRegisteringPush={isRegisteringPush}
               onEnablePush={handleEnablePushNotifications}
               onTestPush={handleTestPushNotification}
+            />
+          )}
+
+          {activeTab === 'diagnostics' && (
+            <AdminDiagnosticsTab
+              onNavigateTab={(tab) => setActiveTab(tab)}
+              API_BASE_URL={API_BASE_URL}
+              token={user?.token || adminToken || localStorage.getItem('quickfit_token')}
+              showToast={showToast}
             />
           )}
 

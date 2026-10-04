@@ -10,7 +10,7 @@ import { Notification } from '../models/Notification.js';
 import { Store } from '../models/Store.js';
 import { DeviceToken } from '../models/DeviceToken.js';
 import { protect, adminOnly, storeOwnerOrAdmin } from '../middleware/auth.js';
-import { sendFcmOrderNotification } from '../services/fcmService.js';
+import { sendFcmOrderNotification, getFcmStatus } from '../services/fcmService.js';
 
 const router = express.Router();
 
@@ -687,10 +687,10 @@ router.put('/notifications/read-all', protect, storeOwnerOrAdmin, async (req, re
   }
 });
 
-// Register FCM Device Token for Push Notifications (Android, iOS & Web)
+// Register or Refresh FCM Device Token for Push Notifications (Android, iOS & Web)
 router.post('/notifications/fcm-token', protect, storeOwnerOrAdmin, async (req, res) => {
   try {
-    const { token, deviceType, userAgent, platform } = req.body;
+    const { token, oldToken, deviceType, userAgent, platform } = req.body;
     if (!token) {
       return res.status(400).json({ message: 'Device token is required' });
     }
@@ -699,6 +699,12 @@ router.post('/notifications/fcm-token', protect, storeOwnerOrAdmin, async (req, 
       /iphone|ipad|ipod/i.test(userAgent || '') ? 'ios' :
       /android/i.test(userAgent || '') ? 'android' : 'web'
     );
+
+    // If an old token is being rotated/refreshed, remove it first
+    if (oldToken && oldToken !== token) {
+      await DeviceToken.deleteOne({ token: oldToken });
+      console.log('🔄 [FCM TOKEN ROTATE] Removed replaced token from registry');
+    }
 
     const updated = await DeviceToken.findOneAndUpdate(
       { token },
@@ -719,6 +725,59 @@ router.post('/notifications/fcm-token', protect, storeOwnerOrAdmin, async (req, 
     res.json({ success: true, message: 'FCM device token registered successfully', device: updated });
   } catch (error) {
     console.error('[FCM Token Register Error]:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Admin Notification & FCM Device Diagnostics
+router.get('/notifications/diagnostics', protect, storeOwnerOrAdmin, async (req, res) => {
+  try {
+    const fcmStatus = getFcmStatus();
+    const allTokens = await DeviceToken.find({ role: { $in: ['admin', 'store_owner'] } })
+      .populate('userId', 'name email role')
+      .sort({ lastActive: -1 });
+
+    const totalCount = allTokens.length;
+    const androidCount = allTokens.filter(t => t.deviceType === 'android').length;
+    const iosCount = allTokens.filter(t => t.deviceType === 'ios').length;
+    const webCount = allTokens.filter(t => t.deviceType === 'web').length;
+
+    // Mask tokens for secure display
+    const sanitizedDevices = allTokens.map(t => {
+      const fullToken = t.token || '';
+      const maskedToken = fullToken.length > 20
+        ? `${fullToken.slice(0, 10)}...${fullToken.slice(-10)}`
+        : fullToken;
+
+      return {
+        _id: t._id,
+        deviceType: t.deviceType,
+        platform: t.platform,
+        userAgent: t.userAgent,
+        lastActive: t.lastActive,
+        createdAt: t.createdAt,
+        role: t.role,
+        userName: t.userId?.name || 'Administrator',
+        userEmail: t.userId?.email || '',
+        maskedToken,
+        tokenLength: fullToken.length
+      };
+    });
+
+    res.json({
+      success: true,
+      fcm: fcmStatus,
+      stats: {
+        total: totalCount,
+        android: androidCount,
+        ios: iosCount,
+        web: webCount
+      },
+      devices: sanitizedDevices,
+      serverTime: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[FCM Diagnostics Error]:', error.message);
     res.status(500).json({ message: error.message });
   }
 });

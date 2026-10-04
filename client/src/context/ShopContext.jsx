@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import axios from 'axios';
 import { API_BASE_URL, API_ORIGIN, resolveImageUrl } from '../config/api';
 import { checkDeliveryAvailability } from '../utils/deliveryRadius';
+import { registerAdminPushNotifications } from '../config/firebase';
 
 const ShopContext = createContext();
 
@@ -529,6 +530,14 @@ export const ShopProvider = ({ children }) => {
       setToken(res.data.token);
       localStorage.setItem('quickfit_user', JSON.stringify(res.data));
       localStorage.setItem('quickfit_token', res.data.token);
+
+      // Requirement 5: Automatically register FCM token after login
+      if (res.data.role === 'admin' || res.data.role === 'store_owner') {
+        registerAdminPushNotifications(res.data.token).catch((err) => {
+          console.warn('[FCM] Auto-register on login notice:', err?.message);
+        });
+      }
+
       showToast(`Welcome back, ${res.data.name}! 👋`);
       return res.data;
     } catch (err) {

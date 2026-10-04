@@ -87,12 +87,12 @@ export const UrgentOrderAlertModal = ({
   return (
     <div
       id="urgent-order-alert-backdrop"
-      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-5 bg-black/90 backdrop-blur-md animate-in fade-in duration-200 select-none"
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-0 sm:p-5 bg-black/95 backdrop-blur-xl animate-in fade-in duration-200 select-none"
     >
       {/* Outer Glow Card */}
       <div
         id="urgent-order-alert-card"
-        className="relative w-full max-w-xl overflow-hidden rounded-3xl bg-zinc-950 border-2 border-red-500 shadow-[0_0_80px_rgba(239,68,68,0.6)] text-white max-h-[94vh] flex flex-col"
+        className="relative w-full h-full sm:h-auto sm:max-h-[94vh] max-w-xl overflow-hidden rounded-none sm:rounded-3xl bg-zinc-950 border-0 sm:border-2 border-red-500 shadow-[0_0_100px_rgba(239,68,68,0.7)] text-white flex flex-col"
       >
         {/* Urgent Pulsing Banner Top */}
         <div className="bg-gradient-to-r from-red-600 via-amber-500 to-red-600 px-5 sm:px-6 py-3.5 flex items-center justify-between text-zinc-950 font-black shrink-0">

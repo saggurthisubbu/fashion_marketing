@@ -21,8 +21,10 @@ import {
   X,
   Menu,
   Store,
-  UserCog
+  UserCog,
+  Activity
 } from 'lucide-react';
+import { AdminDeliveryEnforcement } from './AdminDeliveryEnforcement';
 
 export const AdminLayout = ({
   activeTab,
@@ -38,6 +40,8 @@ export const AdminLayout = ({
   onMarkAllNotificationsRead,
   globalSearchQuery = '',
   setGlobalSearchQuery = () => {},
+  authToken = '',
+  showToast = () => {},
   children
 }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -60,12 +64,13 @@ export const AdminLayout = ({
     { id: 'payments', label: 'Payments', icon: CreditCard, badge: null },
     { id: 'analytics', label: 'Analytics', icon: TrendingUp, badge: null },
     { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadNotifsCount || null, badgeColor: 'bg-red-500/20 text-red-300 border-red-500/30' },
+    { id: 'diagnostics', label: 'Push Diagnostics', icon: Activity, badge: null },
     { id: 'settings', label: 'Settings', icon: Settings, badge: null }
   ];
 
   const menuItems = allMenuItems.filter(item => {
     if (isStoreOwner) {
-      return ['dashboard', 'orders', 'products', 'categories', 'inventory', 'analytics', 'notifications'].includes(item.id);
+      return ['dashboard', 'orders', 'products', 'categories', 'inventory', 'analytics', 'notifications', 'diagnostics'].includes(item.id);
     }
     return true;
   });
@@ -493,6 +498,13 @@ export const AdminLayout = ({
 
           </div>
         </header>
+
+        {/* REAL DELIVERY APP ENFORCEMENT & WARNING BANNERS */}
+        <AdminDeliveryEnforcement
+          authToken={authToken}
+          onNavigateTab={handleSelectTab}
+          showToast={showToast}
+        />
 
         {/* MAIN BODY AREA */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-zinc-950 space-y-6">

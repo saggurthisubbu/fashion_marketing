@@ -91,6 +91,18 @@ function initFirebaseAdmin() {
 initFirebaseAdmin();
 
 /**
+ * Get current FCM Admin SDK initialization status and configuration mode
+ */
+export function getFcmStatus() {
+  const initialized = initFirebaseAdmin();
+  return {
+    initialized,
+    mode: initialized ? 'live' : 'mock/preview',
+    projectId: process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || 'quickfit-notifications'
+  };
+}
+
+/**
  * Send instant FCM push notification to all admin and store-owner devices
  * Supports Android phones, iOS devices (Safari PWA/APNs), and desktop browsers
  *
@@ -133,7 +145,7 @@ export async function sendFcmOrderNotification(order) {
       return { success: false, reason: 'no_registered_tokens' };
     }
 
-    const tokens = tokensDocs.map(t => t.token).filter(Boolean);
+    const tokens = [...new Set(tokensDocs.map(t => t.token).filter(Boolean))];
     console.log(`📲 [FCM] Found ${tokens.length} registered device token(s) (Android / iOS / Web).`);
 
     const initialized = initFirebaseAdmin();

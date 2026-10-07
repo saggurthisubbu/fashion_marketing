@@ -45,7 +45,8 @@ const MainApp = () => {
   const {
     isAdminOpen, setIsAdminOpen, user, token,
     checkoutRedirectPending, setCheckoutRedirectPending, setIsCheckoutOpen,
-    API_BASE_URL
+    API_BASE_URL,
+    products = [], selectedProduct, openProductDetail, setIsDetailModalOpen, isDetailModalOpen
   } = useShop();
   const [currentPath, setCurrentPath] = React.useState(() => window.location.pathname.toLowerCase());
   const [urgentOrderQueue, setUrgentOrderQueue] = React.useState([]);
@@ -239,6 +240,21 @@ const MainApp = () => {
       }
     }
   }, [isAdminOpen, isAdminAuthenticated, isAuthenticated]);
+
+  // Handle direct navigation or deep link to /product/:id
+  useEffect(() => {
+    if (currentPath.startsWith('/product/') && products.length > 0) {
+      const pid = currentPath.replace(/^\/product\/?/, '').replace(/\/$/, '');
+      if (pid) {
+        const matched = products.find((p) => String(p._id || p.id).toLowerCase() === pid.toLowerCase());
+        if (matched) {
+          if (!selectedProduct || String(selectedProduct._id || selectedProduct.id) !== String(matched._id || matched.id)) {
+            openProductDetail(matched);
+          }
+        }
+      }
+    }
+  }, [currentPath, products, selectedProduct, openProductDetail]);
 
   const handleCloseAuth = () => {
     window.history.replaceState({ modal: 'home' }, '', '/');

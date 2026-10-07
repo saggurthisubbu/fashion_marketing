@@ -1,11 +1,29 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ZoomIn, ZoomOut } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { ZoomIn, ZoomOut, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
 import { formatQuickFitWhatsAppOrder } from '../utils/whatsapp';
 import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE, handleImageError } from '../config/api';
+import { getCategoryGroup, getCategoryGroupLabel, getSimilarProducts } from '../utils/categoryMatching';
 
 export const ProductDetailModal = () => {
-  const { selectedProduct, isDetailModalOpen, setIsDetailModalOpen, addToCart, buyNow, showToast, verifiedLocation, userLocation } = useShop();
+  const {
+    selectedProduct,
+    setSelectedProduct,
+    isDetailModalOpen,
+    setIsDetailModalOpen,
+    products = [],
+    openProductDetail,
+    addToCart,
+    buyNow,
+    showToast,
+    verifiedLocation,
+    userLocation,
+    toggleWishlist,
+    isInWishlist
+  } = useShop();
+
+  const modalContainerRef = useRef(null);
+  const carouselRef = useRef(null);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedSize, setSelectedSize] = useState('');
@@ -31,6 +49,14 @@ export const ProductDetailModal = () => {
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
 
+  // Strict category group identification & similar products (4 to 8 items, excluding current)
+  const categoryGroup = useMemo(() => getCategoryGroup(selectedProduct), [selectedProduct]);
+  const categoryLabel = useMemo(() => getCategoryGroupLabel(categoryGroup), [categoryGroup]);
+
+  const similarProducts = useMemo(() => {
+    return getSimilarProducts(selectedProduct, products, 8);
+  }, [selectedProduct, products]);
+
   // Compute available 4-angle views with resolved URLs
   const angleViews = selectedProduct ? [
     { key: 'front', label: 'Front View', badge: 'FRONT', url: resolveImageUrl(selectedProduct.images?.front || selectedProduct.image) },
@@ -39,7 +65,7 @@ export const ProductDetailModal = () => {
     { key: 'right', label: 'Right Side View', badge: 'RIGHT', url: selectedProduct.images?.right ? resolveImageUrl(selectedProduct.images.right) : null }
   ].filter(v => Boolean(v.url)) : [];
 
-  // Reset state when selectedProduct changes
+  // Reset state and scroll to top when selectedProduct changes
   useEffect(() => {
     if (selectedProduct) {
       setCurrentIndex(0);
@@ -55,8 +81,37 @@ export const ProductDetailModal = () => {
       if (loc?.lat && loc?.lng) {
         setGpsLocation(`https://www.google.com/maps?q=${loc.lat},${loc.lng}`);
       }
+
+      // Scroll modal container smoothly to top so the selected product is displayed at the top
+      if (modalContainerRef.current) {
+        modalContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     }
   }, [selectedProduct, verifiedLocation, userLocation]);
+
+  const handleCloseModal = () => {
+    setIsDetailModalOpen(false);
+    if (window.location.pathname.startsWith('/product')) {
+      window.history.pushState({ modal: 'home' }, '', '/');
+    }
+  };
+
+  const handleSelectSimilarProduct = (prod) => {
+    if (typeof openProductDetail === 'function') {
+      openProductDetail(prod);
+    } else {
+      setSelectedProduct(prod);
+    }
+    if (modalContainerRef.current) {
+      modalContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const scrollCarousel = (direction) => {
+    if (!carouselRef.current) return;
+    const amount = direction === 'left' ? -260 : 260;
+    carouselRef.current.scrollBy({ left: amount, behavior: 'smooth' });
+  };
 
   // Keyboard navigation (Arrow keys & Escape)
   useEffect(() => {
@@ -67,7 +122,7 @@ export const ProductDetailModal = () => {
         if (isQuickOrderOpen) {
           setIsQuickOrderOpen(false);
         } else {
-          setIsDetailModalOpen(false);
+          handleCloseModal();
         }
       } else if (e.key === 'ArrowRight' && angleViews.length > 1) {
         setIsZoomed(false);
@@ -82,7 +137,7 @@ export const ProductDetailModal = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isDetailModalOpen, angleViews.length, isQuickOrderOpen, setIsDetailModalOpen]);
+  }, [isDetailModalOpen, angleViews.length, isQuickOrderOpen]);
 
   if (!isDetailModalOpen || !selectedProduct) return null;
 
@@ -274,19 +329,24 @@ export const ProductDetailModal = () => {
       ></div>
 
       {/* MODAL CONTAINER */}
-      <div className="relative w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden z-10 grid grid-cols-1 md:grid-cols-12 max-h-[94vh] overflow-y-auto animate-in zoom-in-95 duration-300 border border-slate-200">
+      <div
+        ref={modalContainerRef}
+        className="relative w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden z-10 max-h-[94vh] overflow-y-auto animate-in zoom-in-95 duration-300 border border-slate-200 flex flex-col"
+      >
         
         {/* CLOSE BUTTON */}
         <button
-          onClick={() => setIsDetailModalOpen(false)}
-          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-30 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900/80 hover:bg-black text-white font-bold flex items-center justify-center transition-colors shadow-md !min-h-[36px]"
+          onClick={handleCloseModal}
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-30 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900/80 hover:bg-black text-white font-bold flex items-center justify-center transition-colors shadow-md !min-h-[36px] cursor-pointer"
           title="Close Modal (Esc)"
         >
           ✕
         </button>
 
-        {/* LEFT COLUMN: 4-ANGLE INTERACTIVE GALLERY (COL-SPAN-7) */}
-        <div className="md:col-span-7 p-4 sm:p-6 bg-slate-50 flex flex-col justify-between space-y-4 border-b md:border-b-0 md:border-r border-slate-200">
+        {/* TOP SECTION: SELECTED PRODUCT DISPLAY (GALLERY & DETAILS) */}
+        <div className="grid grid-cols-1 md:grid-cols-12 w-full">
+          {/* LEFT COLUMN: 4-ANGLE INTERACTIVE GALLERY (COL-SPAN-7) */}
+          <div className="md:col-span-7 p-4 sm:p-6 bg-slate-50 flex flex-col justify-between space-y-4 border-b md:border-b-0 md:border-r border-slate-200">
           
           {/* MAIN IMAGE DISPLAY WITH ARROWS, MANUAL ZOOM & MOBILE PINCH */}
           <div
@@ -568,8 +628,181 @@ export const ProductDetailModal = () => {
           </div>
 
         </div>
-
+        {/* END TOP SECTION: PRODUCT DISPLAY GRID */}
       </div>
+
+      {/* ── BOTTOM SECTION: SIMILAR PRODUCTS ── */}
+      <div className="border-t border-slate-200 bg-slate-50/80 p-4 sm:p-6 lg:p-8 w-full">
+        <div className="max-w-full">
+          {/* SECTION HEADER */}
+          <div className="flex items-end justify-between mb-4 pb-2 border-b border-slate-200/80">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-slate-400">
+                  Curated Collection
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-slate-900 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider">
+                  {categoryLabel}
+                </span>
+              </div>
+              <h3 className="text-lg sm:text-2xl font-black text-slate-900 font-heading uppercase tracking-tight flex items-center gap-2">
+                <span>Similar Products</span>
+                {similarProducts.length > 0 && (
+                  <span className="text-xs sm:text-sm font-bold text-slate-400 normal-case">
+                    ({similarProducts.length} related)
+                  </span>
+                )}
+              </h3>
+            </div>
+
+            {/* DESKTOP CAROUSEL CONTROLS */}
+            {similarProducts.length > 3 && (
+              <div className="hidden sm:flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => scrollCarousel('left')}
+                  className="w-9 h-9 rounded-full bg-white border border-slate-200 hover:border-slate-900 hover:bg-slate-900 hover:text-white text-slate-700 flex items-center justify-center transition-all shadow-xs cursor-pointer active:scale-95"
+                  title="Previous Similar Products"
+                  aria-label="Previous Similar Products"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollCarousel('right')}
+                  className="w-9 h-9 rounded-full bg-white border border-slate-200 hover:border-slate-900 hover:bg-slate-900 hover:text-white text-slate-700 flex items-center justify-center transition-all shadow-xs cursor-pointer active:scale-95"
+                  title="Next Similar Products"
+                  aria-label="Next Similar Products"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* SIMILAR PRODUCTS LIST / HORIZONTAL SCROLL CAROUSEL */}
+          {similarProducts.length === 0 ? (
+            <div className="text-center py-8 px-4 rounded-2xl bg-white border border-slate-200">
+              <p className="text-xs sm:text-sm font-bold text-slate-500 uppercase tracking-wider">
+                No other {categoryLabel} available right now.
+              </p>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Check back soon for new arrivals in this collection!
+              </p>
+            </div>
+          ) : (
+            <div
+              ref={carouselRef}
+              className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth pb-3 pt-1 gap-3 sm:gap-4 no-scrollbar -mx-1 px-1 touch-pan-x"
+              style={{
+                scrollSnapType: 'x mandatory',
+                WebkitOverflowScrolling: 'touch'
+              }}
+            >
+              {similarProducts.map((item) => {
+                const itemFront = resolveImageUrl(
+                  item.images?.front || item.image || item.imageUrl || ''
+                );
+                const isSaved = isInWishlist(item.id || item._id);
+
+                return (
+                  <div
+                    key={item._id || item.id}
+                    onClick={() => handleSelectSimilarProduct(item)}
+                    className="snap-start shrink-0 w-[170px] xs:w-[190px] sm:w-[210px] md:w-[220px] group bg-white rounded-2xl overflow-hidden border border-slate-200/90 hover:border-slate-900 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between cursor-pointer select-none"
+                  >
+                    {/* IMAGE CONTAINER (3:4 PORTRAIT) */}
+                    <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-100 shrink-0">
+                      {/* WISHLIST BUTTON */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleWishlist(item);
+                        }}
+                        className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5 z-10 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center border border-black/5 shadow-xs hover:bg-white active:scale-90 transition-transform cursor-pointer"
+                        title={isSaved ? 'Remove from Wishlist' : 'Save to Wishlist'}
+                        aria-label={isSaved ? 'Remove from Wishlist' : 'Save to Wishlist'}
+                      >
+                        <Heart
+                          className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-colors ${
+                            isSaved
+                              ? 'fill-rose-500 stroke-rose-500'
+                              : 'stroke-slate-700 hover:stroke-black fill-transparent'
+                          }`}
+                          strokeWidth={2}
+                        />
+                      </button>
+
+                      {/* SUBCATEGORY MICRO-BADGE */}
+                      {item.subcategory && (
+                        <span className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-full bg-slate-900/85 backdrop-blur-xs text-white text-[8px] sm:text-[9px] font-black uppercase tracking-wider max-w-[68%] truncate">
+                          {item.subcategory}
+                        </span>
+                      )}
+
+                      {/* PRODUCT IMAGE */}
+                      <img
+                        src={itemFront}
+                        alt={item.name}
+                        loading="lazy"
+                        decoding="async"
+                        onError={(e) => handleImageError(e, DEFAULT_PLACEHOLDER_IMAGE)}
+                        className="w-full h-full object-cover object-top product-image-hd group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </div>
+
+                    {/* PRODUCT CONTENT */}
+                    <div className="p-3 sm:p-3.5 flex flex-col flex-1 justify-between min-w-0">
+                      <div>
+                        {/* PRODUCT TITLE (2 LINES CLAMP) */}
+                        <div className="min-h-[2.25rem] sm:min-h-[2.5rem] flex items-start overflow-hidden">
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 line-clamp-2 font-heading leading-tight group-hover:text-slate-700 transition-colors">
+                            {item.name}
+                          </h4>
+                        </div>
+
+                        {/* PRICE & DISCOUNT */}
+                        <div className="mt-1.5 flex items-baseline gap-1.5 flex-wrap">
+                          <span className="text-sm sm:text-base font-black text-slate-900 font-heading shrink-0">
+                            ₹{item.price}
+                          </span>
+                          {item.originalPrice && item.originalPrice > item.price && (
+                            <span className="text-[10px] sm:text-xs text-slate-400 line-through font-medium">
+                              ₹{item.originalPrice}
+                            </span>
+                          )}
+                          {item.discount && (
+                            <span className="px-1.5 py-0.2 rounded bg-slate-900 text-white text-[8px] sm:text-[9px] font-black uppercase">
+                              {item.discount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* VIEW DETAILS ACTION BUTTON */}
+                      <div className="pt-2 sm:pt-2.5 mt-auto w-full">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectSimilarProduct(item);
+                          }}
+                          className="w-full h-8 sm:h-8.5 rounded-xl bg-slate-900 hover:bg-black text-white text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer select-none active:scale-98 shadow-xs"
+                        >
+                          <span>View Details</span>
+                          <span>➔</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
 
       {/* QUICK WHATSAPP ORDER POPUP WITH GPS LOCATION */}
       {isQuickOrderOpen && (

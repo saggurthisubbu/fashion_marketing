@@ -754,11 +754,16 @@ export const ShopProvider = ({ children }) => {
   const cartGrandTotal = Math.max(0, cartSubtotal - discountAmount + (cart.length > 0 ? deliveryFee : 0));
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Quick View Modal
-  const openProductDetail = (product) => {
+  // Quick View / Product Details Modal
+  const openProductDetail = useCallback((product) => {
+    if (!product) return;
     setSelectedProduct(product);
     setIsDetailModalOpen(true);
-  };
+    const pid = String(product._id || product.id || '');
+    if (pid && !window.location.pathname.toLowerCase().includes(`/product/${pid.toLowerCase()}`)) {
+      window.history.pushState({ modal: 'product', id: pid }, '', `/product/${pid}`);
+    }
+  }, []);
 
   // Instant local product sync for admin additions/edits without page refresh
   const addOrUpdateProductLocally = useCallback((newOrUpdatedProduct) => {

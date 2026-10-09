@@ -171,3 +171,32 @@ img {
   -webkit-backface-visibility: hidden;
 }
 
+/* ==========================================================================
+   PREMIUM HERO 3D PRODUCT SHOWCASE CAROUSEL
+   Hardware-accelerated 3D card stack transforms, smooth easing, and
+   reduced-motion accessibility.
+   ========================================================================== */
+.hero-carousel-stage {
+  perspective: 1200px;
+  perspective-origin: center center;
+  transform-style: preserve-3d;
+}
+
+.hero-carousel-card {
+  transition: transform 650ms cubic-bezier(0.25, 1, 0.5, 1),
+              opacity 650ms cubic-bezier(0.25, 1, 0.5, 1),
+              box-shadow 650ms cubic-bezier(0.25, 1, 0.5, 1),
+              filter 650ms cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform-origin: center center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-carousel-card {
+    transition: opacity 300ms ease !important;
+    transform: none !important;
+  }
+}
+

@@ -13,7 +13,8 @@ const settingSchema = new mongoose.Schema({
   taxPercent: { type: Number, default: 5 },
   expressDeliveryTime: { type: String, default: '45-60 Mins' },
   liveTrackingEnabled: { type: Boolean, default: true },
-  maintenanceMode: { type: Boolean, default: false }
+  maintenanceMode: { type: Boolean, default: false },
+  heroShowcaseProductIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }]
 }, { timestamps: true });
 
 export const Setting = mongoose.model('Setting', settingSchema);

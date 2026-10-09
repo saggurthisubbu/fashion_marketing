@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { Product } from '../models/Product.js';
 import { protect, adminOnly, storeOwnerOrAdmin } from '../middleware/auth.js';
 import { Store } from '../models/Store.js';
+import { Setting } from '../models/Setting.js';
 import { findAllNearbyStores, findClosestStore } from '../utils/geoUtils.js';
 
 const router = express.Router();
@@ -172,6 +173,44 @@ router.get('/nearby', async (req, res) => {
     });
   } catch (error) {
     console.error('[NEARBY ERROR]:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Get public hero showcase products (Public)
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/showcase', async (req, res) => {
+  try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+
+    const setting = await Setting.findOne({});
+    if (setting && Array.isArray(setting.heroShowcaseProductIds)) {
+      const showcaseIds = setting.heroShowcaseProductIds.map(id => id.toString());
+      if (showcaseIds.length === 0) {
+        // Admin explicitly selected 0 products -> return clean empty array
+        return res.json([]);
+      }
+      const dbProds = await Product.find({
+        _id: { $in: showcaseIds },
+        isActive: { $ne: false },
+        published: { $ne: false }
+      });
+      // Maintain admin selection order
+      const prodMap = new Map(dbProds.map(p => [p._id.toString(), p]));
+      const prods = showcaseIds.map(id => prodMap.get(id)).filter(Boolean);
+      return res.json(prods);
+    }
+
+    const prods = await Product.find({
+      isHeroShowcase: true,
+      isActive: { $ne: false },
+      published: { $ne: false }
+    }).sort({ createdAt: -1 });
+
+    res.json(prods);
+  } catch (error) {
+    console.error('❌ [Product Showcase GET Error]:', error.message);
     res.status(500).json({ message: error.message });
   }
 });

@@ -22,7 +22,8 @@ import {
   Menu,
   Store,
   UserCog,
-  Activity
+  Activity,
+  Sparkles
 } from 'lucide-react';
 import { AdminDeliveryEnforcement } from './AdminDeliveryEnforcement';
 
@@ -55,6 +56,7 @@ export const AdminLayout = ({
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
     { id: 'orders', label: 'Orders', icon: Package, badge: counts.orders || null },
     { id: 'products', label: 'Products', icon: ShoppingBag, badge: counts.products || null },
+    { id: 'showcase', label: 'Home Page Showcase', icon: Sparkles, badge: null },
     { id: 'categories', label: 'Categories', icon: Tags, badge: counts.categories || null },
     { id: 'customers', label: 'Customers', icon: Users, badge: counts.customers || null },
     { id: 'delivery', label: 'Delivery Partners', icon: Truck, badge: counts.delivery || null },

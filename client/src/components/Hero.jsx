@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import axios from 'axios';
 import { useShop } from '../context/ShopContext';
 import { resolveImageUrl, handleImageError, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export const Hero = () => {
-  const { setSelectedCategory, products, openProductDetail } = useShop();
+  const { setSelectedCategory, products, openProductDetail, API_BASE_URL } = useShop();
 
   const handleShopNow = () => {
     setSelectedCategory('All');
@@ -21,30 +22,47 @@ export const Hero = () => {
     }
   };
 
-  // 1. Curate real showcase products from the existing database
-  const showcaseProducts = useMemo(() => {
-    if (!products || products.length === 0) return [];
-    const valid = products.filter((p) => p && (p.images?.front || p.image));
-    if (valid.length <= 6) return valid;
+  // 1. Live Hero Showcase products selected by the Admin
+  const [customShowcase, setCustomShowcase] = useState(null);
 
-    // Pick a balanced, premium selection across real subcategories
-    const seenCategories = new Set();
-    const curated = [];
-    for (const p of valid) {
-      const cat = p.subcategory || 'General';
-      if (!seenCategories.has(cat)) {
-        seenCategories.add(cat);
-        curated.push(p);
+  const loadShowcase = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_BASE_URL}/products/showcase`, {
+        params: { _t: Date.now() },
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      if (Array.isArray(res.data)) {
+        setCustomShowcase(res.data);
       }
+    } catch (err) {
+      console.warn('Could not fetch /products/showcase directly:', err.message);
     }
-    for (const p of valid) {
-      if (curated.length >= 6) break;
-      if (!curated.some((c) => c._id === p._id)) {
-        curated.push(p);
-      }
+  }, [API_BASE_URL]);
+
+  useEffect(() => {
+    loadShowcase();
+    const handleUpdate = () => {
+      loadShowcase();
+    };
+    window.addEventListener('quickfit_showcase_updated', handleUpdate);
+    window.addEventListener('quickfit_products_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('quickfit_showcase_updated', handleUpdate);
+      window.removeEventListener('quickfit_products_updated', handleUpdate);
+    };
+  }, [loadShowcase]);
+
+  // Curate showcase products:
+  // If customShowcase is loaded, strictly use admin's selection.
+  // Otherwise fallback to products where isHeroShowcase is true.
+  const showcaseProducts = useMemo(() => {
+    if (customShowcase !== null) {
+      return customShowcase.filter((p) => p && (p.images?.front || p.image));
     }
-    return curated;
-  }, [products]);
+    if (!products || products.length === 0) return [];
+    const selected = products.filter((p) => p && p.isHeroShowcase && (p.images?.front || p.image));
+    return selected;
+  }, [customShowcase, products]);
 
   const hasCarousel = showcaseProducts.length >= 2;
   const singleProduct = showcaseProducts[0] || (products.length > 0 ? products[0] : null);
@@ -56,6 +74,14 @@ export const Hero = () => {
 
   // 2. Carousel state management
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Reset index if it exceeds the new showcase items length
+  useEffect(() => {
+    if (currentIndex >= showcaseProducts.length && showcaseProducts.length > 0) {
+      setCurrentIndex(0);
+    }
+  }, [showcaseProducts.length, currentIndex]);
+
   const [isHovered, setIsHovered] = useState(false);
   const [isInteracting, setIsInteracting] = useState(false);
   const [isPageVisible, setIsPageVisible] = useState(true);

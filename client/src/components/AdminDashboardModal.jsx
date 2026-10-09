@@ -17,6 +17,7 @@ import { AdminDiagnosticsTab } from './admin/tabs/AdminDiagnosticsTab';
 import { AdminSettingsTab } from './admin/tabs/AdminSettingsTab';
 import { AdminStoresTab } from './admin/tabs/AdminStoresTab';
 import { AdminStoreOwnersTab } from './admin/tabs/AdminStoreOwnersTab';
+import { AdminShowcaseTab } from './admin/tabs/AdminShowcaseTab';
 import { AdminErrorBoundary } from './admin/AdminErrorBoundary';
 import { Camera, X, Upload, Crop } from 'lucide-react';
 import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
@@ -992,6 +993,16 @@ export const AdminDashboardModal = () => {
               onOpenEditProduct={handleOpenEditProduct}
               onDeleteProduct={handleDeleteProduct}
               onToggleProductStock={handleToggleProductStock}
+            />
+          )}
+
+          {activeTab === 'showcase' && (
+            <AdminShowcaseTab
+              productsList={productsList}
+              API_BASE_URL={API_BASE_URL}
+              token={user?.token || token || localStorage.getItem('quickfit_token')}
+              showToast={showToast}
+              onRefresh={loadAllAdminData}
             />
           )}
 

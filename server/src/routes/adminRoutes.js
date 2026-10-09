@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
 import { Product } from '../models/Product.js';
@@ -1179,4 +1180,74 @@ router.get('/stores', protect, storeOwnerOrAdmin, async (req, res) => {
   }
 });
 
+// ==========================================
+// HOME PAGE SHOWCASE MANAGEMENT (ADMIN ONLY)
+// ==========================================
+// GET /api/admin/showcase - Get all products and current showcase selection
+router.get('/showcase', protect, adminOnly, async (req, res) => {
+  try {
+    const products = await Product.find({}).sort({ createdAt: -1 });
+    let setting = await Setting.findOne({});
+    const showcaseIds = (setting?.heroShowcaseProductIds || []).map(id => id.toString());
+
+    // Also include any products marked isHeroShowcase: true
+    const productShowcaseIds = products
+      .filter(p => p.isHeroShowcase)
+      .map(p => p._id.toString());
+
+    const mergedIds = Array.from(new Set([...showcaseIds, ...productShowcaseIds]));
+
+    res.json({
+      products,
+      showcaseProductIds: mergedIds
+    });
+  } catch (error) {
+    console.error('❌ [Admin Showcase GET Error]:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// PUT /api/admin/showcase - Save hero showcase product selections
+router.put('/showcase', protect, adminOnly, async (req, res) => {
+  try {
+    const { showcaseProductIds = [] } = req.body;
+    if (!Array.isArray(showcaseProductIds)) {
+      return res.status(400).json({ message: 'showcaseProductIds must be an array' });
+    }
+
+    const validObjectIds = showcaseProductIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+
+    // 1. Reset isHeroShowcase on all products
+    await Product.updateMany({}, { $set: { isHeroShowcase: false } });
+
+    // 2. Set isHeroShowcase: true on selected products
+    if (validObjectIds.length > 0) {
+      await Product.updateMany(
+        { _id: { $in: validObjectIds } },
+        { $set: { isHeroShowcase: true } }
+      );
+    }
+
+    // 3. Save ordered IDs to Setting
+    let setting = await Setting.findOne({});
+    if (!setting) {
+      setting = new Setting({});
+    }
+    setting.heroShowcaseProductIds = validObjectIds;
+    await setting.save();
+
+    console.log(`✨ [Showcase]: Saved ${validObjectIds.length} hero showcase products.`);
+
+    res.json({
+      success: true,
+      message: 'Home Page Showcase updated successfully',
+      showcaseProductIds: validObjectIds
+    });
+  } catch (error) {
+    console.error('❌ [Admin Showcase PUT Error]:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 export default router;
+

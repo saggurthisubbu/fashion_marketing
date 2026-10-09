@@ -16,6 +16,7 @@ const productSchema = new mongoose.Schema({
   inStock: { type: Boolean, default: true },
   isActive: { type: Boolean, default: true },
   published: { type: Boolean, default: true },
+  isHeroShowcase: { type: Boolean, default: false },
   stockQuantity: { type: Number, required: true, default: 25 },
   featured: { type: Boolean, default: true },
   badge: { type: String, default: 'Bestseller' },

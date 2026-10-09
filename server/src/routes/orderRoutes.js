@@ -78,7 +78,9 @@ router.post('/', async (req, res) => {
       customerLocation,
       assignedStore,
       customerLatitude,
-      customerLongitude
+      customerLongitude,
+      deliveryDistanceKm,
+      deliveryAddress: directDeliveryAddress
     } = req.body;
 
     if (!items || items.length === 0) {
@@ -89,7 +91,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ message: 'Customer name, phone, and address are required' });
     }
 
-    // 1. Capture customer coordinates (if provided)
+    // 1. Capture customer destination coordinates (if provided)
     const customerLat = customerLatitude !== undefined
       ? Number(customerLatitude)
       : (customerLocation?.lat !== undefined ? Number(customerLocation.lat) : null);
@@ -103,39 +105,44 @@ router.post('/', async (req, res) => {
       !isNaN(customerLat) &&
       !isNaN(customerLng);
 
-    // 2. Retrieve active stores for fulfillment assignment
+    // 2. Retrieve active stores & locate RS FASHIONS
     const activeStores = await Store.find({ status: 'Active' });
+    const rsFashionsStore = activeStores.find((s) => s.name?.toUpperCase().includes('RS FASHION')) || (activeStores.length > 0 ? activeStores[0] : null);
 
-    let nearestStore = null;
-    let minDistance = null;
+    const storeLat = rsFashionsStore?.location?.lat || 16.5336383;
+    const storeLng = rsFashionsStore?.location?.lng || 80.6464595;
+    const maxRadiusKm = rsFashionsStore?.deliveryRadiusKm || 10;
 
-    if (activeStores && activeStores.length > 0) {
-      if (hasCustomerLocation) {
-        let lowestDist = Infinity;
-        for (const store of activeStores) {
-          if (typeof store.location?.lat === 'number' && typeof store.location?.lng === 'number') {
-            const dist = haversineDistance(customerLat, customerLng, store.location.lat, store.location.lng);
-            if (dist < lowestDist) {
-              lowestDist = dist;
-              nearestStore = store;
-            }
-          }
-        }
-        if (nearestStore) {
-          minDistance = lowestDist;
-        }
-      }
-      // If no GPS coordinates provided or store couldn't be matched by distance, assign the first active store
-      if (!nearestStore) {
-        nearestStore = activeStores[0];
+    let distToStore = null;
+    if (hasCustomerLocation) {
+      distToStore = haversineDistance(customerLat, customerLng, storeLat, storeLng);
+      // Strictly enforce 10 km delivery zone from RS FASHIONS
+      if (distToStore > maxRadiusKm) {
+        return res.status(400).json({
+          message: 'Sorry, we are currently not available at this location.',
+          distanceKm: parseFloat(distToStore.toFixed(2)),
+          maxAllowedKm: maxRadiusKm
+        });
       }
     }
 
-    const finalAssignedStore = nearestStore ? {
-      id: nearestStore._id,
-      name: nearestStore.name,
-      distanceKm: minDistance !== null ? parseFloat(minDistance.toFixed(2)) : null
-    } : (assignedStore || { id: null, name: 'QuickFit Central Store', distanceKm: null });
+    const calculatedDist = distToStore !== null
+      ? parseFloat(distToStore.toFixed(2))
+      : (deliveryDistanceKm !== undefined && deliveryDistanceKm !== null ? Number(deliveryDistanceKm) : null);
+
+    const finalAssignedStore = {
+      id: rsFashionsStore?._id || assignedStore?.id || null,
+      name: rsFashionsStore?.name || 'RS FASHIONS',
+      distanceKm: calculatedDist
+    };
+
+    const fullDeliveryAddress = directDeliveryAddress || [
+      customer.address,
+      customer.landmark,
+      customer.area,
+      customer.pincode,
+      'Vijayawada'
+    ].filter(Boolean).join(', ');
 
     // 3. Deduct stock for ordered items
     for (const item of items) {
@@ -203,6 +210,8 @@ router.post('/', async (req, res) => {
         ? { lat: customerLat, lng: customerLng }
         : { lat: null, lng: null },
       assignedStore: finalAssignedStore,
+      deliveryDistanceKm: calculatedDist,
+      deliveryAddress: fullDeliveryAddress,
       orderDate: new Date()
     });
 

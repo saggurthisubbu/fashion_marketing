@@ -526,20 +526,25 @@ export const AdminOrdersTab = ({
                 {selectedOrder.assignedStore.distanceKm !== null && selectedOrder.assignedStore.distanceKm !== undefined && (
                   <div className="text-blue-300 font-mono text-xs flex items-center gap-1.5">
                     <MapPin className="w-3 h-3" />
-                    Customer is {Number(selectedOrder.assignedStore.distanceKm).toFixed(2)} km from this store
+                    Delivery Distance: {Number(selectedOrder.assignedStore.distanceKm).toFixed(2)} km from {selectedOrder.assignedStore.name || 'RS FASHIONS'}
                   </div>
                 )}
                 {selectedOrder.customerLocation?.lat && (
-                  <a
-                    href={`https://www.google.com/maps?q=${selectedOrder.customerLocation.lat},${selectedOrder.customerLocation.lng}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-[11px] text-blue-400 hover:underline font-bold"
-                  >
-                    <MapPin className="w-3 h-3" />
-                    Customer GPS Location
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
+                  <div className="space-y-1 pt-1">
+                    <div className="text-[11px] text-zinc-400 font-mono">
+                      Destination GPS: {selectedOrder.customerLocation.lat.toFixed(6)}, {selectedOrder.customerLocation.lng.toFixed(6)}
+                    </div>
+                    <a
+                      href={`https://www.google.com/maps?q=${selectedOrder.customerLocation.lat},${selectedOrder.customerLocation.lng}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] text-blue-400 hover:underline font-bold"
+                    >
+                      <MapPin className="w-3 h-3" />
+                      Open Destination in Google Maps (for Rapido)
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
                 )}
               </div>
             )}

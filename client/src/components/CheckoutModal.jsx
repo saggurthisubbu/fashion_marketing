@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useShop } from '../context/ShopContext';
 import { formatFullOrderWhatsApp } from '../utils/whatsapp';
-import { checkDeliveryAvailability } from '../utils/deliveryRadius';
+import { checkDeliveryAvailability, verifyDeliveryAddress } from '../utils/deliveryRadius';
 import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 
 export const CheckoutModal = () => {
@@ -21,8 +21,6 @@ export const CheckoutModal = () => {
     API_BASE_URL,
     showToast,
     fetchProducts,
-    verifiedLocation,
-    setVerifiedLocation,
     user,
     updateCustomerProfile
   } = useShop();
@@ -37,15 +35,15 @@ export const CheckoutModal = () => {
     address: '',
     landmark: '',
     pincode: '',
-    area: ''
+    area: 'Benz Circle'
   });
 
-  // GPS + Delivery Zone State
+  // Delivery Zone State (Verified from Delivery Address, NOT customer's device GPS)
   const [locationStatus, setLocationStatus] = useState('idle'); // idle | checking | allowed | blocked | error
   const [customerCoords, setCustomerCoords] = useState(null);
   const [locationLink, setLocationLink] = useState('');
   const [locationError, setLocationError] = useState('');
-  const [deliveryInfo, setDeliveryInfo] = useState(null); // full result from checkDeliveryAvailability
+  const [deliveryInfo, setDeliveryInfo] = useState(null); // full result from verifyDeliveryAddress
 
   // Order state
   const [paymentMethod, setPaymentMethod] = useState('UPI (GPay/PhonePe)');
@@ -54,77 +52,87 @@ export const CheckoutModal = () => {
 
   const vijayawadaAreas = ['MG Road', 'Benz Circle', 'Patamata', 'Eluru Road', 'Governorpet', 'Labbipet', 'Kunchanapalli', 'Moghalrajpuram'];
 
+  // Core Delivery Verification: Checks customer's Delivery Address against RS FASHIONS 10 km zone
+  const runDeliveryVerification = useCallback(async (currentData, notify = false) => {
+    setLocationStatus('checking');
+    setLocationError('');
+
+    try {
+      const result = await verifyDeliveryAddress(currentData, API_BASE_URL);
+      setDeliveryInfo(result);
+
+      if (result.lat && result.lng) {
+        setCustomerCoords({ lat: result.lat, lng: result.lng });
+        setLocationLink(`https://www.google.com/maps?q=${result.lat},${result.lng}`);
+      }
+
+      if (result.inZone) {
+        setLocationStatus('allowed');
+        setLocationError('');
+        if (notify) {
+          showToast('Delivery available from RS FASHIONS', 'success');
+        }
+        return { allowed: true, result };
+      } else {
+        setLocationStatus('blocked');
+        const blockedMsg = 'Sorry, we are currently not available at this location.';
+        setLocationError(blockedMsg);
+        if (notify) {
+          showToast(blockedMsg, 'error');
+        }
+        return { allowed: false, result };
+      }
+    } catch (err) {
+      console.error('[Delivery Verification Error]:', err);
+      setLocationStatus('error');
+      setLocationError('Could not verify delivery address. Please try again.');
+      return { allowed: false, error: err };
+    }
+  }, [API_BASE_URL, showToast]);
+
   // Initialize and automatically pre-fill saved customer details on modal open
+  const prevOpenRef = useRef(false);
   useEffect(() => {
-    if (isCheckoutOpen) {
+    if (isCheckoutOpen && !prevOpenRef.current) {
       setCheckoutStep('details');
       setErrorMsg('');
       setIsSubmitting(false);
 
-      // 1. Check verified location
-      const savedVerified = verifiedLocation || (() => {
-        try {
-          const s = sessionStorage.getItem('quickfit_session_verified_location');
-          return s ? JSON.parse(s) : null;
-        } catch { return null; }
-      })();
-
-      const matchedArea = savedVerified?.areaName && vijayawadaAreas.includes(savedVerified.areaName)
-        ? savedVerified.areaName
-        : '';
-
-      // 2. Automatically load saved customer details if available
+      // Automatically load saved customer details if available
       const savedAddr = user?.address || {};
       const initialStreet = savedAddr.fullAddress || savedAddr.street || (typeof user?.address === 'string' ? user.address : '');
+      const initialArea = savedAddr.area || 'Benz Circle';
 
-      setFormData({
+      const initialData = {
         fullName: user?.name || '',
         phone: user?.phone || '',
         email: user?.email && !user.email.endsWith('@customer.quickfit.in') ? user.email : '',
         address: initialStreet || '',
         landmark: savedAddr.landmark || '',
         pincode: savedAddr.pincode || '520010',
-        area: savedAddr.area || matchedArea || 'Benz Circle'
-      });
+        area: initialArea
+      };
 
-      if (savedVerified && typeof savedVerified.lat === 'number' && typeof savedVerified.lng === 'number') {
-        const mapsUrl = `https://www.google.com/maps?q=${savedVerified.lat},${savedVerified.lng}`;
-        setLocationLink(mapsUrl);
-        setCustomerCoords({ lat: savedVerified.lat, lng: savedVerified.lng });
-        setLocationError('');
+      setFormData(initialData);
 
-        if (savedVerified.inZone !== false) {
-          setLocationStatus('allowed');
-          setDeliveryInfo({
-            inZone: true,
-            nearestStore: savedVerified.nearestStore,
-            distanceKm: savedVerified.nearestStore?.distanceKm || null,
-            message: `Delivery available from ${savedVerified.nearestStore?.name || 'QuickFit Store'}`
-          });
-        } else {
-          setLocationStatus('blocked');
-          setDeliveryInfo({
-            inZone: false,
-            closestStore: savedVerified.nearestStore,
-            distanceKm: savedVerified.nearestStore?.distanceKm || null,
-            message: 'Outside express delivery zone.'
-          });
-        }
-      } else {
-        setLocationStatus('idle');
-        setCustomerCoords(null);
-        setLocationLink('');
-        setLocationError('');
-        setDeliveryInfo(null);
-      }
+      // Automatically verify the initial delivery address against RS FASHIONS 10 km zone
+      runDeliveryVerification(initialData, false);
     }
-  }, [isCheckoutOpen, verifiedLocation, user]);
+    prevOpenRef.current = isCheckoutOpen;
+  }, [isCheckoutOpen, user, runDeliveryVerification]);
 
   if (!isCheckoutOpen) return null;
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    const updated = { ...formData, [name]: value };
+    setFormData(updated);
     setErrorMsg('');
+
+    // When Area, Pincode, Address, or Landmark is changed, re-verify delivery location
+    if (name === 'area' || name === 'pincode' || name === 'address' || name === 'landmark') {
+      runDeliveryVerification(updated, false);
+    }
   };
 
   // Helper to update a cart item's size in checkout
@@ -144,98 +152,14 @@ export const CheckoutModal = () => {
     }
   };
 
-  // GPS Capture + Delivery Zone Validation
-  const handleShareLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationStatus('error');
-      setLocationError('Geolocation is not supported by your browser.');
+  // Manual Trigger: Verify Delivery Availability for the entered Delivery Address
+  const handleVerifyDeliveryAvailability = async () => {
+    if (!formData.address?.trim() && !formData.area) {
+      setLocationError('Please enter your delivery street address and area.');
+      showToast('Please enter your delivery address to verify.', 'warning');
       return;
     }
-
-    setLocationStatus('checking');
-    setLocationError('');
-    setDeliveryInfo(null);
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
-        setLocationLink(mapsUrl);
-        setCustomerCoords({ lat: latitude, lng: longitude });
-
-        try {
-          const result = await checkDeliveryAvailability(latitude, longitude, API_BASE_URL);
-          setDeliveryInfo(result);
-
-          if (result.inZone) {
-            setLocationStatus('allowed');
-            showToast(`✅ ${result.message}`, 'success');
-
-            const areaName = result.nearestStore?.address?.split(',')?.[0]?.trim() || result.nearestStore?.name || 'Vijayawada';
-            const verifiedData = {
-              lat: latitude,
-              lng: longitude,
-              nearestStore: result.nearestStore,
-              inZone: true,
-              verificationStatus: 'verified',
-              areaName,
-              allNearbyStores: result.allStores || []
-            };
-
-            try {
-              sessionStorage.setItem('quickfit_session_verified_location', JSON.stringify(verifiedData));
-              sessionStorage.setItem('quickfit_session_location', JSON.stringify({ lat: latitude, lng: longitude }));
-            } catch (e) {}
-
-            if (setVerifiedLocation) {
-              setVerifiedLocation(verifiedData);
-            }
-
-            fetchProducts({ lat: latitude, lng: longitude });
-          } else {
-            setLocationStatus('blocked');
-            showToast('❌ Outside delivery zone. Order blocked.', 'error');
-
-            const verifiedData = {
-              lat: latitude,
-              lng: longitude,
-              nearestStore: result.closestStore,
-              inZone: false,
-              verificationStatus: 'out_of_range',
-              areaName: result.closestStore?.name || 'Outside Delivery Zone',
-              allNearbyStores: []
-            };
-            try {
-              sessionStorage.setItem('quickfit_session_verified_location', JSON.stringify(verifiedData));
-              sessionStorage.setItem('quickfit_session_location', JSON.stringify({ lat: latitude, lng: longitude }));
-            } catch (e) {}
-
-            if (setVerifiedLocation) {
-              setVerifiedLocation(verifiedData);
-            }
-          }
-        } catch (err) {
-          console.error('[DELIVERY CHECK] Stores API unreachable:', err);
-          setLocationStatus('error');
-          setLocationError('Could not verify delivery availability. Please try again.');
-          showToast('⚠️ Could not check delivery zone. Please retry.', 'error');
-        }
-      },
-      (error) => {
-        setLocationStatus('error');
-        let msg = 'Could not retrieve GPS location.';
-        if (error.code === error.PERMISSION_DENIED) {
-          msg = 'Location permission denied. Please enable location access in your browser settings.';
-        } else if (error.code === error.POSITION_UNAVAILABLE) {
-          msg = 'GPS position unavailable. Please ensure location is enabled on your device.';
-        } else if (error.code === error.TIMEOUT) {
-          msg = 'Location request timed out. Please try again.';
-        }
-        setLocationError(msg);
-        showToast(msg, 'error');
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
+    await runDeliveryVerification(formData, true);
   };
 
   const isLocationChecking = locationStatus === 'checking';
@@ -244,7 +168,7 @@ export const CheckoutModal = () => {
   const isLocationPending  = locationStatus === 'idle' || locationStatus === 'error';
 
   // ─── Step 1 -> Step 2: Validate Details & Move to Confirmation ───────────────
-  const handleProceedToConfirmation = (e) => {
+  const handleProceedToConfirmation = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -262,9 +186,20 @@ export const CheckoutModal = () => {
       return;
     }
 
-    if (!isLocationAllowed) {
-      setErrorMsg('Please verify your GPS location within a QuickFit delivery zone to continue.');
+    if (isLocationBlocked) {
+      setErrorMsg('Sorry, we are currently not available at this location.');
+      showToast('Sorry, we are currently not available at this location.', 'error');
       return;
+    }
+
+    if (!isLocationAllowed) {
+      // Run quick verification on the current address before proceeding
+      const verifyRes = await runDeliveryVerification(formData, false);
+      if (!verifyRes.allowed) {
+        setErrorMsg('Sorry, we are currently not available at this location.');
+        showToast('Sorry, we are currently not available at this location.', 'error');
+        return;
+      }
     }
 
     // Size validation: If size is required, customer MUST select a size before continuing
@@ -306,18 +241,26 @@ export const CheckoutModal = () => {
     setIsSubmitting(true);
 
     try {
-      const assignedStorePayload = deliveryInfo?.nearestStore
-        ? {
-            id: deliveryInfo.nearestStore._id,
-            name: deliveryInfo.nearestStore.name,
-            distanceKm: deliveryInfo.distanceKm
-              ? parseFloat(deliveryInfo.distanceKm.toFixed(2))
-              : null
-          }
+      const rsStore = deliveryInfo?.store || deliveryInfo?.nearestStore || null;
+      const storeLatitude = rsStore?.location?.lat || 16.5336383;
+      const storeLongitude = rsStore?.location?.lng || 80.6464595;
+      const distanceNumber = deliveryInfo?.distanceKm !== null && deliveryInfo?.distanceKm !== undefined
+        ? parseFloat(Number(deliveryInfo.distanceKm).toFixed(2))
         : null;
 
-      const storeLatitude = deliveryInfo?.nearestStore?.location?.lat || null;
-      const storeLongitude = deliveryInfo?.nearestStore?.location?.lng || null;
+      const assignedStorePayload = {
+        id: rsStore?._id || '6a8165f4b2980c896c692183',
+        name: 'RS FASHIONS',
+        distanceKm: distanceNumber
+      };
+
+      const fullDeliveryAddress = [
+        formData.address.trim(),
+        formData.landmark ? `Landmark: ${formData.landmark.trim()}` : '',
+        formData.area || 'Benz Circle',
+        formData.pincode ? `Pincode: ${formData.pincode.trim()}` : '',
+        'Vijayawada'
+      ].filter(Boolean).join(', ');
 
       const orderPayload = {
         customer: {
@@ -327,7 +270,7 @@ export const CheckoutModal = () => {
           address: formData.address.trim(),
           landmark: formData.landmark ? formData.landmark.trim() : '',
           pincode: formData.pincode ? formData.pincode.trim() : '520010',
-          area: formData.area || 'MG Road'
+          area: formData.area || 'Benz Circle'
         },
         customerEmail: formData.email ? formData.email.trim() : '',
         items: cart.map(item => ({
@@ -346,13 +289,15 @@ export const CheckoutModal = () => {
             : paymentMethod === 'Cash On Delivery'
             ? 'COD'
             : 'Razorpay',
-        locationLink: locationLink || 'Not provided',
+        locationLink: locationLink || (customerCoords ? `https://www.google.com/maps?q=${customerCoords.lat},${customerCoords.lng}` : 'Not provided'),
         customerLocation: customerCoords ? { lat: customerCoords.lat, lng: customerCoords.lng } : null,
         customerLatitude: customerCoords?.lat || null,
         customerLongitude: customerCoords?.lng || null,
         storeLatitude,
         storeLongitude,
-        assignedStore: assignedStorePayload
+        assignedStore: assignedStorePayload,
+        deliveryDistanceKm: distanceNumber,
+        deliveryAddress: fullDeliveryAddress
       };
 
       console.log('🛒 [Submitting Order to Backend]:', `${API_BASE_URL}/orders`, orderPayload);
@@ -582,9 +527,42 @@ export const CheckoutModal = () => {
                     Verified Zone ✅
                   </span>
                 )}
+                {isLocationBlocked && (
+                  <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-black uppercase">
+                    Outside Zone ✕
+                  </span>
+                )}
               </div>
 
-              {!isLocationAllowed ? (
+              {isLocationAllowed ? (
+                <div className="flex items-center justify-between text-xs bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
+                  <div className="text-emerald-900 font-medium">
+                    {deliveryInfo?.message || '⚡ Delivery available from RS FASHIONS'}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleVerifyDeliveryAvailability}
+                    className="text-[10px] text-emerald-800 underline font-bold cursor-pointer"
+                  >
+                    Re-verify
+                  </button>
+                </div>
+              ) : isLocationBlocked ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs bg-rose-50 border border-rose-200 p-2.5 rounded-xl">
+                    <div className="text-rose-900 font-medium">
+                      🚫 {locationError || 'Sorry, we are currently not available at this location.'}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleVerifyDeliveryAvailability}
+                      className="text-[10px] text-rose-800 underline font-bold cursor-pointer"
+                    >
+                      Re-verify
+                    </button>
+                  </div>
+                </div>
+              ) : (
                 <div className="space-y-2">
                   <p className="text-[11px] text-slate-500">
                     QuickFit delivers within Vijayawada in 60 minutes. Click below to verify your address coordinates.
@@ -592,7 +570,7 @@ export const CheckoutModal = () => {
                   <button
                     type="button"
                     disabled={isLocationChecking}
-                    onClick={handleShareLocation}
+                    onClick={handleVerifyDeliveryAvailability}
                     className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-black text-white font-extrabold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
                   >
                     {isLocationChecking ? (
@@ -610,19 +588,6 @@ export const CheckoutModal = () => {
                   {locationError && (
                     <p className="text-rose-600 text-[11px] font-semibold">{locationError}</p>
                   )}
-                </div>
-              ) : (
-                <div className="flex items-center justify-between text-xs bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
-                  <div className="text-emerald-900 font-medium">
-                    ⚡ {deliveryInfo?.message || 'Express Delivery Available'}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleShareLocation}
-                    className="text-[10px] text-emerald-800 underline font-bold cursor-pointer"
-                  >
-                    Re-verify
-                  </button>
                 </div>
               )}
             </div>
@@ -795,7 +760,7 @@ export const CheckoutModal = () => {
                 <div>
                   <span className="text-slate-500 font-bold block text-[10px] uppercase">Store Dispatch</span>
                   <span className="font-bold text-emerald-700">
-                    {deliveryInfo?.nearestStore?.name || 'QuickFit Store'} (60-min delivery)
+                    ⚡ Delivery available from RS FASHIONS {deliveryInfo?.distanceKm ? `(~${deliveryInfo.distanceKm} km away)` : ''}
                   </span>
                 </div>
               </div>

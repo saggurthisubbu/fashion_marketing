@@ -139,10 +139,10 @@ export const ShopProvider = ({ children }) => {
   // Toast Notification
   const [toast, setToast] = useState(null);
 
-  const showToast = (message, type = 'success') => {
+  const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
-  };
+  }, []);
 
   // Sync Cart & Wishlist to localStorage
   useEffect(() => {

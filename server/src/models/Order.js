@@ -59,7 +59,9 @@ const orderSchema = new mongoose.Schema({
     id: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null },
     name: { type: String, default: '' },
     distanceKm: { type: Number, default: null }
-  }
+  },
+  deliveryDistanceKm: { type: Number, default: null },
+  deliveryAddress: { type: String, default: '' }
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
 orderSchema.virtual('customerEmail').get(function() {

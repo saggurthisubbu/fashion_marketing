@@ -463,7 +463,36 @@ router.put('/inventory/:id/stock', protect, storeOwnerOrAdmin, async (req, res) 
       }
     }
 
-    if (adjustment !== undefined) {
+    if (req.body.sizeStock && typeof req.body.sizeStock === 'object') {
+      const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
+      const cleanSizeStock = {};
+      let totalStock = 0;
+      for (const sz of standardSizes) {
+        const qty = Math.max(0, parseInt(req.body.sizeStock[sz], 10) || 0);
+        cleanSizeStock[sz] = qty;
+        totalStock += qty;
+      }
+      for (const [key, val] of Object.entries(req.body.sizeStock)) {
+        if (!standardSizes.includes(key)) {
+          const qty = Math.max(0, parseInt(val, 10) || 0);
+          cleanSizeStock[key] = qty;
+          totalStock += qty;
+        }
+      }
+      product.sizeStock = cleanSizeStock;
+      product.stockQuantity = totalStock;
+      product.inStock = totalStock > 0;
+      product.sizes = Object.keys(cleanSizeStock);
+      product.markModified('sizeStock');
+    } else if (adjustment !== undefined) {
+      if (product.sizeStock && typeof product.sizeStock === 'object') {
+        const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
+        const adjPerSize = Math.round(Number(adjustment) / standardSizes.length);
+        for (const sz of standardSizes) {
+          product.sizeStock[sz] = Math.max(0, (Number(product.sizeStock[sz]) || 0) + adjPerSize);
+        }
+        product.markModified('sizeStock');
+      }
       product.stockQuantity = Math.max(0, (product.stockQuantity || 0) + Number(adjustment));
     } else if (stockQuantity !== undefined) {
       product.stockQuantity = Math.max(0, Number(stockQuantity));

@@ -22,6 +22,10 @@ const productSchema = new mongoose.Schema({
   badge: { type: String, default: 'Bestseller' },
   description: { type: String, default: 'Premium heavyweight cotton streetwear crafted for clean modern fit and durability.' },
   sizes: { type: [String], default: ['S', 'M', 'L', 'XL', 'XXL'] },
+  sizeStock: {
+    type: mongoose.Schema.Types.Mixed,
+    default: () => ({ S: 5, M: 5, L: 5, XL: 5, XXL: 5 })
+  },
   colors: [{
     name: { type: String, default: 'Black' },
     hex: { type: String, default: '#000000' }
@@ -65,6 +69,33 @@ productSchema.pre('save', function (next) {
       this.images.left,
       this.images.right
     ].filter(Boolean);
+  }
+
+  // Synchronize size-wise stock & total stockQuantity
+  if (this.sizeStock && typeof this.sizeStock === 'object') {
+    let totalStock = 0;
+    const cleanSizeStock = {};
+    const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
+    
+    // Ensure all standard sizes exist in cleanSizeStock
+    for (const sz of standardSizes) {
+      const qty = Math.max(0, parseInt(this.sizeStock[sz], 10) || 0);
+      cleanSizeStock[sz] = qty;
+      totalStock += qty;
+    }
+
+    // Preserve any custom sizes if present
+    for (const [key, val] of Object.entries(this.sizeStock)) {
+      if (!standardSizes.includes(key)) {
+        const qty = Math.max(0, parseInt(val, 10) || 0);
+        cleanSizeStock[key] = qty;
+        totalStock += qty;
+      }
+    }
+
+    this.sizeStock = cleanSizeStock;
+    this.stockQuantity = totalStock;
+    this.markModified('sizeStock');
   }
 
   // Stock & visibility controller

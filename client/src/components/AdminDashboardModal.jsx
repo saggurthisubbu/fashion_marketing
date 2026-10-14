@@ -19,7 +19,7 @@ import { AdminStoresTab } from './admin/tabs/AdminStoresTab';
 import { AdminStoreOwnersTab } from './admin/tabs/AdminStoreOwnersTab';
 import { AdminShowcaseTab } from './admin/tabs/AdminShowcaseTab';
 import { AdminErrorBoundary } from './admin/AdminErrorBoundary';
-import { Camera, X, Upload, Crop } from 'lucide-react';
+import { Camera, X, Upload, Crop, Boxes } from 'lucide-react';
 import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 import { ProductImageCropperModal } from './admin/ProductImageCropperModal';
 import {
@@ -82,7 +82,8 @@ export const AdminDashboardModal = () => {
     subcategory: 'Oversized T-Shirts',
     price: '',
     originalPrice: '',
-    stockQuantity: 30,
+    stockQuantity: 25,
+    sizeStock: { S: 5, M: 5, L: 5, XL: 5, XXL: 5 },
     boutique: 'QuickFit Central, Vijayawada',
     description: 'Heavyweight 240+ GSM organic cotton tailored for clean modern streetwear drape.',
     sizes: 'S, M, L, XL, XXL'
@@ -518,7 +519,8 @@ export const AdminDashboardModal = () => {
       subcategory: 'Oversized T-Shirts',
       price: '',
       originalPrice: '',
-      stockQuantity: 30,
+      stockQuantity: 25,
+      sizeStock: { S: 5, M: 5, L: 5, XL: 5, XXL: 5 },
       boutique: defaultStoreName || 'QuickFit Central, Vijayawada',
       description: 'Heavyweight 240+ GSM organic cotton tailored for clean modern streetwear drape.',
       sizes: 'S, M, L, XL, XXL'
@@ -543,6 +545,23 @@ export const AdminDashboardModal = () => {
     setImageFiles({ front: null, back: null, left: null, right: null });
     setImagePreviews(existing);
     setFileErrors({});
+
+    const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
+    const initialSizeStock = {};
+    if (prod.sizeStock && typeof prod.sizeStock === 'object') {
+      standardSizes.forEach((sz) => {
+        initialSizeStock[sz] = prod.sizeStock[sz] !== undefined ? Math.max(0, parseInt(prod.sizeStock[sz], 10) || 0) : 0;
+      });
+    } else {
+      const currentStock = prod.stockQuantity !== undefined ? Math.max(0, Number(prod.stockQuantity) || 0) : 25;
+      const base = Math.floor(currentStock / standardSizes.length);
+      const rem = currentStock % standardSizes.length;
+      standardSizes.forEach((sz, idx) => {
+        initialSizeStock[sz] = base + (idx < rem ? 1 : 0);
+      });
+    }
+    const computedTotal = standardSizes.reduce((acc, sz) => acc + (initialSizeStock[sz] || 0), 0);
+
     setProductForm({
       name: prod.name,
       storeId: prod.storeId || (storesList.length > 0 ? storesList[0]._id : ''),
@@ -551,7 +570,8 @@ export const AdminDashboardModal = () => {
       subcategory: prod.subcategory || 'Oversized T-Shirts',
       price: prod.price,
       originalPrice: prod.originalPrice || '',
-      stockQuantity: prod.stockQuantity !== undefined ? prod.stockQuantity : 25,
+      stockQuantity: computedTotal,
+      sizeStock: initialSizeStock,
       boutique: prod.boutique || 'QuickFit Central, Vijayawada',
       description: prod.description || '',
       sizes: Array.isArray(prod.sizes) ? prod.sizes.join(', ') : 'S, M, L, XL, XXL'
@@ -624,6 +644,15 @@ export const AdminDashboardModal = () => {
       const fallbackStore = storesList.find(s => s._id === fallbackStoreId);
       const fallbackStoreName = productForm.storeName || (fallbackStore ? fallbackStore.name : 'QuickFit Central, Vijayawada');
 
+      const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
+      const finalSizeStock = {};
+      let computedTotalStock = 0;
+      for (const sz of standardSizes) {
+        const val = Math.max(0, parseInt(productForm.sizeStock?.[sz], 10) || 0);
+        finalSizeStock[sz] = val;
+        computedTotalStock += val;
+      }
+
       const payload = {
         name: productForm.name.trim(),
         storeId: fallbackStoreId,
@@ -632,15 +661,14 @@ export const AdminDashboardModal = () => {
         subcategory: productForm.subcategory || 'Oversized T-Shirts',
         price: Number(productForm.price),
         originalPrice: productForm.originalPrice ? Number(productForm.originalPrice) : undefined,
-        stockQuantity: Number(productForm.stockQuantity || 25),
-        inStock: Number(productForm.stockQuantity || 25) > 0,
+        stockQuantity: computedTotalStock,
+        sizeStock: finalSizeStock,
+        inStock: computedTotalStock > 0,
         isActive: true,
         published: true,
         boutique: productForm.boutique || fallbackStoreName,
         description: productForm.description || '',
-        sizes: typeof productForm.sizes === 'string'
-          ? productForm.sizes.split(',').map(s => s.trim()).filter(Boolean)
-          : productForm.sizes,
+        sizes: standardSizes,
         images: finalImages,
         image: finalImages.front
       };
@@ -1309,37 +1337,96 @@ export const AdminDashboardModal = () => {
                 </select>
               </div>
 
-              {/* Subcategory & Stock */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-zinc-300 uppercase tracking-wider block mb-1">Subcategory *</label>
-                  <select
-                    value={productForm.subcategory}
-                    onChange={(e) => setProductForm({ ...productForm, subcategory: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-bold cursor-pointer"
-                  >
-                    <option value="Oversized T-Shirts">Oversized T-Shirts</option>
-                    <option value="Drop Shoulder T-Shirts">Drop Shoulder T-Shirts</option>
-                    <option value="Polo T-Shirts">Polo T-Shirts</option>
-                    <option value="Shirts">Shirts</option>
-                    {categories
-                      .filter(c => c.name && !['Oversized T-Shirts', 'Drop Shoulder T-Shirts', 'Polo T-Shirts', 'Shirts'].includes(c.name))
-                      .map(c => (
-                        <option key={c._id || c.name} value={c.name}>{c.name}</option>
-                      ))}
-                  </select>
-                </div>
+              {/* Subcategory */}
+              <div>
+                <label className="font-bold text-zinc-300 uppercase tracking-wider block mb-1">Subcategory *</label>
+                <select
+                  value={productForm.subcategory}
+                  onChange={(e) => setProductForm({ ...productForm, subcategory: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-bold cursor-pointer"
+                >
+                  <option value="Oversized T-Shirts">Oversized T-Shirts</option>
+                  <option value="Drop Shoulder T-Shirts">Drop Shoulder T-Shirts</option>
+                  <option value="Polo T-Shirts">Polo T-Shirts</option>
+                  <option value="Shirts">Shirts</option>
+                  <option value="PANTS">PANTS</option>
+                  {categories
+                    .filter(c => c.name && !['Oversized T-Shirts', 'Drop Shoulder T-Shirts', 'Polo T-Shirts', 'Shirts', 'PANTS'].includes(c.name))
+                    .map(c => (
+                      <option key={c._id || c.name} value={c.name}>{c.name}</option>
+                    ))}
+                </select>
+              </div>
 
-                <div>
-                  <label className="font-bold text-zinc-300 uppercase tracking-wider block mb-1">Stock Quantity *</label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    value={productForm.stockQuantity}
-                    onChange={(e) => setProductForm({ ...productForm, stockQuantity: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-medium focus:outline-none focus:border-white"
-                  />
+              {/* Editable Size-Wise Stock Management (S, M, L, XL, XXL) */}
+              <div className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <label className="font-bold text-white uppercase tracking-wider text-xs flex items-center gap-1.5">
+                    <Boxes className="w-4 h-4 text-amber-400" />
+                    <span>Size-Wise Inventory Stock Management</span>
+                  </label>
+                  <span className="text-[11px] font-mono text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-800/80 px-2.5 py-0.5 rounded-lg">
+                    Total Available: {['S', 'M', 'L', 'XL', 'XXL'].reduce((acc, sz) => acc + (Math.max(0, parseInt(productForm.sizeStock?.[sz], 10)) || 0), 0)} units
+                  </span>
+                </div>
+                <p className="text-[10px] text-zinc-400">
+                  Set independent inventory quantity for each size. A size with 0 stock will automatically be disabled and marked Out of Stock for customers.
+                </p>
+
+                <div className="grid grid-cols-5 gap-2 sm:gap-3 pt-1">
+                  {['S', 'M', 'L', 'XL', 'XXL'].map((sz) => {
+                    const currentVal = productForm.sizeStock?.[sz] ?? 0;
+                    return (
+                      <div
+                        key={sz}
+                        className={`p-2.5 rounded-xl border text-center transition-all ${
+                          Number(currentVal) === 0
+                            ? 'bg-red-950/20 border-red-900/40'
+                            : 'bg-zinc-900 border-zinc-800'
+                        }`}
+                      >
+                        <span className="font-black text-xs text-white block font-mono mb-1">
+                          {sz}
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          required
+                          value={currentVal}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const parsed = raw === '' ? '' : Math.max(0, parseInt(raw, 10) || 0);
+                            const updatedSizeStock = {
+                              ...productForm.sizeStock,
+                              [sz]: parsed
+                            };
+                            const newTotal = ['S', 'M', 'L', 'XL', 'XXL'].reduce(
+                              (sum, s) => sum + (Math.max(0, parseInt(updatedSizeStock[s], 10)) || 0),
+                              0
+                            );
+                            setProductForm({
+                              ...productForm,
+                              sizeStock: updatedSizeStock,
+                              stockQuantity: newTotal
+                            });
+                          }}
+                          className={`w-full text-center py-1.5 px-1 rounded-lg bg-zinc-950 border text-white font-mono font-bold text-xs focus:outline-none ${
+                            Number(currentVal) === 0
+                              ? 'border-red-800/80 text-red-400 focus:border-red-500'
+                              : 'border-zinc-700 focus:border-white'
+                          }`}
+                          placeholder="0"
+                        />
+                        <span className="text-[9px] font-mono block mt-1 text-zinc-400">
+                          {Number(currentVal) === 0 ? (
+                            <span className="text-red-400 font-bold">0 (Out)</span>
+                          ) : (
+                            `${currentVal} pcs`
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1369,18 +1456,6 @@ export const AdminDashboardModal = () => {
                     className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-medium focus:outline-none focus:border-white"
                   />
                 </div>
-              </div>
-
-              {/* Sizes */}
-              <div>
-                <label className="font-bold text-zinc-300 uppercase tracking-wider block mb-1">Sizes (comma separated)</label>
-                <input
-                  type="text"
-                  value={productForm.sizes}
-                  onChange={(e) => setProductForm({ ...productForm, sizes: e.target.value })}
-                  placeholder="S, M, L, XL, XXL"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-medium focus:outline-none focus:border-white"
-                />
               </div>
 
               {/* Description */}

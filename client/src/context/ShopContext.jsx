@@ -163,6 +163,16 @@ export const ShopProvider = ({ children }) => {
     const right = p.images?.right ? resolveImageUrl(p.images.right) : '';
     const stockQty = p.stockQuantity !== undefined && !isNaN(Number(p.stockQuantity))
       ? Number(p.stockQuantity) : 25;
+    let cleanSizeStock = p.sizeStock;
+    if (!cleanSizeStock || typeof cleanSizeStock !== 'object') {
+      const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
+      const base = Math.floor(stockQty / standardSizes.length);
+      const rem = stockQty % standardSizes.length;
+      cleanSizeStock = {};
+      standardSizes.forEach((sz, idx) => {
+        cleanSizeStock[sz] = base + (idx < rem ? 1 : 0);
+      });
+    }
     return {
       ...p,
       id: p._id || p.id,
@@ -178,6 +188,7 @@ export const ShopProvider = ({ children }) => {
       expressDelivery: p.expressDelivery || 'Express Delivery',
       boutique: p.boutique || 'QuickFit Central, Vijayawada',
       stockQuantity: stockQty,
+      sizeStock: cleanSizeStock,
       inStock: p.inStock !== undefined ? p.inStock : stockQty > 0,
       isActive: p.isActive !== false,
       published: p.published !== false,
@@ -567,20 +578,25 @@ export const ShopProvider = ({ children }) => {
       showToast('Unable to add item — product data is missing.', 'error');
       return;
     }
-    const stock = product.stockQuantity !== undefined ? product.stockQuantity : 25;
-    if (stock <= 0 || product.inStock === false) {
-      showToast(`"${product.name}" is Out of Stock.`, 'error');
+
+    const targetSize = size || 'M';
+    const szStock = (product.sizeStock && product.sizeStock[targetSize] !== undefined)
+      ? Number(product.sizeStock[targetSize])
+      : (product.stockQuantity !== undefined ? Number(product.stockQuantity) : 25);
+
+    if (szStock <= 0 || product.inStock === false) {
+      showToast(`Size ${targetSize} for "${product.name}" is Out of Stock.`, 'error');
       return;
     }
 
     setCart((prevCart) => {
       const existingIndex = prevCart.findIndex(
-        (item) => (item.id === product.id || item.id === product._id) && item.selectedSize === size && item.selectedColor === color
+        (item) => (item.id === product.id || item.id === product._id) && item.selectedSize === targetSize && item.selectedColor === color
       );
       if (existingIndex > -1) {
         const updated = [...prevCart];
-        if (updated[existingIndex].quantity >= stock) {
-          showToast(`Only ${stock} in stock.`, 'warning');
+        if (updated[existingIndex].quantity >= szStock) {
+          showToast(`Maximum available stock reached for size ${targetSize}.`, 'warning');
           return prevCart;
         }
         updated[existingIndex].quantity += 1;
@@ -599,20 +615,22 @@ export const ShopProvider = ({ children }) => {
         category: product.category || '',
         subcategory: product.subcategory || '',
         sizes: product.sizes || [],
+        sizeStock: product.sizeStock || {},
         colors: product.colors || [],
         stockQuantity: product.stockQuantity,
+        sizeStockQuantity: szStock,
         inStock: product.inStock,
         badge: product.badge || '',
         boutique: product.boutique || '',
-        selectedSize: size,
+        selectedSize: targetSize,
         selectedColor: color || 'Standard',
-        size: size,
+        size: targetSize,
         color: color || 'Standard',
         quantity: 1
       };
       return [...prevCart, cartItem];
     });
-    showToast(`Added "${product.name}" to Bag! 🛍️`);
+    showToast(`Added "${product.name}" (${targetSize}) to Bag! 🛍️`);
   };
 
   const buyNow = (product, size = 'M', color = 'Standard') => {
@@ -621,9 +639,14 @@ export const ShopProvider = ({ children }) => {
       showToast('Unable to proceed — product data is missing.', 'error');
       return;
     }
-    const stock = product.stockQuantity !== undefined ? product.stockQuantity : 25;
-    if (stock <= 0 || product.inStock === false) {
-      showToast(`"${product.name}" is Out of Stock.`, 'error');
+
+    const targetSize = size || 'M';
+    const szStock = (product.sizeStock && product.sizeStock[targetSize] !== undefined)
+      ? Number(product.sizeStock[targetSize])
+      : (product.stockQuantity !== undefined ? Number(product.stockQuantity) : 25);
+
+    if (szStock <= 0 || product.inStock === false) {
+      showToast(`Size ${targetSize} for "${product.name}" is Out of Stock.`, 'error');
       return;
     }
 
@@ -640,13 +663,15 @@ export const ShopProvider = ({ children }) => {
       category: product.category || '',
       subcategory: product.subcategory || '',
       sizes: product.sizes || [],
+      sizeStock: product.sizeStock || {},
       colors: product.colors || [],
-      stockQuantity: stock,
+      stockQuantity: product.stockQuantity,
+      sizeStockQuantity: szStock,
       inStock: product.inStock !== false,
       badge: product.badge || '',
       boutique: product.boutique || '',
-      selectedSize: size || 'M',
-      size: size || 'M',
+      selectedSize: targetSize,
+      size: targetSize,
       selectedColor: color || 'Standard',
       color: color || 'Standard',
       quantity: 1
@@ -679,9 +704,12 @@ export const ShopProvider = ({ children }) => {
         .map((item) => {
           if (item.id === id && item.selectedSize === size && item.selectedColor === color) {
             const newQty = item.quantity + delta;
-            const stock = item.stockQuantity !== undefined ? item.stockQuantity : 99;
-            if (newQty > stock) {
-              showToast(`Only ${stock} in stock.`, 'warning');
+            const itemSizeStock = item.sizeStockQuantity !== undefined
+              ? item.sizeStockQuantity
+              : (item.sizeStock && item.sizeStock[size] !== undefined ? Number(item.sizeStock[size]) : (item.stockQuantity !== undefined ? item.stockQuantity : 99));
+
+            if (newQty > itemSizeStock) {
+              showToast(`Maximum available stock reached for size ${size}.`, 'warning');
               return item;
             }
             return newQty > 0 ? { ...item, quantity: newQty } : null;

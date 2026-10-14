@@ -8,8 +8,10 @@ export const ProductCard = React.memo(({ product, priority = false }) => {
   const [isHovered, setIsHovered] = useState(false);
 
   const isSaved = isInWishlist(product.id || product._id);
-  const isOutOfStock = (product.stockQuantity !== undefined ? product.stockQuantity : 25) <= 0
-    || product.inStock === false;
+  const totalStock = product.sizeStock && typeof product.sizeStock === 'object'
+    ? Object.values(product.sizeStock).reduce((sum, v) => sum + (Math.max(0, Number(v)) || 0), 0)
+    : (product.stockQuantity !== undefined ? product.stockQuantity : 25);
+  const isOutOfStock = totalStock <= 0 || product.inStock === false;
 
   const rawFront = product.images?.front || product.image || product.images?.primary || '';
   const rawBack  = product.images?.back || '';

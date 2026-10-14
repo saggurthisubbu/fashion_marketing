@@ -56,6 +56,34 @@ router.get('/', async (req, res) => {
         console.log(`[PRODUCT GET] Successfully migrated legacy products to store: ${firstActiveStore.name}`);
       }
     }
+
+    // --- MIGRATION LOGIC: Initialize sizeStock for legacy products without resetting inventory ---
+    const prodsWithoutSizeStock = await Product.find({
+      $or: [
+        { sizeStock: { $exists: false } },
+        { sizeStock: null }
+      ]
+    });
+    if (prodsWithoutSizeStock.length > 0) {
+      console.log(`[PRODUCT MIGRATION] Migrating ${prodsWithoutSizeStock.length} products to size-wise stock...`);
+      const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
+      for (const p of prodsWithoutSizeStock) {
+        const total = p.stockQuantity !== undefined ? Math.max(0, p.stockQuantity) : 25;
+        const base = Math.floor(total / standardSizes.length);
+        const remainder = total % standardSizes.length;
+        const newSizeStock = {};
+        standardSizes.forEach((sz, idx) => {
+          newSizeStock[sz] = base + (idx < remainder ? 1 : 0);
+        });
+        p.sizeStock = newSizeStock;
+        p.stockQuantity = total;
+        p.sizes = standardSizes;
+        p.inStock = total > 0;
+        p.markModified('sizeStock');
+        await p.save();
+      }
+      console.log(`[PRODUCT MIGRATION] Successfully migrated products to sizeStock without resetting quantities.`);
+    }
     // ----------------------------------------------------------------------
 
     let products = await Product.find(filter).sort({ createdAt: -1 });
@@ -292,10 +320,40 @@ router.post('/', protect, storeOwnerOrAdmin, async (req, res) => {
       }
     }
 
-    data.stockQuantity = data.stockQuantity !== undefined && !isNaN(Number(data.stockQuantity))
-      ? Math.max(0, Number(data.stockQuantity))
-      : 25;
-    data.inStock = data.inStock !== undefined ? Boolean(data.inStock) : (data.stockQuantity > 0);
+    if (data.sizeStock && typeof data.sizeStock === 'object') {
+      const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
+      const cleanSizeStock = {};
+      let totalStock = 0;
+      for (const sz of standardSizes) {
+        const qty = Math.max(0, parseInt(data.sizeStock[sz], 10) || 0);
+        cleanSizeStock[sz] = qty;
+        totalStock += qty;
+      }
+      for (const [key, val] of Object.entries(data.sizeStock)) {
+        if (!standardSizes.includes(key)) {
+          const qty = Math.max(0, parseInt(val, 10) || 0);
+          cleanSizeStock[key] = qty;
+          totalStock += qty;
+        }
+      }
+      data.sizeStock = cleanSizeStock;
+      data.stockQuantity = totalStock;
+      data.inStock = totalStock > 0;
+      data.sizes = Object.keys(cleanSizeStock);
+    } else {
+      data.stockQuantity = data.stockQuantity !== undefined && !isNaN(Number(data.stockQuantity))
+        ? Math.max(0, Number(data.stockQuantity))
+        : 25;
+      data.inStock = data.inStock !== undefined ? Boolean(data.inStock) : (data.stockQuantity > 0);
+      const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
+      const base = Math.floor(data.stockQuantity / standardSizes.length);
+      const remainder = data.stockQuantity % standardSizes.length;
+      data.sizeStock = {};
+      standardSizes.forEach((sz, idx) => {
+        data.sizeStock[sz] = base + (idx < remainder ? 1 : 0);
+      });
+      data.sizes = standardSizes;
+    }
     data.isActive = data.isActive !== undefined ? Boolean(data.isActive) : true;
     data.published = data.published !== undefined ? Boolean(data.published) : true;
 
@@ -390,7 +448,28 @@ router.put('/:id', protect, storeOwnerOrAdmin, async (req, res) => {
         product.discount = '';
       }
     }
-    if (data.stockQuantity !== undefined && !isNaN(Number(data.stockQuantity))) {
+    if (data.sizeStock && typeof data.sizeStock === 'object') {
+      const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
+      const cleanSizeStock = {};
+      let totalStock = 0;
+      for (const sz of standardSizes) {
+        const qty = Math.max(0, parseInt(data.sizeStock[sz], 10) || 0);
+        cleanSizeStock[sz] = qty;
+        totalStock += qty;
+      }
+      for (const [key, val] of Object.entries(data.sizeStock)) {
+        if (!standardSizes.includes(key)) {
+          const qty = Math.max(0, parseInt(val, 10) || 0);
+          cleanSizeStock[key] = qty;
+          totalStock += qty;
+        }
+      }
+      product.sizeStock = cleanSizeStock;
+      product.stockQuantity = totalStock;
+      product.inStock = totalStock > 0;
+      product.sizes = Object.keys(cleanSizeStock);
+      product.markModified('sizeStock');
+    } else if (data.stockQuantity !== undefined && !isNaN(Number(data.stockQuantity))) {
       product.stockQuantity = Math.max(0, Number(data.stockQuantity));
       product.inStock = product.stockQuantity > 0;
     }

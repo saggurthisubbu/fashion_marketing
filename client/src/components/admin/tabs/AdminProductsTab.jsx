@@ -246,6 +246,23 @@ export const AdminProductsTab = ({
                               {prod.stockQuantity} units
                             </span>
                           )}
+                          {prod.sizeStock && typeof prod.sizeStock === 'object' && (
+                            <div className="flex gap-1 mt-1 flex-wrap">
+                              {['S', 'M', 'L', 'XL', 'XXL'].map((sz) => (
+                                <span
+                                  key={sz}
+                                  className={`text-[9px] px-1 py-0.5 rounded font-mono ${
+                                    (Number(prod.sizeStock[sz]) || 0) === 0
+                                      ? 'bg-red-950/60 text-red-400 border border-red-800/40'
+                                      : 'bg-zinc-800 text-zinc-300 border border-zinc-700/60'
+                                  }`}
+                                  title={`Size ${sz}: ${prod.sizeStock[sz] || 0} in stock`}
+                                >
+                                  {sz}:{prod.sizeStock[sz] ?? 0}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </td>
 
                         {/* Availability Toggle */}

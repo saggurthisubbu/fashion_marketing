@@ -296,10 +296,22 @@ export const ProductDetailModal = () => {
     showToast('Opening WhatsApp with your order details + product photo! 💬');
   };
 
+  const getSizeStockForProduct = (sizeKey) => {
+    if (!selectedProduct) return 0;
+    if (selectedProduct.sizeStock && selectedProduct.sizeStock[sizeKey] !== undefined) {
+      return Math.max(0, Number(selectedProduct.sizeStock[sizeKey]) || 0);
+    }
+    return selectedProduct.stockQuantity !== undefined ? Math.max(0, Number(selectedProduct.stockQuantity)) : 25;
+  };
+
   const handleAddToCart = () => {
     if (selectedProduct.sizes && selectedProduct.sizes.length > 0 && !selectedSize) {
       setSizeError(true);
       showToast('Please select a size before continuing.', 'warning');
+      return;
+    }
+    if (selectedSize && getSizeStockForProduct(selectedSize) <= 0) {
+      showToast(`Size ${selectedSize} is Out of Stock. Please select another size.`, 'error');
       return;
     }
     setSizeError(false);
@@ -312,12 +324,18 @@ export const ProductDetailModal = () => {
       showToast('Please select a size before continuing.', 'warning');
       return;
     }
+    if (selectedSize && getSizeStockForProduct(selectedSize) <= 0) {
+      showToast(`Size ${selectedSize} is Out of Stock. Please select another size.`, 'error');
+      return;
+    }
     setSizeError(false);
     buyNow(selectedProduct, selectedSize || 'Free Size', selectedColor);
   };
 
-  const stock = selectedProduct.stockQuantity !== undefined ? selectedProduct.stockQuantity : 25;
-  const isOutOfStock = stock <= 0 || selectedProduct.inStock === false;
+  const totalStock = selectedProduct.sizeStock && typeof selectedProduct.sizeStock === 'object'
+    ? Object.values(selectedProduct.sizeStock).reduce((sum, v) => sum + (Math.max(0, Number(v)) || 0), 0)
+    : (selectedProduct.stockQuantity !== undefined ? selectedProduct.stockQuantity : 25);
+  const isOutOfStock = totalStock <= 0 || selectedProduct.inStock === false;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 lg:p-6">
@@ -530,13 +548,9 @@ export const ProductDetailModal = () => {
                 </span>
               )}
               <div className="ml-auto">
-                {isOutOfStock ? (
+                {isOutOfStock && (
                   <span className="px-2.5 py-1 rounded-md bg-rose-100 text-rose-700 text-xs font-bold uppercase">
                     Out of Stock
-                  </span>
-                ) : (
-                  <span className="px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800 text-xs font-bold uppercase">
-                    {stock} in Stock
                   </span>
                 )}
               </div>
@@ -555,19 +569,40 @@ export const ProductDetailModal = () => {
                   <span className="text-[10px] text-slate-400 font-semibold lowercase">standard relaxed fit</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {selectedProduct.sizes.map((sz) => (
-                    <button
-                      key={sz}
-                      onClick={() => { setSelectedSize(sz); setSizeError(false); }}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase border transition-all !min-h-[40px] cursor-pointer ${
-                        selectedSize === sz
-                          ? 'bg-slate-900 text-white border-slate-900 shadow-md scale-105'
-                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
-                      }`}
-                    >
-                      {sz}
-                    </button>
-                  ))}
+                  {selectedProduct.sizes.map((sz) => {
+                    const szStock = getSizeStockForProduct(sz);
+                    const isSizeOutOfStock = szStock <= 0;
+
+                    if (isSizeOutOfStock) {
+                      return (
+                        <button
+                          key={sz}
+                          type="button"
+                          disabled
+                          title={`${sz} - Out of Stock`}
+                          className="px-3.5 py-2 rounded-xl text-xs font-bold uppercase border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed opacity-60 flex items-center gap-1.5 select-none !min-h-[40px]"
+                        >
+                          <span className="line-through">{sz}</span>
+                          <span className="text-[9px] font-semibold text-rose-500 no-underline not-italic">Out of Stock</span>
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <button
+                        key={sz}
+                        type="button"
+                        onClick={() => { setSelectedSize(sz); setSizeError(false); }}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase border transition-all !min-h-[40px] cursor-pointer ${
+                          selectedSize === sz
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-md scale-105'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                        }`}
+                      >
+                        {sz}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

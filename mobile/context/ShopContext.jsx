@@ -444,7 +444,7 @@ export const ShopProvider = ({ children }) => {
       if (existingIndex > -1) {
         const updated = [...prevCart];
         if (updated[existingIndex].quantity >= stock) {
-          showToast(`Only ${stock} in stock.`, 'warning'); return prevCart;
+          showToast(`Maximum available stock reached for size ${size}.`, 'warning'); return prevCart;
         }
         updated[existingIndex] = { ...updated[existingIndex], quantity: updated[existingIndex].quantity + 1 };
         return updated;
@@ -497,7 +497,7 @@ export const ShopProvider = ({ children }) => {
         if (item.id === id && item.selectedSize === size && item.selectedColor === color) {
           const newQty = item.quantity + delta;
           const stock = item.stockQuantity !== undefined ? item.stockQuantity : 99;
-          if (newQty > stock) { showToast(`Only ${stock} in stock.`, 'warning'); return item; }
+          if (newQty > stock) { showToast(`Maximum available stock reached for size ${size}.`, 'warning'); return item; }
           return newQty > 0 ? { ...item, quantity: newQty } : null;
         }
         return item;

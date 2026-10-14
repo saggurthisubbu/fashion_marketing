@@ -64,7 +64,7 @@ router.get('/suggestions', async (req, res) => {
     const filter = buildSearchFilter(rawQuery);
 
     const matchingProducts = await Product.find(filter)
-      .select('name price originalPrice discount image images category subcategory boutique storeName rating inStock stockQuantity sizes badge')
+      .select('name price originalPrice discount image images category subcategory boutique storeName rating inStock stockQuantity sizeStock sizes badge')
       .sort({ inStock: -1, rating: -1, createdAt: -1 })
       .limit(8)
       .lean();

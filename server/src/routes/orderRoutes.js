@@ -144,18 +144,67 @@ router.post('/', async (req, res) => {
       'Vijayawada'
     ].filter(Boolean).join(', ');
 
-    // 3. Deduct stock for ordered items
+    // 2.5. Strictly validate size-wise stock before order placement
+    for (const item of items) {
+      if (item.product) {
+        const dbProduct = await Product.findById(item.product);
+        if (dbProduct) {
+          const requestedSize = (item.size || item.selectedSize || 'M').trim();
+          const orderedQty = Math.max(1, Number(item.quantity) || 1);
+
+          // Get available stock for this size
+          let sizeStockQty = 0;
+          if (dbProduct.sizeStock && dbProduct.sizeStock[requestedSize] !== undefined) {
+            sizeStockQty = Number(dbProduct.sizeStock[requestedSize]) || 0;
+          } else if (dbProduct.stockQuantity !== undefined) {
+            sizeStockQty = Number(dbProduct.stockQuantity) || 0;
+          }
+
+          if (sizeStockQty < orderedQty) {
+            return res.status(400).json({
+              message: sizeStockQty === 0
+                ? `Size ${requestedSize} for "${dbProduct.name}" is out of stock. Please select another size.`
+                : `Insufficient stock for "${dbProduct.name}" (Size ${requestedSize}). Please reduce quantity.`
+            });
+          }
+        }
+      }
+    }
+
+    // 3. Deduct size-wise stock for ordered items
     for (const item of items) {
       if (item.product) {
         try {
           const dbProduct = await Product.findById(item.product);
           if (dbProduct) {
-            item.storeId = dbProduct.storeId || nearestStore?._id || null;
-            item.storeName = dbProduct.storeName || nearestStore?.name || '';
-            dbProduct.stockQuantity = Math.max(0, (dbProduct.stockQuantity || 0) - (item.quantity || 1));
-            if (dbProduct.stockQuantity <= 0) {
-              dbProduct.inStock = false;
+            item.storeId = dbProduct.storeId || rsFashionsStore?._id || null;
+            item.storeName = dbProduct.storeName || rsFashionsStore?.name || '';
+
+            const requestedSize = (item.size || item.selectedSize || 'M').trim();
+            const orderedQty = Math.max(1, Number(item.quantity) || 1);
+
+            if (!dbProduct.sizeStock || typeof dbProduct.sizeStock !== 'object') {
+              const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
+              const currentTotal = dbProduct.stockQuantity || 25;
+              const base = Math.floor(currentTotal / standardSizes.length);
+              const rem = currentTotal % standardSizes.length;
+              dbProduct.sizeStock = {};
+              standardSizes.forEach((sz, idx) => {
+                dbProduct.sizeStock[sz] = base + (idx < rem ? 1 : 0);
+              });
             }
+
+            const currentSizeQty = Number(dbProduct.sizeStock[requestedSize] || 0);
+            dbProduct.sizeStock[requestedSize] = Math.max(0, currentSizeQty - orderedQty);
+
+            // Recalculate total product stock
+            let totalStock = 0;
+            for (const sz of Object.keys(dbProduct.sizeStock)) {
+              totalStock += Math.max(0, Number(dbProduct.sizeStock[sz]) || 0);
+            }
+            dbProduct.stockQuantity = totalStock;
+            dbProduct.inStock = totalStock > 0;
+            dbProduct.markModified('sizeStock');
             await dbProduct.save();
           }
         } catch (stockErr) {

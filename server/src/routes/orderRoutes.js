@@ -184,12 +184,13 @@ router.post('/', async (req, res) => {
             const orderedQty = Math.max(1, Number(item.quantity) || 1);
 
             if (!dbProduct.sizeStock || typeof dbProduct.sizeStock !== 'object') {
-              const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
-              const currentTotal = dbProduct.stockQuantity || 25;
-              const base = Math.floor(currentTotal / standardSizes.length);
-              const rem = currentTotal % standardSizes.length;
+              const isPants = /pant|jean/i.test(dbProduct.subcategory || '') || /pant|jean/i.test(dbProduct.name || '');
+              const defaultSizes = isPants ? ['28', '30', '32', '34', '36', '38'] : ['S', 'M', 'L', 'XL', 'XXL'];
+              const currentTotal = dbProduct.stockQuantity || (defaultSizes.length * 5);
+              const base = Math.floor(currentTotal / defaultSizes.length);
+              const rem = currentTotal % defaultSizes.length;
               dbProduct.sizeStock = {};
-              standardSizes.forEach((sz, idx) => {
+              defaultSizes.forEach((sz, idx) => {
                 dbProduct.sizeStock[sz] = base + (idx < rem ? 1 : 0);
               });
             }

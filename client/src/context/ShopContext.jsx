@@ -164,15 +164,22 @@ export const ShopProvider = ({ children }) => {
     const stockQty = p.stockQuantity !== undefined && !isNaN(Number(p.stockQuantity))
       ? Number(p.stockQuantity) : 25;
     let cleanSizeStock = p.sizeStock;
-    if (!cleanSizeStock || typeof cleanSizeStock !== 'object') {
-      const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
-      const base = Math.floor(stockQty / standardSizes.length);
-      const rem = stockQty % standardSizes.length;
+    if (!cleanSizeStock || typeof cleanSizeStock !== 'object' || Object.keys(cleanSizeStock).length === 0) {
+      const isPants = /pant|jean/i.test(p.subcategory || '') || /pant|jean/i.test(p.name || '');
+      const defaultSizes = Array.isArray(p.sizes) && p.sizes.length > 0
+        ? p.sizes
+        : (isPants ? ['28', '30', '32', '34', '36', '38'] : ['S', 'M', 'L', 'XL', 'XXL']);
+      const base = Math.floor(stockQty / defaultSizes.length);
+      const rem = stockQty % defaultSizes.length;
       cleanSizeStock = {};
-      standardSizes.forEach((sz, idx) => {
+      defaultSizes.forEach((sz, idx) => {
         cleanSizeStock[sz] = base + (idx < rem ? 1 : 0);
       });
     }
+    const finalSizes = Array.isArray(p.sizes) && p.sizes.length > 0
+      ? p.sizes
+      : Object.keys(cleanSizeStock);
+
     return {
       ...p,
       id: p._id || p.id,
@@ -195,9 +202,7 @@ export const ShopProvider = ({ children }) => {
       featured: p.featured !== undefined ? p.featured : true,
       badge: p.badge || 'Bestseller',
       description: p.description || 'Premium heavyweight cotton streetwear.',
-      sizes: Array.isArray(p.sizes) && p.sizes.length > 0
-        ? p.sizes
-        : (typeof p.sizes === 'string' ? p.sizes.split(',').map(s => s.trim()).filter(Boolean) : ['S', 'M', 'L', 'XL', 'XXL']),
+      sizes: finalSizes,
       colors: Array.isArray(p.colors) && p.colors.length > 0
         ? p.colors : [{ name: 'Standard', hex: '#000000' }],
       image: front,

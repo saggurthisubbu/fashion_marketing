@@ -19,7 +19,7 @@ import { AdminStoresTab } from './admin/tabs/AdminStoresTab';
 import { AdminStoreOwnersTab } from './admin/tabs/AdminStoreOwnersTab';
 import { AdminShowcaseTab } from './admin/tabs/AdminShowcaseTab';
 import { AdminErrorBoundary } from './admin/AdminErrorBoundary';
-import { Camera, X, Upload, Crop, Boxes } from 'lucide-react';
+import { Camera, X, Upload, Crop, Boxes, Plus, Trash2, RotateCcw } from 'lucide-react';
 import { resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/api';
 import { ProductImageCropperModal } from './admin/ProductImageCropperModal';
 import {
@@ -112,6 +112,8 @@ export const AdminDashboardModal = () => {
   });
 
   const [fileErrors, setFileErrors] = useState({});
+  const [newCustomSize, setNewCustomSize] = useState('');
+  const [newCustomQty, setNewCustomQty] = useState('5');
 
   // Cropper Modal State
   const [cropperModal, setCropperModal] = useState({
@@ -511,19 +513,28 @@ export const AdminDashboardModal = () => {
     const defaultStore = storesList.find(s => s._id === defaultStoreId);
     const defaultStoreName = defaultStore ? defaultStore.name : '';
 
+    setNewCustomSize('');
+    setNewCustomQty('5');
+
+    const defaultSubcat = 'Oversized T-Shirts';
+    const isPants = /pant|jean/i.test(defaultSubcat);
+    const defaultSizes = isPants ? ['28', '30', '32', '34', '36', '38'] : ['S', 'M', 'L', 'XL', 'XXL'];
+    const initialSizeStock = {};
+    defaultSizes.forEach(sz => { initialSizeStock[sz] = 5; });
+
     setProductForm({
       name: '',
       storeId: defaultStoreId,
       storeName: defaultStoreName,
       category: 'Men',
-      subcategory: 'Oversized T-Shirts',
+      subcategory: defaultSubcat,
       price: '',
       originalPrice: '',
-      stockQuantity: 25,
-      sizeStock: { S: 5, M: 5, L: 5, XL: 5, XXL: 5 },
+      stockQuantity: defaultSizes.length * 5,
+      sizeStock: initialSizeStock,
       boutique: defaultStoreName || 'QuickFit Central, Vijayawada',
       description: 'Heavyweight 240+ GSM organic cotton tailored for clean modern streetwear drape.',
-      sizes: 'S, M, L, XL, XXL'
+      sizes: defaultSizes.join(', ')
     });
   };
 
@@ -545,22 +556,35 @@ export const AdminDashboardModal = () => {
     setImageFiles({ front: null, back: null, left: null, right: null });
     setImagePreviews(existing);
     setFileErrors({});
+    setNewCustomSize('');
+    setNewCustomQty('5');
 
-    const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
+    const isPants = /pant|jean/i.test(prod.subcategory || '') || /pant|jean/i.test(prod.name || '');
+    const fallbackSizes = isPants ? ['28', '30', '32', '34', '36', '38'] : ['S', 'M', 'L', 'XL', 'XXL'];
     const initialSizeStock = {};
-    if (prod.sizeStock && typeof prod.sizeStock === 'object') {
-      standardSizes.forEach((sz) => {
-        initialSizeStock[sz] = prod.sizeStock[sz] !== undefined ? Math.max(0, parseInt(prod.sizeStock[sz], 10) || 0) : 0;
+
+    if (prod.sizeStock && typeof prod.sizeStock === 'object' && Object.keys(prod.sizeStock).length > 0) {
+      // Load all permanent sizes saved in database
+      Object.entries(prod.sizeStock).forEach(([sz, qty]) => {
+        initialSizeStock[sz] = Math.max(0, parseInt(qty, 10) || 0);
+      });
+    } else if (Array.isArray(prod.sizes) && prod.sizes.length > 0) {
+      const currentStock = prod.stockQuantity !== undefined ? Math.max(0, Number(prod.stockQuantity) || 0) : (prod.sizes.length * 5);
+      const base = Math.floor(currentStock / prod.sizes.length);
+      const rem = currentStock % prod.sizes.length;
+      prod.sizes.forEach((sz, idx) => {
+        initialSizeStock[sz] = base + (idx < rem ? 1 : 0);
       });
     } else {
-      const currentStock = prod.stockQuantity !== undefined ? Math.max(0, Number(prod.stockQuantity) || 0) : 25;
-      const base = Math.floor(currentStock / standardSizes.length);
-      const rem = currentStock % standardSizes.length;
-      standardSizes.forEach((sz, idx) => {
+      const currentStock = prod.stockQuantity !== undefined ? Math.max(0, Number(prod.stockQuantity) || 0) : (fallbackSizes.length * 5);
+      const base = Math.floor(currentStock / fallbackSizes.length);
+      const rem = currentStock % fallbackSizes.length;
+      fallbackSizes.forEach((sz, idx) => {
         initialSizeStock[sz] = base + (idx < rem ? 1 : 0);
       });
     }
-    const computedTotal = standardSizes.reduce((acc, sz) => acc + (initialSizeStock[sz] || 0), 0);
+
+    const computedTotal = Object.values(initialSizeStock).reduce((acc, sz) => acc + (Math.max(0, parseInt(sz, 10)) || 0), 0);
 
     setProductForm({
       name: prod.name,
@@ -574,9 +598,92 @@ export const AdminDashboardModal = () => {
       sizeStock: initialSizeStock,
       boutique: prod.boutique || 'QuickFit Central, Vijayawada',
       description: prod.description || '',
-      sizes: Array.isArray(prod.sizes) ? prod.sizes.join(', ') : 'S, M, L, XL, XXL'
+      sizes: Object.keys(initialSizeStock).join(', ')
     });
     setIsProductModalOpen(true);
+  };
+
+  // Size-Wise Stock Operations
+  const handleUpdateSizeQty = (sz, rawQty) => {
+    const parsed = rawQty === '' ? '' : Math.max(0, parseInt(rawQty, 10) || 0);
+    const updated = {
+      ...productForm.sizeStock,
+      [sz]: parsed
+    };
+    const newTotal = Object.values(updated).reduce(
+      (sum, v) => sum + (Math.max(0, parseInt(v, 10)) || 0),
+      0
+    );
+    setProductForm({
+      ...productForm,
+      sizeStock: updated,
+      stockQuantity: newTotal
+    });
+  };
+
+  const handleDeleteSize = (szToDelete) => {
+    const updated = { ...productForm.sizeStock };
+    delete updated[szToDelete];
+    const newTotal = Object.values(updated).reduce(
+      (sum, v) => sum + (Math.max(0, parseInt(v, 10)) || 0),
+      0
+    );
+    setProductForm({
+      ...productForm,
+      sizeStock: updated,
+      stockQuantity: newTotal,
+      sizes: Object.keys(updated).join(', ')
+    });
+  };
+
+  const handleAddCustomSize = (e) => {
+    if (e) e.preventDefault();
+    const clean = (newCustomSize || '').trim();
+    if (!clean) {
+      showToast('Please enter a size name (e.g. 38, 40, XXXL)', 'warning');
+      return;
+    }
+    const qty = Math.max(0, parseInt(newCustomQty, 10) || 0);
+    const updated = {
+      ...productForm.sizeStock,
+      [clean]: qty
+    };
+    const newTotal = Object.values(updated).reduce(
+      (sum, v) => sum + (Math.max(0, parseInt(v, 10)) || 0),
+      0
+    );
+    setProductForm({
+      ...productForm,
+      sizeStock: updated,
+      stockQuantity: newTotal,
+      sizes: Object.keys(updated).join(', ')
+    });
+    setNewCustomSize('');
+    setNewCustomQty('5');
+    showToast(`Added size "${clean}" (${qty} pcs)`, 'success');
+  };
+
+  const handleApplyPresetSizes = (type) => {
+    const presetKeys = type === 'pants'
+      ? ['28', '30', '32', '34', '36', '38']
+      : ['S', 'M', 'L', 'XL', 'XXL'];
+    const updated = {};
+    presetKeys.forEach(sz => {
+      updated[sz] = productForm.sizeStock?.[sz] !== undefined
+        ? Math.max(0, parseInt(productForm.sizeStock[sz], 10) || 0)
+        : 5;
+    });
+    const newTotal = Object.values(updated).reduce(
+      (sum, v) => sum + (Math.max(0, parseInt(v, 10)) || 0),
+      0
+    );
+    setProductForm({
+      ...productForm,
+      sizeStock: updated,
+      stockQuantity: newTotal,
+      sizes: presetKeys.join(', ')
+    });
+    showToast(`Loaded ${type === 'pants' ? 'Pants (28-38)' : 'Shirts (S-XXL)'} default sizes!`);
   };
 
   const handleSaveProduct = async (e) => {
@@ -644,13 +751,28 @@ export const AdminDashboardModal = () => {
       const fallbackStore = storesList.find(s => s._id === fallbackStoreId);
       const fallbackStoreName = productForm.storeName || (fallbackStore ? fallbackStore.name : 'QuickFit Central, Vijayawada');
 
-      const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
       const finalSizeStock = {};
       let computedTotalStock = 0;
-      for (const sz of standardSizes) {
-        const val = Math.max(0, parseInt(productForm.sizeStock?.[sz], 10) || 0);
-        finalSizeStock[sz] = val;
-        computedTotalStock += val;
+      if (productForm.sizeStock && typeof productForm.sizeStock === 'object') {
+        Object.entries(productForm.sizeStock).forEach(([sz, qty]) => {
+          const cleanSize = String(sz).trim();
+          if (cleanSize) {
+            const val = Math.max(0, parseInt(qty, 10) || 0);
+            finalSizeStock[cleanSize] = val;
+            computedTotalStock += val;
+          }
+        });
+      }
+
+      let finalSizes = Object.keys(finalSizeStock);
+      if (finalSizes.length === 0) {
+        const isPants = /pant|jean/i.test(productForm.subcategory || '');
+        const defs = isPants ? ['28', '30', '32', '34', '36', '38'] : ['S', 'M', 'L', 'XL', 'XXL'];
+        defs.forEach(s => {
+          finalSizeStock[s] = 5;
+          computedTotalStock += 5;
+        });
+        finalSizes = defs;
       }
 
       const payload = {
@@ -668,7 +790,7 @@ export const AdminDashboardModal = () => {
         published: true,
         boutique: productForm.boutique || fallbackStoreName,
         description: productForm.description || '',
-        sizes: standardSizes,
+        sizes: finalSizes,
         images: finalImages,
         image: finalImages.front
       };
@@ -1342,7 +1464,30 @@ export const AdminDashboardModal = () => {
                 <label className="font-bold text-zinc-300 uppercase tracking-wider block mb-1">Subcategory *</label>
                 <select
                   value={productForm.subcategory}
-                  onChange={(e) => setProductForm({ ...productForm, subcategory: e.target.value })}
+                  onChange={(e) => {
+                    const newSubcat = e.target.value;
+                    const isPants = /pant|jean/i.test(newSubcat);
+                    const currentSizes = Object.keys(productForm.sizeStock || {});
+                    const isStandardShirt = currentSizes.length === 5 && currentSizes.every(s => ['S', 'M', 'L', 'XL', 'XXL'].includes(s));
+                    const isStandardPants = currentSizes.length === 6 && currentSizes.every(s => ['28', '30', '32', '34', '36', '38'].includes(s));
+
+                    let updatedSizeStock = productForm.sizeStock;
+                    if (!editingProduct) {
+                      if (isPants && isStandardShirt) {
+                        updatedSizeStock = { '28': 5, '30': 5, '32': 5, '34': 5, '36': 5, '38': 5 };
+                      } else if (!isPants && isStandardPants) {
+                        updatedSizeStock = { S: 5, M: 5, L: 5, XL: 5, XXL: 5 };
+                      }
+                    }
+                    const newTotal = Object.values(updatedSizeStock).reduce((sum, v) => sum + (Math.max(0, parseInt(v, 10)) || 0), 0);
+                    setProductForm({
+                      ...productForm,
+                      subcategory: newSubcat,
+                      sizeStock: updatedSizeStock,
+                      stockQuantity: newTotal,
+                      sizes: Object.keys(updatedSizeStock).join(', ')
+                    });
+                  }}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-bold cursor-pointer"
                 >
                   <option value="Oversized T-Shirts">Oversized T-Shirts</option>
@@ -1358,7 +1503,7 @@ export const AdminDashboardModal = () => {
                 </select>
               </div>
 
-              {/* Editable Size-Wise Stock Management (S, M, L, XL, XXL) */}
+              {/* Editable Size-Wise Stock Management */}
               <div className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <label className="font-bold text-white uppercase tracking-wider text-xs flex items-center gap-1.5">
@@ -1366,26 +1511,59 @@ export const AdminDashboardModal = () => {
                     <span>Size-Wise Inventory Stock Management</span>
                   </label>
                   <span className="text-[11px] font-mono text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-800/80 px-2.5 py-0.5 rounded-lg">
-                    Total Available: {['S', 'M', 'L', 'XL', 'XXL'].reduce((acc, sz) => acc + (Math.max(0, parseInt(productForm.sizeStock?.[sz], 10)) || 0), 0)} units
+                    Total Available: {Object.values(productForm.sizeStock || {}).reduce((acc, q) => acc + (Math.max(0, parseInt(q, 10)) || 0), 0)} units
                   </span>
                 </div>
+
+                {/* Default Preset Quick Buttons */}
+                <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                  <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">Presets:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyPresetSizes('pants')}
+                    className="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 text-[11px] font-mono font-medium transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                    title="Load Pants/Jeans sizes: 28, 30, 32, 34, 36, 38"
+                  >
+                    <span>👖 Pants/Jeans (28, 30, 32, 34, 36, 38)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyPresetSizes('shirts')}
+                    className="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 text-[11px] font-mono font-medium transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                    title="Load Shirts/T-shirts sizes: S, M, L, XL, XXL"
+                  >
+                    <span>👕 Shirts/T-Shirts (S, M, L, XL, XXL)</span>
+                  </button>
+                </div>
+
                 <p className="text-[10px] text-zinc-400">
-                  Set independent inventory quantity for each size. A size with 0 stock will automatically be disabled and marked Out of Stock for customers.
+                  Set individual stock quantity for each size. Delete any size with ✕, or add any custom size below. Sizes with 0 stock are disabled for customers.
                 </p>
 
-                <div className="grid grid-cols-5 gap-2 sm:gap-3 pt-1">
-                  {['S', 'M', 'L', 'XL', 'XXL'].map((sz) => {
-                    const currentVal = productForm.sizeStock?.[sz] ?? 0;
+                {/* Sizes List / Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1">
+                  {Object.entries(productForm.sizeStock || {}).map(([sz, qty]) => {
+                    const currentVal = qty ?? 0;
                     return (
                       <div
                         key={sz}
-                        className={`p-2.5 rounded-xl border text-center transition-all ${
+                        className={`p-2 rounded-xl border text-center transition-all relative group ${
                           Number(currentVal) === 0
                             ? 'bg-red-950/20 border-red-900/40'
-                            : 'bg-zinc-900 border-zinc-800'
+                            : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
                         }`}
                       >
-                        <span className="font-black text-xs text-white block font-mono mb-1">
+                        {/* Delete Size Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSize(sz)}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-zinc-800 hover:bg-red-900/80 border border-zinc-600 hover:border-red-500 text-zinc-300 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-sm z-10"
+                          title={`Delete size ${sz}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+
+                        <span className="font-black text-xs text-white block font-mono mb-1 truncate px-1" title={sz}>
                           {sz}
                         </span>
                         <input
@@ -1393,23 +1571,7 @@ export const AdminDashboardModal = () => {
                           min="0"
                           required
                           value={currentVal}
-                          onChange={(e) => {
-                            const raw = e.target.value;
-                            const parsed = raw === '' ? '' : Math.max(0, parseInt(raw, 10) || 0);
-                            const updatedSizeStock = {
-                              ...productForm.sizeStock,
-                              [sz]: parsed
-                            };
-                            const newTotal = ['S', 'M', 'L', 'XL', 'XXL'].reduce(
-                              (sum, s) => sum + (Math.max(0, parseInt(updatedSizeStock[s], 10)) || 0),
-                              0
-                            );
-                            setProductForm({
-                              ...productForm,
-                              sizeStock: updatedSizeStock,
-                              stockQuantity: newTotal
-                            });
-                          }}
+                          onChange={(e) => handleUpdateSizeQty(sz, e.target.value)}
                           className={`w-full text-center py-1.5 px-1 rounded-lg bg-zinc-950 border text-white font-mono font-bold text-xs focus:outline-none ${
                             Number(currentVal) === 0
                               ? 'border-red-800/80 text-red-400 focus:border-red-500'
@@ -1427,6 +1589,49 @@ export const AdminDashboardModal = () => {
                       </div>
                     );
                   })}
+                </div>
+
+                {/* Add Custom Size Section */}
+                <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2 flex-wrap">
+                  <div className="flex-1 min-w-[120px]">
+                    <input
+                      type="text"
+                      value={newCustomSize}
+                      onChange={(e) => setNewCustomSize(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCustomSize();
+                        }
+                      }}
+                      placeholder="Custom size (e.g. 40, XXXL, 26)"
+                      className="w-full px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white font-medium text-xs focus:outline-none focus:border-white"
+                    />
+                  </div>
+                  <div className="w-20">
+                    <input
+                      type="number"
+                      min="0"
+                      value={newCustomQty}
+                      onChange={(e) => setNewCustomQty(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCustomSize();
+                        }
+                      }}
+                      placeholder="Qty"
+                      className="w-full px-2 py-1.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white font-mono font-bold text-xs text-center focus:outline-none focus:border-white"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddCustomSize}
+                    className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs flex items-center gap-1 transition-all cursor-pointer active:scale-95 shadow-xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Size</span>
+                  </button>
                 </div>
               </div>
 

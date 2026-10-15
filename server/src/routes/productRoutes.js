@@ -320,21 +320,15 @@ router.post('/', protect, storeOwnerOrAdmin, async (req, res) => {
       }
     }
 
-    if (data.sizeStock && typeof data.sizeStock === 'object') {
-      const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
+    if (data.sizeStock && typeof data.sizeStock === 'object' && Object.keys(data.sizeStock).length > 0) {
       const cleanSizeStock = {};
       let totalStock = 0;
-      for (const sz of standardSizes) {
-        const qty = Math.max(0, parseInt(data.sizeStock[sz], 10) || 0);
+      for (const [key, val] of Object.entries(data.sizeStock)) {
+        const sz = String(key).trim();
+        if (!sz) continue;
+        const qty = Math.max(0, parseInt(val, 10) || 0);
         cleanSizeStock[sz] = qty;
         totalStock += qty;
-      }
-      for (const [key, val] of Object.entries(data.sizeStock)) {
-        if (!standardSizes.includes(key)) {
-          const qty = Math.max(0, parseInt(val, 10) || 0);
-          cleanSizeStock[key] = qty;
-          totalStock += qty;
-        }
       }
       data.sizeStock = cleanSizeStock;
       data.stockQuantity = totalStock;
@@ -345,14 +339,15 @@ router.post('/', protect, storeOwnerOrAdmin, async (req, res) => {
         ? Math.max(0, Number(data.stockQuantity))
         : 25;
       data.inStock = data.inStock !== undefined ? Boolean(data.inStock) : (data.stockQuantity > 0);
-      const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
-      const base = Math.floor(data.stockQuantity / standardSizes.length);
-      const remainder = data.stockQuantity % standardSizes.length;
+      const isPants = /pant|jean/i.test(data.subcategory || '') || /pant|jean/i.test(data.name || '');
+      const defaultSizes = isPants ? ['28', '30', '32', '34', '36', '38'] : ['S', 'M', 'L', 'XL', 'XXL'];
+      const base = Math.floor(data.stockQuantity / defaultSizes.length);
+      const remainder = data.stockQuantity % defaultSizes.length;
       data.sizeStock = {};
-      standardSizes.forEach((sz, idx) => {
+      defaultSizes.forEach((sz, idx) => {
         data.sizeStock[sz] = base + (idx < remainder ? 1 : 0);
       });
-      data.sizes = standardSizes;
+      data.sizes = defaultSizes;
     }
     data.isActive = data.isActive !== undefined ? Boolean(data.isActive) : true;
     data.published = data.published !== undefined ? Boolean(data.published) : true;
@@ -366,7 +361,8 @@ router.post('/', protect, storeOwnerOrAdmin, async (req, res) => {
       data.sizes = data.sizes.split(',').map(s => s.trim()).filter(Boolean);
     }
     if (!data.sizes || data.sizes.length === 0) {
-      data.sizes = ['S', 'M', 'L', 'XL', 'XXL'];
+      const isPants = /pant|jean/i.test(data.subcategory || '') || /pant|jean/i.test(data.name || '');
+      data.sizes = isPants ? ['28', '30', '32', '34', '36', '38'] : ['S', 'M', 'L', 'XL', 'XXL'];
     }
 
     // Process 4-angle images structure
@@ -449,26 +445,21 @@ router.put('/:id', protect, storeOwnerOrAdmin, async (req, res) => {
       }
     }
     if (data.sizeStock && typeof data.sizeStock === 'object') {
-      const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
       const cleanSizeStock = {};
       let totalStock = 0;
-      for (const sz of standardSizes) {
-        const qty = Math.max(0, parseInt(data.sizeStock[sz], 10) || 0);
+      for (const [key, val] of Object.entries(data.sizeStock)) {
+        const sz = String(key).trim();
+        if (!sz) continue;
+        const qty = Math.max(0, parseInt(val, 10) || 0);
         cleanSizeStock[sz] = qty;
         totalStock += qty;
-      }
-      for (const [key, val] of Object.entries(data.sizeStock)) {
-        if (!standardSizes.includes(key)) {
-          const qty = Math.max(0, parseInt(val, 10) || 0);
-          cleanSizeStock[key] = qty;
-          totalStock += qty;
-        }
       }
       product.sizeStock = cleanSizeStock;
       product.stockQuantity = totalStock;
       product.inStock = totalStock > 0;
       product.sizes = Object.keys(cleanSizeStock);
       product.markModified('sizeStock');
+      product.markModified('sizes');
     } else if (data.stockQuantity !== undefined && !isNaN(Number(data.stockQuantity))) {
       product.stockQuantity = Math.max(0, Number(data.stockQuantity));
       product.inStock = product.stockQuantity > 0;

@@ -167,17 +167,17 @@ export const AdminInventoryTab = ({
                     <span className="text-[10px] text-zinc-400 ml-1">units</span>
                     {prod.sizeStock && typeof prod.sizeStock === 'object' && (
                       <div className="flex gap-1 mt-1 flex-wrap">
-                        {['S', 'M', 'L', 'XL', 'XXL'].map((sz) => (
+                        {Object.entries(prod.sizeStock).map(([sz, qty]) => (
                           <span
                             key={sz}
                             className={`text-[9px] px-1 py-0.5 rounded font-mono ${
-                              (Number(prod.sizeStock[sz]) || 0) === 0
+                              (Number(qty) || 0) === 0
                                 ? 'bg-red-950/60 text-red-400 border border-red-800/40'
                                 : 'bg-zinc-800 text-zinc-300 border border-zinc-700/60'
                             }`}
-                            title={`Size ${sz}: ${prod.sizeStock[sz] || 0} units`}
+                            title={`Size ${sz}: ${qty || 0} units`}
                           >
-                            {sz}:{prod.sizeStock[sz] ?? 0}
+                            {sz}:{qty ?? 0}
                           </span>
                         ))}
                       </div>

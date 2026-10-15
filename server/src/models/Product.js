@@ -71,31 +71,28 @@ productSchema.pre('save', function (next) {
     ].filter(Boolean);
   }
 
-  // Synchronize size-wise stock & total stockQuantity
+  // Synchronize size-wise stock & total stockQuantity dynamically (supports any size: S, M, L, 28, 30, 32, etc.)
   if (this.sizeStock && typeof this.sizeStock === 'object') {
     let totalStock = 0;
     const cleanSizeStock = {};
-    const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
-    
-    // Ensure all standard sizes exist in cleanSizeStock
-    for (const sz of standardSizes) {
-      const qty = Math.max(0, parseInt(this.sizeStock[sz], 10) || 0);
-      cleanSizeStock[sz] = qty;
-      totalStock += qty;
-    }
+    const configuredSizes = [];
 
-    // Preserve any custom sizes if present
     for (const [key, val] of Object.entries(this.sizeStock)) {
-      if (!standardSizes.includes(key)) {
-        const qty = Math.max(0, parseInt(val, 10) || 0);
-        cleanSizeStock[key] = qty;
-        totalStock += qty;
-      }
+      const trimmedKey = String(key).trim();
+      if (!trimmedKey) continue;
+      const qty = Math.max(0, parseInt(val, 10) || 0);
+      cleanSizeStock[trimmedKey] = qty;
+      configuredSizes.push(trimmedKey);
+      totalStock += qty;
     }
 
     this.sizeStock = cleanSizeStock;
     this.stockQuantity = totalStock;
+    if (configuredSizes.length > 0) {
+      this.sizes = configuredSizes;
+    }
     this.markModified('sizeStock');
+    this.markModified('sizes');
   }
 
   // Stock & visibility controller

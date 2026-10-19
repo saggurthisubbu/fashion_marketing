@@ -150,6 +150,10 @@ export const sendOrderConfirmationEmail = async (order) => {
   const totalAmount = order.totalAmount !== undefined ? order.totalAmount : (order.grandTotal || 0);
   const deliveryAddress = formatDeliveryAddress(order.customer);
 
+  const discountText = order.discountAmount && order.discountAmount > 0
+    ? `Subtotal: ₹${order.subtotalAmount || totalAmount}\nDiscount (${order.couponCode || 'FIRSTORDER'}): -₹${order.discountAmount}\n`
+    : '';
+
   // 3. Exact Plain Text Email Body as required
   const plainText = `Hi ${customerName},
 
@@ -164,7 +168,7 @@ Order ID: ${orderId}
 Products Ordered:
 ${productsText}
 
-Total Amount: ₹${totalAmount}
+${discountText}Total Amount: ₹${totalAmount}
 
 Delivery Address:
 ${deliveryAddress}
@@ -270,6 +274,16 @@ QuickFit Team`;
                 </table>
 
                 <table style="width:100%;border-collapse:collapse;border-top:1px solid #27272a;padding-top:12px;margin-top:8px;">
+                  ${order.discountAmount && order.discountAmount > 0 ? `
+                  <tr>
+                    <td style="padding:6px 0;color:#a1a1aa;font-size:13px;">Subtotal:</td>
+                    <td align="right" style="padding:6px 0;color:#e4e4e7;font-size:13px;font-family:monospace;">₹${order.subtotalAmount || totalAmount}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 0;color:#34d399;font-size:13px;font-weight:700;">Discount (${order.couponCode || 'FIRSTORDER'}):</td>
+                    <td align="right" style="padding:6px 0;color:#34d399;font-size:13px;font-weight:700;font-family:monospace;">-₹${order.discountAmount}</td>
+                  </tr>
+                  ` : ''}
                   <tr>
                     <td style="padding:10px 0 0 0;font-weight:900;color:#ffffff;font-size:16px;">Total Amount:</td>
                     <td align="right" style="padding:10px 0 0 0;font-weight:900;color:#fbbf24;font-size:20px;font-family:monospace;">₹${totalAmount}</td>

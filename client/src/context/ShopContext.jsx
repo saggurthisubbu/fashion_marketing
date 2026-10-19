@@ -756,33 +756,62 @@ export const ShopProvider = ({ children }) => {
     wishlist.some((item) => item.id === productId || item._id === productId);
 
   // --- PROMO COUPON SYSTEM ---
-  const applyPromoCode = () => {
-    const code = promoCode.trim().toUpperCase();
+  const applyPromoCode = async (overrideCode = null, overridePhone = null, overrideEmail = null) => {
+    const rawInput = overrideCode !== null && overrideCode !== undefined ? overrideCode : promoCode;
+    const code = String(rawInput || '').trim().toUpperCase();
     setPromoError('');
 
     if (!code) {
-      setPromoError('Please enter a coupon code.');
-      return;
+      const msg = 'Please enter a coupon code.';
+      setPromoError(msg);
+      showToast(msg, 'warning');
+      return { success: false, message: msg };
     }
 
-    if (code === 'QUICK60' || code === 'FIRSTFIT') {
-      const discount = code === 'QUICK60' ? 150 : 200;
-      setAppliedPromo({ code, discount, type: 'flat' });
-      showToast(`Promo "${code}" applied! ₹${discount} saved. 🎉`);
-      setPromoCode('');
-    } else {
-      setPromoError('Invalid coupon code. Try QUICK60');
+    const phone = overridePhone || user?.phone || '';
+    const email = overrideEmail || (user?.email && !user.email.endsWith('@customer.quickfit.in') ? user.email : '');
+
+    try {
+      const res = await axios.post(`${API_BASE_URL}/orders/validate-coupon`, {
+        couponCode: code,
+        phone,
+        email,
+        subtotal: cartSubtotal
+      });
+
+      if (res.data?.valid) {
+        setAppliedPromo({
+          code: res.data.couponCode,
+          discount: res.data.discount,
+          type: 'flat'
+        });
+        showToast(res.data.message || `Coupon "${res.data.couponCode}" applied! ₹${res.data.discount} saved. 🎉`, 'success');
+        setPromoCode('');
+        return { success: true, data: res.data };
+      } else {
+        const msg = res.data?.message || 'Invalid coupon code.';
+        setPromoError(msg);
+        showToast(msg, 'warning');
+        return { success: false, message: msg };
+      }
+    } catch (err) {
+      const backendMsg = err.response?.data?.message || err.message || 'Invalid coupon code. Try FIRSTORDER or FIRST200';
+      setPromoError(backendMsg);
+      showToast(backendMsg, 'warning');
+      return { success: false, message: backendMsg };
     }
   };
 
   const removePromo = () => {
     setAppliedPromo(null);
+    setPromoError('');
     showToast('Coupon removed.', 'info');
   };
 
   // --- TOTAL CALCULATIONS ---
   const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const discountAmount = appliedPromo ? appliedPromo.discount : 0;
+  // Discount must not exceed the eligible product subtotal, never allowing a negative total
+  const discountAmount = appliedPromo ? Math.min(appliedPromo.discount, cartSubtotal) : 0;
   const deliveryFee = cartSubtotal > 999 || cartSubtotal === 0 ? 0 : 49;
   const cartGrandTotal = Math.max(0, cartSubtotal - discountAmount + (cart.length > 0 ? deliveryFee : 0));
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);

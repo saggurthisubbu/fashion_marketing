@@ -163,12 +163,28 @@ export const OrderConfirmationModal = () => {
                 );
               })}
 
+              {/* Subtotal and Discount Rows */}
+              {lastOrder.discountAmount > 0 && (
+                <>
+                  <div className="flex justify-between items-center px-3 py-2 bg-slate-50 border-t border-slate-200 text-xs">
+                    <span className="text-slate-500 font-semibold">Original Bill</span>
+                    <span className="font-mono font-bold text-slate-800">
+                      ₹{lastOrder.subtotalAmount || (lastOrder.totalAmount + lastOrder.discountAmount)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center px-3 py-2 bg-emerald-50 text-xs text-emerald-800 font-bold border-t border-emerald-100">
+                    <span>First Order Discount ({lastOrder.couponCode || 'FIRSTORDER'})</span>
+                    <span className="font-mono">-₹{lastOrder.discountAmount}</span>
+                  </div>
+                </>
+              )}
+
               {/* Total Row */}
-              <div className="flex justify-between items-center p-3 bg-slate-50">
+              <div className="flex justify-between items-center p-3 bg-slate-50 border-t border-slate-200">
                 <span className="font-black text-slate-900 text-xs uppercase tracking-wide">
-                  Total Paid
+                  Total Payable Amount
                 </span>
-                <span className="font-black text-slate-900 text-sm">
+                <span className="font-black text-slate-900 text-base font-mono">
                   ₹{lastOrder.totalAmount || lastOrder.grandTotal}
                 </span>
               </div>

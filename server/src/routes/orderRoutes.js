@@ -65,6 +65,131 @@ async function validateDeliveryZone(customerLat, customerLng) {
   };
 }
 
+// ─── Check First-Time Customer Eligibility ─────────────────────────────────
+export async function checkFirstTimeCustomerEligibility({ phone, email }) {
+  const cleanPhone = phone ? String(phone).replace(/\D/g, '').slice(-10) : '';
+  const cleanEmail = email ? String(email).trim().toLowerCase() : '';
+
+  const orConditions = [];
+  if (cleanPhone && cleanPhone.length === 10) {
+    orConditions.push({ 'customer.phone': { $regex: cleanPhone } });
+  }
+  if (cleanEmail && !cleanEmail.endsWith('@customer.quickfit.in')) {
+    orConditions.push({ 'customer.email': { $regex: new RegExp(`^${cleanEmail}$`, 'i') } });
+  }
+
+  // If no contact details provided yet, customer is provisionally eligible until entered
+  if (orConditions.length === 0) {
+    return { eligible: true };
+  }
+
+  // Look for any existing non-cancelled order
+  const existingOrder = await Order.findOne({
+    $or: orConditions,
+    deliveryStatus: { $ne: 'Cancelled' }
+  });
+
+  if (existingOrder) {
+    return {
+      eligible: false,
+      reason: 'repeat_customer',
+      message: 'This coupon is valid for first-time customers only. You have already placed an order with QUICKFIT.'
+    };
+  }
+
+  // Also check User collection if user has totalOrders > 0
+  const userConditions = [];
+  if (cleanPhone && cleanPhone.length === 10) {
+    userConditions.push({ phone: { $regex: cleanPhone } });
+  }
+  if (cleanEmail && !cleanEmail.endsWith('@customer.quickfit.in')) {
+    userConditions.push({ email: { $regex: new RegExp(`^${cleanEmail}$`, 'i') } });
+  }
+
+  if (userConditions.length > 0) {
+    const existingUser = await User.findOne({
+      $or: userConditions,
+      totalOrders: { $gt: 0 }
+    });
+    if (existingUser) {
+      return {
+        eligible: false,
+        reason: 'repeat_customer',
+        message: 'This coupon is valid for first-time customers only. You have already placed an order with QUICKFIT.'
+      };
+    }
+  }
+
+  return { eligible: true };
+}
+
+// ─── Validate Coupon Endpoint (Cart & Checkout) ───────────────────────────
+router.post('/validate-coupon', async (req, res) => {
+  try {
+    const { couponCode, phone, email, subtotal } = req.body;
+    const rawCode = String(couponCode || '').trim();
+
+    if (!rawCode) {
+      return res.status(400).json({ valid: false, message: 'Please enter a coupon code.' });
+    }
+
+    const code = rawCode.toUpperCase();
+    const eligibleSubtotal = Math.max(0, Number(subtotal) || 0);
+
+    // Support FIRSTORDER, FIRST200 (from homepage banner), and legacy FIRSTFIT
+    if (code === 'FIRSTORDER' || code === 'FIRST200' || code === 'FIRSTFIT') {
+      const eligibility = await checkFirstTimeCustomerEligibility({ phone, email });
+      if (!eligibility.eligible) {
+        return res.status(400).json({
+          valid: false,
+          couponCode: code,
+          message: eligibility.message || 'This coupon is valid for first-time customers only.'
+        });
+      }
+
+      // FLAT ₹200 OFF on total eligible product bill. Never exceed subtotal.
+      const discount = Math.min(200, eligibleSubtotal);
+      const deliveryFee = eligibleSubtotal > 999 || eligibleSubtotal === 0 ? 0 : 49;
+      const finalPayable = Math.max(0, eligibleSubtotal - discount + (eligibleSubtotal > 0 ? deliveryFee : 0));
+
+      return res.json({
+        valid: true,
+        couponCode: code,
+        discount,
+        subtotal: eligibleSubtotal,
+        deliveryFee,
+        finalPayable,
+        message: `Coupon "${code}" applied! FLAT ₹${discount} OFF on your first order. 🎉`
+      });
+    }
+
+    // Existing QUICK60 coupon (₹150 OFF)
+    if (code === 'QUICK60') {
+      const discount = Math.min(150, eligibleSubtotal);
+      const deliveryFee = eligibleSubtotal > 999 || eligibleSubtotal === 0 ? 0 : 49;
+      const finalPayable = Math.max(0, eligibleSubtotal - discount + (eligibleSubtotal > 0 ? deliveryFee : 0));
+
+      return res.json({
+        valid: true,
+        couponCode: 'QUICK60',
+        discount,
+        subtotal: eligibleSubtotal,
+        deliveryFee,
+        finalPayable,
+        message: `Promo "QUICK60" applied! ₹${discount} saved. 🎉`
+      });
+    }
+
+    return res.status(400).json({
+      valid: false,
+      message: 'Invalid coupon code. Use FIRSTORDER or FIRST200 for ₹200 OFF on your first order.'
+    });
+  } catch (error) {
+    console.error('❌ [Validate Coupon Error]:', error);
+    return res.status(500).json({ valid: false, message: error.message || 'Failed to validate coupon' });
+  }
+});
+
 // Create new order (Public or Customer)
 router.post('/', async (req, res) => {
   try {
@@ -73,6 +198,7 @@ router.post('/', async (req, res) => {
       customerEmail: directCustomerEmail,
       items,
       totalAmount,
+      couponCode,
       paymentMethod,
       locationLink,
       customerLocation,
@@ -227,6 +353,41 @@ router.post('/', async (req, res) => {
 
     const hasCustomerEmail = Boolean(resolvedCustomerEmail && resolvedCustomerEmail.includes('@'));
 
+    // Calculate subtotal from items
+    const eligibleSubtotal = items.reduce((sum, item) => {
+      const price = Number(item.price) || 0;
+      const qty = Math.max(1, Number(item.quantity || item.qty) || 1);
+      return sum + (price * qty);
+    }, 0);
+
+    // Recheck coupon eligibility and calculate discount securely
+    const rawCoupon = String(couponCode || '').trim().toUpperCase();
+    let calculatedDiscount = 0;
+    let finalCouponCode = '';
+
+    if (rawCoupon === 'FIRSTORDER' || rawCoupon === 'FIRST200' || rawCoupon === 'FIRSTFIT') {
+      const eligibility = await checkFirstTimeCustomerEligibility({
+        phone: customer.phone,
+        email: resolvedCustomerEmail
+      });
+
+      if (!eligibility.eligible) {
+        return res.status(400).json({
+          message: eligibility.message || 'Coupon FIRSTORDER is valid for first-time customers only.'
+        });
+      }
+
+      // FLAT ₹200 OFF on total eligible product bill. Never exceed subtotal.
+      calculatedDiscount = Math.min(200, Math.max(0, eligibleSubtotal));
+      finalCouponCode = rawCoupon;
+    } else if (rawCoupon === 'QUICK60') {
+      calculatedDiscount = Math.min(150, Math.max(0, eligibleSubtotal));
+      finalCouponCode = 'QUICK60';
+    }
+
+    const calculatedDeliveryFee = eligibleSubtotal > 999 || eligibleSubtotal === 0 ? 0 : 49;
+    const finalCalculatedTotal = Math.max(0, eligibleSubtotal - calculatedDiscount + (items.length > 0 ? calculatedDeliveryFee : 0));
+
     const order = new Order({
       orderId,
       customer: {
@@ -249,7 +410,10 @@ router.post('/', async (req, res) => {
         storeId: item.storeId || finalAssignedStore.id || null,
         storeName: item.storeName || finalAssignedStore.name || ''
       })),
-      totalAmount,
+      subtotalAmount: eligibleSubtotal,
+      discountAmount: calculatedDiscount,
+      couponCode: finalCouponCode,
+      totalAmount: finalCalculatedTotal,
       paymentMethod: paymentMethod || 'COD',
       paymentStatus: paymentMethod === 'Razorpay' ? 'Paid' : 'Pending',
       deliveryStatus: 'Confirmed',
@@ -274,9 +438,13 @@ router.post('/', async (req, res) => {
     console.log(`[Order Saved To Database]: Order #${createdOrder.orderId} (ID: ${createdOrder._id}) saved successfully to MongoDB Atlas.`);
     console.log(`===============================================================\n`);
 
-    // 6. Update user totalOrders if registered
-    if (hasCustomerEmail) {
-      User.findOneAndUpdate({ email: resolvedCustomerEmail }, { $inc: { totalOrders: 1 } }).catch(() => {});
+    // 6. Update user totalOrders and totalSpent if registered
+    const cleanPhoneForUser = customer.phone ? String(customer.phone).replace(/\D/g, '').slice(-10) : '';
+    const userUpdateConditions = [];
+    if (hasCustomerEmail) userUpdateConditions.push({ email: resolvedCustomerEmail });
+    if (cleanPhoneForUser && cleanPhoneForUser.length === 10) userUpdateConditions.push({ phone: { $regex: cleanPhoneForUser } });
+    if (userUpdateConditions.length > 0) {
+      User.findOneAndUpdate({ $or: userUpdateConditions }, { $inc: { totalOrders: 1, totalSpent: finalCalculatedTotal } }).catch(() => {});
     }
 
     // 7. Send Customer Confirmation Email (Nodemailer SMTP)

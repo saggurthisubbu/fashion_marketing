@@ -533,13 +533,13 @@ export const ShopProvider = ({ children }) => {
     const code = promoCode.trim().toUpperCase();
     setPromoError('');
     if (!code) { setPromoError('Please enter a coupon code.'); return; }
-    if (code === 'QUICK60' || code === 'FIRSTFIT') {
+    if (code === 'FIRSTORDER' || code === 'FIRST200' || code === 'FIRSTFIT' || code === 'QUICK60') {
       const discount = code === 'QUICK60' ? 150 : 200;
       setAppliedPromo({ code, discount, type: 'flat' });
-      showToast(`Promo "${code}" applied! Rs.${discount} saved.`);
+      showToast(`Coupon "${code}" applied! Rs.${discount} saved.`);
       setPromoCode('');
     } else {
-      setPromoError('Invalid coupon code. Try QUICK60');
+      setPromoError('Invalid coupon code. Try FIRSTORDER or FIRST200');
     }
   };
 
@@ -547,7 +547,7 @@ export const ShopProvider = ({ children }) => {
 
   // ─── Cart Calculations ────────────────────────────────────────────────────
   const cartSubtotal    = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const discountAmount  = appliedPromo ? appliedPromo.discount : 0;
+  const discountAmount  = appliedPromo ? Math.min(appliedPromo.discount, cartSubtotal) : 0;
   const deliveryFee     = cartSubtotal > 999 || cartSubtotal === 0 ? 0 : 49;
   const cartGrandTotal  = Math.max(0, cartSubtotal - discountAmount + (cart.length > 0 ? deliveryFee : 0));
   const totalCartCount  = cart.reduce((sum, item) => sum + item.quantity, 0);

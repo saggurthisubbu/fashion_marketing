@@ -15,6 +15,12 @@ export const CheckoutModal = () => {
     discountAmount,
     deliveryFee,
     cartGrandTotal,
+    appliedPromo,
+    promoCode,
+    setPromoCode,
+    promoError,
+    applyPromoCode,
+    removePromo,
     setLastOrder,
     setIsOrderConfirmedOpen,
     clearCart,
@@ -27,6 +33,8 @@ export const CheckoutModal = () => {
 
   // Two-step checkout flow: 'details' -> 'confirmation'
   const [checkoutStep, setCheckoutStep] = useState('details');
+  const [checkoutCoupon, setCheckoutCoupon] = useState('');
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -273,6 +281,9 @@ export const CheckoutModal = () => {
           area: formData.area || 'Benz Circle'
         },
         customerEmail: formData.email ? formData.email.trim() : '',
+        couponCode: appliedPromo?.code || '',
+        subtotalAmount: cartSubtotal,
+        discountAmount: discountAmount,
         items: cart.map(item => ({
           product: item._id || item.id,
           name: item.name,
@@ -592,6 +603,67 @@ export const CheckoutModal = () => {
               )}
             </div>
 
+            {/* FIRST-ORDER COUPON / PROMO CODE SECTION */}
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <span>🎟️</span>
+                  <span>First-Order Coupon</span>
+                </span>
+                <span className="text-[10px] text-blue-600 font-bold">Use: FIRSTORDER | FIRST200</span>
+              </div>
+
+              {appliedPromo ? (
+                <div className="flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-bold">
+                  <div className="flex items-center gap-2">
+                    <span className="text-emerald-600 font-black">✓</span>
+                    <span>Coupon <strong>{appliedPromo.code}</strong> Applied (₹{discountAmount} OFF)</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={removePromo}
+                    className="text-[10px] text-rose-600 hover:text-rose-800 underline font-semibold cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={checkoutCoupon}
+                      onChange={(e) => setCheckoutCoupon(e.target.value)}
+                      placeholder="Enter code (e.g. FIRSTORDER)"
+                      className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 uppercase focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    />
+                    <button
+                      type="button"
+                      disabled={isApplyingCoupon}
+                      onClick={async () => {
+                        if (!checkoutCoupon.trim()) {
+                          showToast('Please enter a coupon code.', 'warning');
+                          return;
+                        }
+                        setIsApplyingCoupon(true);
+                        const res = await applyPromoCode(checkoutCoupon, formData.phone, formData.email);
+                        setIsApplyingCoupon(false);
+                        if (res?.success) {
+                          setCheckoutCoupon('');
+                        }
+                      }}
+                      className="px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-xs transition-colors cursor-pointer disabled:opacity-60"
+                    >
+                      {isApplyingCoupon ? 'Checking...' : 'Apply'}
+                    </button>
+                  </div>
+                  {promoError && (
+                    <p className="text-rose-600 text-[11px] font-semibold">{promoError}</p>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* PAYMENT METHOD */}
             <div>
               <label className="font-bold text-slate-800 block mb-1">Select Payment Method</label>
@@ -767,28 +839,33 @@ export const CheckoutModal = () => {
             </div>
 
             {/* 3. ORDER PRICING SUMMARY */}
-            <div className="p-4 rounded-2xl bg-slate-900 text-white space-y-2">
+            <div className="p-4 rounded-2xl bg-slate-900 text-white space-y-2.5">
               <div className="flex justify-between text-slate-300 text-xs">
-                <span>Items Subtotal</span>
-                <span className="font-mono">₹{cartSubtotal}</span>
+                <span>Original Bill (Subtotal)</span>
+                <span className="font-mono font-semibold">₹{cartSubtotal}</span>
               </div>
               <div className="flex justify-between text-slate-300 text-xs">
                 <span>Express Delivery Fee</span>
                 <span className="text-emerald-400 font-bold font-mono">
-                  {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}
+                  {deliveryFee === 0 ? 'FREE (Above ₹999)' : `₹${deliveryFee}`}
                 </span>
               </div>
               {discountAmount > 0 && (
-                <div className="flex justify-between text-emerald-400 text-xs font-bold">
-                  <span>Discount Applied</span>
+                <div className="flex justify-between text-emerald-400 text-xs font-bold bg-emerald-950/60 p-2 rounded-xl border border-emerald-500/30">
+                  <span>First Order Discount ({appliedPromo?.code || 'FIRSTORDER'})</span>
                   <span className="font-mono">-₹{discountAmount}</span>
                 </div>
               )}
               <div className="pt-2 border-t border-slate-800 flex justify-between items-baseline">
-                <span className="font-black text-sm uppercase tracking-wider text-slate-200">
-                  Total Payable Amount
-                </span>
-                <span className="text-xl font-black font-heading text-amber-400 font-mono">
+                <div>
+                  <span className="font-black text-sm uppercase tracking-wider text-slate-200 block">
+                    Total Payable Amount
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    {paymentMethod === 'Cash On Delivery' ? 'Pay upon delivery' : 'Pay via UPI on confirmation'}
+                  </span>
+                </div>
+                <span className="text-2xl font-black font-heading text-amber-400 font-mono">
                   ₹{cartGrandTotal}
                 </span>
               </div>

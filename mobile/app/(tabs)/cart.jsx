@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import { useShop } from '../../context/ShopContext';
@@ -47,8 +47,8 @@ export default function CartScreen() {
             {/* PROMO CODE */}
             <View style={s.promoSection}>
               <View style={s.promoRow}>
-                <Text style={s.promoLabel}>Promo Code</Text>
-                <Text style={s.promoHint}>Try: QUICK60 | FIRSTFIT</Text>
+                <Text style={s.promoLabel}>First-Order Coupon</Text>
+                <Text style={s.promoHint}>Use: FIRSTORDER | FIRST200</Text>
               </View>
               {appliedPromo ? (
                 <View style={s.promoApplied}>
@@ -63,7 +63,7 @@ export default function CartScreen() {
                     style={s.promoInput}
                     value={promoCode}
                     onChangeText={setPromoCode}
-                    placeholder="Enter code (e.g. QUICK60)"
+                    placeholder="Enter code (e.g. FIRSTORDER)"
                     placeholderTextColor={Colors.slate400}
                     autoCapitalize="characters"
                     returnKeyType="done"

@@ -595,6 +595,18 @@ export const AdminOrdersTab = ({
                   {selectedOrder.paymentStatus || 'Pending'}
                 </span>
               </div>
+              {selectedOrder.subtotalAmount > 0 && selectedOrder.discountAmount > 0 && (
+                <div className="flex justify-between text-zinc-400">
+                  <span>Product Subtotal:</span>
+                  <span className="text-zinc-200 font-bold">₹{selectedOrder.subtotalAmount}</span>
+                </div>
+              )}
+              {selectedOrder.discountAmount > 0 && (
+                <div className="flex justify-between text-emerald-400 font-bold">
+                  <span>Coupon Discount ({selectedOrder.couponCode || 'FIRSTORDER'}):</span>
+                  <span>-₹{selectedOrder.discountAmount}</span>
+                </div>
+              )}
               <div className="flex justify-between text-white font-black text-sm pt-2 border-t border-zinc-800">
                 <span>Grand Total:</span>
                 <span>₹{selectedOrder.totalAmount}</span>

@@ -24,6 +24,9 @@ const orderSchema = new mongoose.Schema({
     area: { type: String, default: 'MG Road' }
   },
   items: [orderItemSchema],
+  subtotalAmount: { type: Number, default: 0 },
+  discountAmount: { type: Number, default: 0 },
+  couponCode: { type: String, default: '' },
   totalAmount: { type: Number, required: true },
   paymentMethod: { type: String, enum: ['COD', 'UPI (GPay/PhonePe)', 'Razorpay'], default: 'COD' },
   paymentStatus: { type: String, enum: ['Pending', 'Paid', 'Failed', 'Refunded'], default: 'Pending' },

@@ -24,6 +24,8 @@ export const Navbar = () => {
     setIsAdminOpen,
     user,
     logoutUser,
+    setPromoCode,
+    showToast
   } = useShop();
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -98,6 +100,30 @@ export const Navbar = () => {
   return (
     <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-slate-200/80 transition-all shadow-xs">
       
+      {/* HOMEPAGE FIRST ORDER COUPON BANNER */}
+      <aside aria-label="First order discount promotion" className="w-full bg-black text-white text-[11px] sm:text-xs py-2 px-3 border-b border-neutral-800 flex items-center justify-center gap-2 sm:gap-3 select-none transition-all">
+        <span className="font-extrabold tracking-wide uppercase text-neutral-100 flex items-center gap-1.5">
+          <span className="text-amber-400">⚡</span>
+          <span>FIRST ORDER? GET FLAT ₹200 OFF</span>
+        </span>
+        <span className="text-neutral-600 hidden xs:inline">•</span>
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+              navigator.clipboard.writeText('FIRST200');
+            }
+            if (setPromoCode) setPromoCode('FIRST200');
+            if (showToast) showToast('Code "FIRST200" copied! 🎉', 'success');
+          }}
+          title="Click to copy coupon code"
+          className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white text-black font-black text-[10px] sm:text-[11px] tracking-wider hover:bg-neutral-200 transition-all cursor-pointer active:scale-95 shadow-xs"
+        >
+          <span>Use Code:</span>
+          <span className="font-mono font-black text-black">FIRST200</span>
+        </button>
+      </aside>
+
       {/* MAIN NAVBAR CONTAINER */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">

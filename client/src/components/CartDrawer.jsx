@@ -18,6 +18,7 @@ export const CartDrawer = () => {
     appliedPromo,
     promoError,
     applyPromoCode,
+    removePromo,
     setIsCheckoutOpen,
     user,
     setCheckoutRedirectPending,
@@ -149,28 +150,41 @@ export const CartDrawer = () => {
               {/* PROMO COUPON SYSTEM */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
-                  <span>Promo Code</span>
-                  <span className="text-[10px] text-blue-600 font-bold">Try: QUICK60 | FIRSTFIT</span>
+                  <span>First-Order Coupon</span>
+                  <span className="text-[10px] text-blue-600 font-bold">Use: FIRSTORDER | FIRST200</span>
                 </label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={promoCode}
                     onChange={(e) => setPromoCode(e.target.value)}
-                    placeholder="Enter code (e.g. QUICK60)"
-                    className="flex-1 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-800 uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter code (e.g. FIRSTORDER)"
+                    className="flex-1 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-800 uppercase focus:outline-none focus:ring-2 focus:ring-slate-900"
                   />
                   <button
+                    type="button"
                     onClick={() => applyPromoCode()}
-                    className="px-4 py-2 bg-slate-900 hover:bg-blue-600 text-white rounded-xl font-bold text-xs transition-colors"
+                    className="px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-xs transition-colors cursor-pointer"
                   >
                     Apply
                   </button>
                 </div>
                 {appliedPromo && (
-                  <div className="text-xs text-emerald-600 font-bold flex items-center justify-between bg-emerald-50 p-2 rounded-lg">
-                    <span>✓ Applied {appliedPromo.code}</span>
-                    <span>-₹{discountAmount}</span>
+                  <div className="text-xs text-emerald-700 font-bold flex items-center justify-between bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
+                    <div className="flex items-center gap-1.5">
+                      <span>✓</span>
+                      <span>Coupon <strong>{appliedPromo.code}</strong> Applied</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-emerald-800">-₹{discountAmount}</span>
+                      <button
+                        type="button"
+                        onClick={removePromo}
+                        className="text-[10px] text-rose-600 hover:text-rose-800 underline font-semibold ml-1 cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 )}
                 {promoError && (
@@ -183,14 +197,14 @@ export const CartDrawer = () => {
               {/* PRICE BREAKDOWN */}
               <div className="space-y-2 text-xs border-t border-slate-200 pt-3">
                 <div className="flex justify-between text-slate-600">
-                  <span>Subtotal</span>
-                  <span className="font-semibold text-slate-900">₹{cartSubtotal}</span>
+                  <span>Original Bill (Subtotal)</span>
+                  <span className="font-semibold text-slate-900 font-mono">₹{cartSubtotal}</span>
                 </div>
 
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-emerald-600 font-bold">
-                    <span>Promo Discount</span>
-                    <span>-₹{discountAmount}</span>
+                    <span>First Order Discount ({appliedPromo?.code || 'FIRSTORDER'})</span>
+                    <span className="font-mono">-₹{discountAmount}</span>
                   </div>
                 )}
 
@@ -199,13 +213,13 @@ export const CartDrawer = () => {
                   {deliveryFee === 0 ? (
                     <span className="font-bold text-emerald-600">FREE (Above ₹999)</span>
                   ) : (
-                    <span className="font-semibold text-slate-900">₹{deliveryFee}</span>
+                    <span className="font-semibold text-slate-900 font-mono">₹{deliveryFee}</span>
                   )}
                 </div>
 
                 <div className="flex justify-between text-base font-black text-slate-900 pt-2 border-t border-slate-200 font-heading">
-                  <span>Grand Total</span>
-                  <span className="text-blue-600">₹{cartGrandTotal}</span>
+                  <span>Final Payable Amount</span>
+                  <span className="text-slate-900 font-mono">₹{cartGrandTotal}</span>
                 </div>
               </div>
 

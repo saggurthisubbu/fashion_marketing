@@ -14,7 +14,15 @@ const settingSchema = new mongoose.Schema({
   expressDeliveryTime: { type: String, default: '45-60 Mins' },
   liveTrackingEnabled: { type: Boolean, default: true },
   maintenanceMode: { type: Boolean, default: false },
-  heroShowcaseProductIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }]
+  heroShowcaseProductIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
+  offer: {
+    isActive: { type: Boolean, default: true },
+    offerName: { type: String, default: 'Special Flat ₹200 Discount' },
+    couponCode: { type: String, default: 'QUICK200' },
+    discountAmount: { type: Number, default: 200 },
+    startDate: { type: Date, default: null },
+    expiryDate: { type: Date, default: null }
+  }
 }, { timestamps: true });
 
 export const Setting = mongoose.model('Setting', settingSchema);

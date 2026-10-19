@@ -136,6 +136,31 @@ export const ShopProvider = ({ children }) => {
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [promoError, setPromoError] = useState('');
 
+  // Active Store Offer from Settings
+  const [activeOffer, setActiveOffer] = useState({
+    isActive: true,
+    offerName: 'Special Flat ₹200 Discount',
+    couponCode: 'QUICK200',
+    discountAmount: 200,
+    startDate: null,
+    expiryDate: null
+  });
+
+  const fetchActiveOffer = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_BASE_URL}/orders/active-offer`);
+      if (res.data) {
+        setActiveOffer(res.data);
+      }
+    } catch (err) {
+      // fallback to default
+    }
+  }, [API_BASE_URL]);
+
+  useEffect(() => {
+    fetchActiveOffer();
+  }, [fetchActiveOffer]);
+
   // Toast Notification
   const [toast, setToast] = useState(null);
 
@@ -756,7 +781,7 @@ export const ShopProvider = ({ children }) => {
     wishlist.some((item) => item.id === productId || item._id === productId);
 
   // --- PROMO COUPON SYSTEM ---
-  const applyPromoCode = async (overrideCode = null, overridePhone = null, overrideEmail = null) => {
+  const applyPromoCode = async (overrideCode = null) => {
     const rawInput = overrideCode !== null && overrideCode !== undefined ? overrideCode : promoCode;
     const code = String(rawInput || '').trim().toUpperCase();
     setPromoError('');
@@ -768,14 +793,9 @@ export const ShopProvider = ({ children }) => {
       return { success: false, message: msg };
     }
 
-    const phone = overridePhone || user?.phone || '';
-    const email = overrideEmail || (user?.email && !user.email.endsWith('@customer.quickfit.in') ? user.email : '');
-
     try {
       const res = await axios.post(`${API_BASE_URL}/orders/validate-coupon`, {
         couponCode: code,
-        phone,
-        email,
         subtotal: cartSubtotal
       });
 
@@ -795,7 +815,7 @@ export const ShopProvider = ({ children }) => {
         return { success: false, message: msg };
       }
     } catch (err) {
-      const backendMsg = err.response?.data?.message || err.message || 'Invalid coupon code. Try FIRSTORDER or FIRST200';
+      const backendMsg = err.response?.data?.message || err.message || 'Invalid coupon code.';
       setPromoError(backendMsg);
       showToast(backendMsg, 'warning');
       return { success: false, message: backendMsg };
@@ -969,7 +989,10 @@ export const ShopProvider = ({ children }) => {
         removeProductLocally,
         API_BASE_URL,
         API_ORIGIN,
-        resolveImageUrl
+        resolveImageUrl,
+        activeOffer,
+        setActiveOffer,
+        fetchActiveOffer
       }}
     >
       {children}

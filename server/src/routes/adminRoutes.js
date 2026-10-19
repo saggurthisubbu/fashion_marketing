@@ -905,13 +905,24 @@ router.get('/settings', protect, adminOnly, async (req, res) => {
 
 router.put('/settings', protect, adminOnly, async (req, res) => {
   try {
-    let settings = await Setting.findOne({});
-    if (!settings) {
-      settings = new Setting(req.body);
-    } else {
-      Object.assign(settings, req.body);
+    // Build a $set payload that handles nested sub-documents (e.g. offer.*)
+    const setPayload = {};
+    for (const [key, value] of Object.entries(req.body)) {
+      if (key === 'offer' && value && typeof value === 'object') {
+        // Merge individual offer fields so a partial offer update doesn't wipe other fields
+        for (const [offerKey, offerVal] of Object.entries(value)) {
+          setPayload[`offer.${offerKey}`] = offerVal;
+        }
+      } else {
+        setPayload[key] = value;
+      }
     }
-    const saved = await settings.save();
+
+    const saved = await Setting.findOneAndUpdate(
+      {},
+      { $set: setPayload },
+      { new: true, upsert: true, runValidators: false }
+    );
     res.json({ message: 'Settings saved successfully', settings: saved });
   } catch (error) {
     res.status(500).json({ message: error.message });

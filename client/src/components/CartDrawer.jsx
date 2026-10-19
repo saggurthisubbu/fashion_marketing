@@ -22,7 +22,8 @@ export const CartDrawer = () => {
     setIsCheckoutOpen,
     user,
     setCheckoutRedirectPending,
-    showToast
+    showToast,
+    activeOffer
   } = useShop();
 
   if (!isCartOpen) return null;
@@ -148,51 +149,64 @@ export const CartDrawer = () => {
             <div className="p-6 bg-slate-50 border-t border-slate-200 space-y-4">
               
               {/* PROMO COUPON SYSTEM */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
-                  <span>First-Order Coupon</span>
-                  <span className="text-[10px] text-blue-600 font-bold">Use: FIRSTORDER | FIRST200</span>
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={promoCode}
-                    onChange={(e) => setPromoCode(e.target.value)}
-                    placeholder="Enter code (e.g. FIRSTORDER)"
-                    className="flex-1 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-800 uppercase focus:outline-none focus:ring-2 focus:ring-slate-900"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => applyPromoCode()}
-                    className="px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-xs transition-colors cursor-pointer"
-                  >
-                    Apply
-                  </button>
-                </div>
-                {appliedPromo && (
-                  <div className="text-xs text-emerald-700 font-bold flex items-center justify-between bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
-                    <div className="flex items-center gap-1.5">
-                      <span>✓</span>
-                      <span>Coupon <strong>{appliedPromo.code}</strong> Applied</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-emerald-800">-₹{discountAmount}</span>
+              {(() => {
+                const isOfferActive = activeOffer && activeOffer.isActive !== false &&
+                  (!activeOffer.startDate || new Date(activeOffer.startDate) <= new Date()) &&
+                  (!activeOffer.expiryDate || new Date(activeOffer.expiryDate) >= new Date());
+                const activeCode = activeOffer?.couponCode || 'QUICK200';
+                const activeDiscount = activeOffer?.discountAmount || 200;
+                const offerLabel = activeOffer?.offerName || 'Special Discount';
+                return (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                      <span>Discount Coupon</span>
+                      {isOfferActive && (
+                        <span className="text-[10px] text-emerald-700 font-bold">Use: {activeCode} — ₹{activeDiscount} OFF</span>
+                      )}
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={promoCode}
+                        onChange={(e) => setPromoCode(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && applyPromoCode()}
+                        placeholder={isOfferActive ? `Enter code (e.g. ${activeCode})` : 'Enter coupon code'}
+                        className="flex-1 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-800 uppercase focus:outline-none focus:ring-2 focus:ring-slate-900"
+                      />
                       <button
                         type="button"
-                        onClick={removePromo}
-                        className="text-[10px] text-rose-600 hover:text-rose-800 underline font-semibold ml-1 cursor-pointer"
+                        onClick={() => applyPromoCode()}
+                        className="px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-xs transition-colors cursor-pointer"
                       >
-                        Remove
+                        Apply
                       </button>
                     </div>
+                    {appliedPromo && (
+                      <div className="text-xs text-emerald-700 font-bold flex items-center justify-between bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
+                        <div className="flex items-center gap-1.5">
+                          <span>✓</span>
+                          <span>Coupon <strong>{appliedPromo.code}</strong> Applied</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-emerald-800">-₹{discountAmount}</span>
+                          <button
+                            type="button"
+                            onClick={removePromo}
+                            className="text-[10px] text-rose-600 hover:text-rose-800 underline font-semibold ml-1 cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {promoError && (
+                      <div className="text-xs text-rose-600 font-medium">
+                        {promoError}
+                      </div>
+                    )}
                   </div>
-                )}
-                {promoError && (
-                  <div className="text-xs text-rose-600 font-medium">
-                    {promoError}
-                  </div>
-                )}
-              </div>
+                );
+              })()}
 
               {/* PRICE BREAKDOWN */}
               <div className="space-y-2 text-xs border-t border-slate-200 pt-3">
@@ -203,7 +217,7 @@ export const CartDrawer = () => {
 
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-emerald-600 font-bold">
-                    <span>First Order Discount ({appliedPromo?.code || 'FIRSTORDER'})</span>
+                    <span>Discount ({appliedPromo?.code || activeOffer?.couponCode || 'COUPON'})</span>
                     <span className="font-mono">-₹{discountAmount}</span>
                   </div>
                 )}

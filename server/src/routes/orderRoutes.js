@@ -4,6 +4,7 @@ import { Product } from '../models/Product.js';
 import { User } from '../models/User.js';
 import { Store } from '../models/Store.js';
 import { Notification } from '../models/Notification.js';
+import { Setting } from '../models/Setting.js';
 import { protect, adminOnly, storeOwnerOrAdmin } from '../middleware/auth.js';
 import { sendOrderConfirmationEmail, sendAdminOrderNotificationEmail } from '../services/emailService.js';
 import { sendFcmOrderNotification } from '../services/fcmService.js';
@@ -65,68 +66,66 @@ async function validateDeliveryZone(customerLat, customerLng) {
   };
 }
 
-// ─── Check First-Time Customer Eligibility ─────────────────────────────────
-export async function checkFirstTimeCustomerEligibility({ phone, email }) {
-  const cleanPhone = phone ? String(phone).replace(/\D/g, '').slice(-10) : '';
-  const cleanEmail = email ? String(email).trim().toLowerCase() : '';
+// ─── Get Active Store Offer from Settings (MongoDB) ──────────────────────────
+export async function getActiveOffer() {
+  try {
+    const setting = await Setting.findOne({});
+    const defaultOffer = {
+      isActive: true,
+      offerName: 'Special Flat ₹200 Discount',
+      couponCode: 'QUICK200',
+      discountAmount: 200,
+      startDate: null,
+      expiryDate: null
+    };
 
-  const orConditions = [];
-  if (cleanPhone && cleanPhone.length === 10) {
-    orConditions.push({ 'customer.phone': { $regex: cleanPhone } });
-  }
-  if (cleanEmail && !cleanEmail.endsWith('@customer.quickfit.in')) {
-    orConditions.push({ 'customer.email': { $regex: new RegExp(`^${cleanEmail}$`, 'i') } });
-  }
+    if (!setting || !setting.offer) {
+      return defaultOffer;
+    }
 
-  // If no contact details provided yet, customer is provisionally eligible until entered
-  if (orConditions.length === 0) {
-    return { eligible: true };
-  }
-
-  // Look for any existing non-cancelled order
-  const existingOrder = await Order.findOne({
-    $or: orConditions,
-    deliveryStatus: { $ne: 'Cancelled' }
-  });
-
-  if (existingOrder) {
     return {
-      eligible: false,
-      reason: 'repeat_customer',
-      message: 'This coupon is valid for first-time customers only. You have already placed an order with QUICKFIT.'
+      isActive: setting.offer.isActive !== false,
+      offerName: setting.offer.offerName || defaultOffer.offerName,
+      couponCode: (setting.offer.couponCode || defaultOffer.couponCode).trim().toUpperCase(),
+      discountAmount: typeof setting.offer.discountAmount === 'number' ? setting.offer.discountAmount : defaultOffer.discountAmount,
+      startDate: setting.offer.startDate || null,
+      expiryDate: setting.offer.expiryDate || null
+    };
+  } catch (err) {
+    return {
+      isActive: true,
+      offerName: 'Special Flat ₹200 Discount',
+      couponCode: 'QUICK200',
+      discountAmount: 200,
+      startDate: null,
+      expiryDate: null
     };
   }
-
-  // Also check User collection if user has totalOrders > 0
-  const userConditions = [];
-  if (cleanPhone && cleanPhone.length === 10) {
-    userConditions.push({ phone: { $regex: cleanPhone } });
-  }
-  if (cleanEmail && !cleanEmail.endsWith('@customer.quickfit.in')) {
-    userConditions.push({ email: { $regex: new RegExp(`^${cleanEmail}$`, 'i') } });
-  }
-
-  if (userConditions.length > 0) {
-    const existingUser = await User.findOne({
-      $or: userConditions,
-      totalOrders: { $gt: 0 }
-    });
-    if (existingUser) {
-      return {
-        eligible: false,
-        reason: 'repeat_customer',
-        message: 'This coupon is valid for first-time customers only. You have already placed an order with QUICKFIT.'
-      };
-    }
-  }
-
-  return { eligible: true };
 }
+
+// ─── Public endpoint to retrieve active store offer ─────────────────────────
+router.get('/active-offer', async (req, res) => {
+  try {
+    const offer = await getActiveOffer();
+    res.json(offer);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get('/offer', async (req, res) => {
+  try {
+    const offer = await getActiveOffer();
+    res.json(offer);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 // ─── Validate Coupon Endpoint (Cart & Checkout) ───────────────────────────
 router.post('/validate-coupon', async (req, res) => {
   try {
-    const { couponCode, phone, email, subtotal } = req.body;
+    const { couponCode, subtotal } = req.body;
     const rawCode = String(couponCode || '').trim();
 
     if (!rawCode) {
@@ -135,20 +134,41 @@ router.post('/validate-coupon', async (req, res) => {
 
     const code = rawCode.toUpperCase();
     const eligibleSubtotal = Math.max(0, Number(subtotal) || 0);
+    const activeOffer = await getActiveOffer();
 
-    // Support FIRSTORDER, FIRST200 (from homepage banner), and legacy FIRSTFIT
-    if (code === 'FIRSTORDER' || code === 'FIRST200' || code === 'FIRSTFIT') {
-      const eligibility = await checkFirstTimeCustomerEligibility({ phone, email });
-      if (!eligibility.eligible) {
+    // Check if code matches active offer (or aliases: QUICK200, FIRSTORDER, FIRST200)
+    const isOfferMatch =
+      code === activeOffer.couponCode ||
+      code === 'QUICK200' ||
+      code === 'FIRSTORDER' ||
+      code === 'FIRST200';
+
+    if (isOfferMatch) {
+      if (!activeOffer.isActive) {
         return res.status(400).json({
           valid: false,
-          couponCode: code,
-          message: eligibility.message || 'This coupon is valid for first-time customers only.'
+          message: 'This coupon offer is currently inactive.'
         });
       }
 
-      // FLAT ₹200 OFF on total eligible product bill. Never exceed subtotal.
-      const discount = Math.min(200, eligibleSubtotal);
+      const now = new Date();
+      if (activeOffer.startDate && new Date(activeOffer.startDate) > now) {
+        return res.status(400).json({
+          valid: false,
+          message: `This coupon offer starts on ${new Date(activeOffer.startDate).toLocaleDateString('en-IN')}.`
+        });
+      }
+
+      if (activeOffer.expiryDate && new Date(activeOffer.expiryDate) < now) {
+        return res.status(400).json({
+          valid: false,
+          message: 'This coupon offer has expired.'
+        });
+      }
+
+      // FLAT discount on total eligible product bill. Never exceed subtotal.
+      // Every customer is eligible!
+      const discount = Math.min(activeOffer.discountAmount, eligibleSubtotal);
       const deliveryFee = eligibleSubtotal > 999 || eligibleSubtotal === 0 ? 0 : 49;
       const finalPayable = Math.max(0, eligibleSubtotal - discount + (eligibleSubtotal > 0 ? deliveryFee : 0));
 
@@ -159,7 +179,7 @@ router.post('/validate-coupon', async (req, res) => {
         subtotal: eligibleSubtotal,
         deliveryFee,
         finalPayable,
-        message: `Coupon "${code}" applied! FLAT ₹${discount} OFF on your first order. 🎉`
+        message: `Coupon "${code}" applied! FLAT ₹${discount} OFF. 🎉`
       });
     }
 
@@ -182,7 +202,9 @@ router.post('/validate-coupon', async (req, res) => {
 
     return res.status(400).json({
       valid: false,
-      message: 'Invalid coupon code. Use FIRSTORDER or FIRST200 for ₹200 OFF on your first order.'
+      message: activeOffer.isActive
+        ? `Invalid coupon code. Use ${activeOffer.couponCode} for FLAT ₹${activeOffer.discountAmount} OFF.`
+        : 'Invalid coupon code.'
     });
   } catch (error) {
     console.error('❌ [Validate Coupon Error]:', error);
@@ -360,26 +382,37 @@ router.post('/', async (req, res) => {
       return sum + (price * qty);
     }, 0);
 
-    // Recheck coupon eligibility and calculate discount securely
+    // Recheck coupon eligibility and calculate discount securely from active offer
     const rawCoupon = String(couponCode || '').trim().toUpperCase();
     let calculatedDiscount = 0;
     let finalCouponCode = '';
 
-    if (rawCoupon === 'FIRSTORDER' || rawCoupon === 'FIRST200' || rawCoupon === 'FIRSTFIT') {
-      const eligibility = await checkFirstTimeCustomerEligibility({
-        phone: customer.phone,
-        email: resolvedCustomerEmail
-      });
+    const activeOffer = await getActiveOffer();
+    const isOfferMatch =
+      rawCoupon === activeOffer.couponCode ||
+      rawCoupon === 'QUICK200' ||
+      rawCoupon === 'FIRSTORDER' ||
+      rawCoupon === 'FIRST200';
 
-      if (!eligibility.eligible) {
+    if (isOfferMatch) {
+      if (activeOffer.isActive) {
+        const now = new Date();
+        const startValid = !activeOffer.startDate || new Date(activeOffer.startDate) <= now;
+        const expiryValid = !activeOffer.expiryDate || new Date(activeOffer.expiryDate) >= now;
+
+        if (startValid && expiryValid) {
+          calculatedDiscount = Math.min(activeOffer.discountAmount, Math.max(0, eligibleSubtotal));
+          finalCouponCode = rawCoupon;
+        } else {
+          return res.status(400).json({
+            message: 'The applied coupon has expired or is not yet active.'
+          });
+        }
+      } else {
         return res.status(400).json({
-          message: eligibility.message || 'Coupon FIRSTORDER is valid for first-time customers only.'
+          message: 'The applied coupon is currently disabled.'
         });
       }
-
-      // FLAT ₹200 OFF on total eligible product bill. Never exceed subtotal.
-      calculatedDiscount = Math.min(200, Math.max(0, eligibleSubtotal));
-      finalCouponCode = rawCoupon;
     } else if (rawCoupon === 'QUICK60') {
       calculatedDiscount = Math.min(150, Math.max(0, eligibleSubtotal));
       finalCouponCode = 'QUICK60';

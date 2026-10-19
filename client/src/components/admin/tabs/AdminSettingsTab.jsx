@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Lock, Store, Truck, Bell, Save, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Settings, Lock, Store, Truck, Bell, Save, ShieldCheck, CheckCircle2, Tag, ToggleLeft, ToggleRight } from 'lucide-react';
 
 export const AdminSettingsTab = ({
   settings = {},
@@ -16,6 +16,17 @@ export const AdminSettingsTab = ({
     lowStockThreshold: 10,
     expressDeliveryTime: '45-60 Mins'
   });
+
+  const [offerForm, setOfferForm] = useState({
+    isActive: true,
+    offerName: 'Special Flat \u20b9200 Discount',
+    couponCode: 'QUICK200',
+    discountAmount: 200,
+    startDate: '',
+    expiryDate: ''
+  });
+  const [isOfferSaving, setIsOfferSaving] = useState(false);
+  const [offerSaved, setOfferSaved] = useState(false);
 
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
@@ -40,6 +51,18 @@ export const AdminSettingsTab = ({
         lowStockThreshold: settings.lowStockThreshold !== undefined ? settings.lowStockThreshold : 10,
         expressDeliveryTime: settings.expressDeliveryTime || '45-60 Mins'
       });
+
+      if (settings.offer) {
+        const formatDate = (d) => d ? new Date(d).toISOString().split('T')[0] : '';
+        setOfferForm({
+          isActive: settings.offer.isActive !== false,
+          offerName: settings.offer.offerName || 'Special Flat \u20b9200 Discount',
+          couponCode: (settings.offer.couponCode || 'QUICK200').trim().toUpperCase(),
+          discountAmount: typeof settings.offer.discountAmount === 'number' ? settings.offer.discountAmount : 200,
+          startDate: formatDate(settings.offer.startDate),
+          expiryDate: formatDate(settings.offer.expiryDate)
+        });
+      }
     }
   }, [settings]);
 
@@ -52,6 +75,28 @@ export const AdminSettingsTab = ({
       setTimeout(() => setSettingsSaved(false), 3000);
     } finally {
       setIsSavingSettings(false);
+    }
+  };
+
+  const handleOfferSubmit = async (e) => {
+    e.preventDefault();
+    setIsOfferSaving(true);
+    try {
+      const payload = {
+        offer: {
+          isActive: offerForm.isActive,
+          offerName: offerForm.offerName.trim(),
+          couponCode: offerForm.couponCode.trim().toUpperCase(),
+          discountAmount: Number(offerForm.discountAmount),
+          startDate: offerForm.startDate ? new Date(offerForm.startDate).toISOString() : null,
+          expiryDate: offerForm.expiryDate ? new Date(offerForm.expiryDate).toISOString() : null
+        }
+      };
+      await onSaveSettings(payload);
+      setOfferSaved(true);
+      setTimeout(() => setOfferSaved(false), 3000);
+    } finally {
+      setIsOfferSaving(false);
     }
   };
 
@@ -226,6 +271,144 @@ export const AdminSettingsTab = ({
         >
           <Save className="w-4 h-4" />
           <span>{isSavingSettings ? 'Saving...' : 'Save Store Settings'}</span>
+        </button>
+      </form>
+
+      {/* MANAGE OFFERS SECTION */}
+      <form onSubmit={handleOfferSubmit} className="p-6 rounded-3xl bg-zinc-900/90 border border-zinc-800 space-y-6 shadow-xl">
+        <div className="flex items-center gap-3 pb-3 border-b border-zinc-800">
+          <div className="w-9 h-9 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center text-amber-400">
+            <Tag className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-heading font-black text-white text-base">Manage Offers &amp; Coupons</h3>
+            <p className="text-[11px] text-zinc-400">Control the active store-wide discount offer — changes apply immediately to the storefront</p>
+          </div>
+        </div>
+
+        {offerSaved && (
+          <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs font-bold flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Offer settings saved! The storefront banner and coupon validation are now updated.</span>
+          </div>
+        )}
+
+        {/* ENABLE / DISABLE TOGGLE */}
+        <div className="flex items-center justify-between p-3 rounded-2xl bg-zinc-950 border border-zinc-800">
+          <div>
+            <p className="text-sm font-black text-white">Offer Active</p>
+            <p className="text-[11px] text-zinc-400 mt-0.5">Enable or disable the offer banner &amp; coupon validation</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOfferForm(prev => ({ ...prev, isActive: !prev.isActive }))}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border ${
+              offerForm.isActive
+                ? 'bg-emerald-950/60 border-emerald-700 text-emerald-300 hover:bg-emerald-900/60'
+                : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700'
+            }`}
+          >
+            {offerForm.isActive ? (
+              <><ToggleRight className="w-5 h-5" /><span>ENABLED</span></>
+            ) : (
+              <><ToggleLeft className="w-5 h-5" /><span>DISABLED</span></>
+            )}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div>
+            <label className="font-bold text-zinc-300 uppercase tracking-wider block mb-1.5">
+              Offer Name / Label
+            </label>
+            <input
+              type="text"
+              required
+              value={offerForm.offerName}
+              onChange={(e) => setOfferForm({ ...offerForm, offerName: e.target.value })}
+              placeholder="e.g. Special Flat \u20b9200 Discount"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-medium focus:outline-none focus:border-amber-500"
+            />
+          </div>
+
+          <div>
+            <label className="font-bold text-zinc-300 uppercase tracking-wider block mb-1.5">
+              Coupon Code
+            </label>
+            <input
+              type="text"
+              required
+              value={offerForm.couponCode}
+              onChange={(e) => setOfferForm({ ...offerForm, couponCode: e.target.value.toUpperCase() })}
+              placeholder="e.g. QUICK200"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-mono font-bold focus:outline-none focus:border-amber-500 tracking-wider"
+            />
+            <p className="text-[10px] text-zinc-500 mt-1">Will be auto-uppercased. Customers enter this at checkout.</p>
+          </div>
+
+          <div>
+            <label className="font-bold text-zinc-300 uppercase tracking-wider block mb-1.5">
+              Discount Amount (\u20b9)
+            </label>
+            <input
+              type="number"
+              required
+              min="1"
+              max="10000"
+              value={offerForm.discountAmount}
+              onChange={(e) => setOfferForm({ ...offerForm, discountAmount: Number(e.target.value) })}
+              className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-medium focus:outline-none focus:border-amber-500"
+            />
+            <p className="text-[10px] text-zinc-500 mt-1">FLAT \u20b9 off applied on the product subtotal.</p>
+          </div>
+
+          <div>
+            <label className="font-bold text-zinc-300 uppercase tracking-wider block mb-1.5">
+              Start Date (Optional)
+            </label>
+            <input
+              type="date"
+              value={offerForm.startDate}
+              onChange={(e) => setOfferForm({ ...offerForm, startDate: e.target.value })}
+              className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-medium focus:outline-none focus:border-amber-500"
+            />
+            <p className="text-[10px] text-zinc-500 mt-1">Leave blank for no start restriction.</p>
+          </div>
+
+          <div>
+            <label className="font-bold text-zinc-300 uppercase tracking-wider block mb-1.5">
+              Expiry Date (Optional)
+            </label>
+            <input
+              type="date"
+              value={offerForm.expiryDate}
+              onChange={(e) => setOfferForm({ ...offerForm, expiryDate: e.target.value })}
+              className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-medium focus:outline-none focus:border-amber-500"
+            />
+            <p className="text-[10px] text-zinc-500 mt-1">Leave blank for no expiry.</p>
+          </div>
+        </div>
+
+        {/* LIVE PREVIEW */}
+        <div className="p-3 rounded-2xl bg-black border border-zinc-700 flex items-center justify-between">
+          <span className="text-[11px] text-zinc-400 font-bold uppercase tracking-wider">Banner Preview</span>
+          <div className="flex items-center gap-2">
+            <span className="text-amber-400 text-sm">&#9889;</span>
+            <span className="text-white font-extrabold text-xs tracking-wide">
+              {offerForm.isActive
+                ? `FLAT \u20b9${offerForm.discountAmount} OFF \u2014 Use Code: ${offerForm.couponCode || 'QUICK200'}`
+                : 'Offer is currently DISABLED — banner hidden'}
+            </span>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={isOfferSaving}
+          className="py-3 px-6 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
+        >
+          <Tag className="w-4 h-4" />
+          <span>{isOfferSaving ? 'Saving Offer...' : 'Save Offer Settings'}</span>
         </button>
       </form>
 
